@@ -711,3 +711,34 @@ def test_eligibility_transitions_raise_explained_alerts_once(app):
     # notification authorization is preserved: nothing leaves the machine without it
     sent = app.conn.execute("SELECT COUNT(*) FROM delivery_attempt").fetchone()[0]
     assert sent == 0
+
+
+# ------------------------------------------------------------------ augmented evaluation is descriptive
+def test_augmented_evaluation_uses_episodes_fixed_horizon_and_no_cumulative_cash(app):
+    from equity_monitor.evaluation.augmented import HORIZON_SESSIONS, _horizon_end, compare, pause_episodes
+    from equity_monitor.fixtures import build_market_fixture
+    from equity_monitor.market.exposures import Exposure, approve_profile, create_profile, current_profile
+    app.clock.set(AS_OF)
+    d = build_demo(app)
+    build_market_fixture(app, hy_level=Dec("6.5"))
+    pf, s = d["portfolio_id"], d["securities"]["ZZADD"]["security_id"]
+    original = current_profile(app, s)[1]
+    approve_profile(app, create_profile(app, s, original.with_exposure(Exposure(
+        factor="REFINANCING", direction="NEGATIVE", magnitude="HIGH", mechanism="x", basis="ANALYST_ASSUMPTION")),
+        change_reason="high", label="FIXTURE"))
+    for h in range(3):                                  # three rows of the same pause = one episode
+        app.clock.set(AS_OF + timedelta(minutes=10 * h))
+        generate(app, pf, s, force=True)
+        propose(app, pf)                                # three proposals withholding the same cash
+    app.clock.set(AS_OF + timedelta(minutes=40))
+    approve_profile(app, create_profile(app, s, original, change_reason="reassessed", label="FIXTURE"))
+    assert get(app, generate(app, pf, s))["purchase_eligibility"] == "ELIGIBLE"
+    eps = [e for e in pause_episodes(app, pf) if e["symbol"] == "ZZADD"]
+    assert len(eps) == 1 and eps[0]["rows"] >= 3 and eps[0]["end"] is not None
+    ev = compare(app, pf)
+    per = ev["cash_withheld_vs_baseline_per_proposal"]
+    assert len(per) == 3 and "cash_withheld_vs_baseline_total" not in ev              # never summed
+    assert ev["cash_withheld_vs_baseline_latest"] == per[-1]["cash_withheld_vs_baseline"]
+    assert ev["matured_episodes"] == [] and ev["verdict"].startswith("insufficient evidence")
+    assert "descriptive" in ev["verdict"]
+    assert _horizon_end(date(2026, 9, 30)) == date(2026, 12, 30) and HORIZON_SESSIONS == 63

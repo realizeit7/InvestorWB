@@ -97,7 +97,7 @@ def test_adverse_development_on_high_exposure_pauses_but_does_not_sell(app, demo
     assert "ZZADD" in [l["symbol"] for l in prop.baseline["lines"]]
     assert prop.baseline["cash_withheld_vs_baseline"] > 0
     ev = compare(app, pf)
-    assert ev["eligibility_diverged"] >= 1 and ev["verdict"].startswith("insufficient evidence")
+    assert ev["pause_episodes"] >= 1 and ev["verdict"].startswith("insufficient evidence")
 
 
 def test_favorable_development_is_not_a_buy_signal(app, demo):
