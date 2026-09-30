@@ -101,6 +101,8 @@ def dstr(value: Decimal | None) -> str | None:
     """Canonical TEXT form for storage (None stays None)."""
     if value is None:
         return None
+    if not isinstance(value, Decimal):
+        value = D(value)
     v = value.normalize()
     # avoid scientific notation like 1E+3 in the database
     return format(v, "f")
