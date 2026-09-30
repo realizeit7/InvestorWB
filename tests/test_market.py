@@ -342,7 +342,9 @@ def test_paper_variants_for_prospective_comparison(app, demo):
     add_exposure(app, sec(demo, "ZZADD"), HIGH_REFI)
     build_market_fixture(app, hy_level=D("6.5"))
     review_portfolio(app, pf)
-    prop = propose(app, pf)
+    draft = propose(app, pf)                   # made under a PREVIEW policy: cannot be paper-executed
+    app.policy = Policy(status="FROZEN")
+    prop = propose(app, pf)                    # re-validated under the FROZEN policy
     books = {}
     for v in ("augmented", "baseline"):
         p = create_portfolio(app, f"paper-{v}", "PAPER")
@@ -350,8 +352,7 @@ def test_paper_variants_for_prospective_comparison(app, demo):
         import_csv(app, a, text="date,type,amount\n2026-09-01,DEPOSIT,100000\n")
         books[v] = p
     with pytest.raises(PaperError):
-        paper_execute_allocation(app, prop.id, books["augmented"], "augmented")      # policy not frozen
-    app.policy = Policy(status="FROZEN")
+        paper_execute_allocation(app, draft.id, books["augmented"], "augmented")     # policy not frozen at decision
     from equity_monitor.data.prices import Bar, PriceFetch, store_fetch
     for sym in ("ZZADD", "ZZNEW"):
         store_fetch(app, sec(demo, sym), PriceFetch([Bar(date(2026, 10, 1), D("10"), open=D("10"))]), "fixture")

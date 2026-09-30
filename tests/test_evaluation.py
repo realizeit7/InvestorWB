@@ -61,6 +61,8 @@ def test_performance_report_cash_portfolio(app, bench_setup):
 
 
 def test_paper_fill_uses_next_open_never_earlier_price(app):
+    from equity_monitor.decisions.allocation import propose
+    from equity_monitor.evaluation.paper import paper_execute_allocation
     app.clock.set(AS_OF)
     d = build_demo(app)
     rec = generate(app, d["portfolio_id"], d["securities"]["ZZADD"]["security_id"])
@@ -70,18 +72,25 @@ def test_paper_fill_uses_next_open_never_earlier_price(app):
     paper = create_portfolio(app, "shadow", "PAPER")
     pa = create_account(app, paper, "paper")
     import_csv(app, pa, text="date,type,amount\n2026-09-01,DEPOSIT,10000\n")
-    with pytest.raises(PaperError):
-        paper_execute(app, rec, paper)                                            # policy not frozen
+    with pytest.raises(PaperError, match="ADD is paper-executed only through an allocation"):
+        paper_execute(app, rec, paper)
+    prop_draft = propose(app, d["portfolio_id"])
     app.policy = Policy(status="FROZEN")
+    with pytest.raises(PaperError, match="not made under a FROZEN policy"):
+        paper_execute_allocation(app, prop_draft.id, paper, "augmented")         # decision predates the freeze
+    prop = propose(app, d["portfolio_id"])
     with pytest.raises(PaperError):
-        paper_execute(app, rec, d["portfolio_id"])                                # not a PAPER portfolio
-    assert paper_execute(app, rec, paper) is None                                 # Oct 1 bar not yet available
-    sid = d["securities"]["ZZADD"]["security_id"]
-    store_fetch(app, sid, PriceFetch([Bar(date(2026, 10, 1), Dec("7.00"), open=Dec("6.00"))]), "fixture")
-    pid = paper_execute(app, rec, paper)
-    row = app.conn.execute("SELECT * FROM paper_execution WHERE id=?", (pid,)).fetchone()
-    assert row["fill_session_date"] == "2026-10-01" and Dec(row["fill_price"]) == Dec("6.00") * Dec("1.0005")
-    assert paper_execute(app, rec, paper) is None                                 # at most once
+        paper_execute_allocation(app, prop.id, d["portfolio_id"], "augmented")   # not a PAPER portfolio
+    assert paper_execute_allocation(app, prop.id, paper, "augmented") == []      # Oct 1 bars not yet available
+    for sym in ("ZZADD", "ZZNEW"):
+        store_fetch(app, d["securities"][sym]["security_id"],
+                    PriceFetch([Bar(date(2026, 10, 1), Dec("7.00"), open=Dec("6.00"))]), "fixture")
+    bought = paper_execute_allocation(app, prop.id, paper, "augmented")
+    assert bought
+    rows = app.conn.execute("SELECT price, trade_date FROM ledger_event WHERE account_id=? AND event_type='BUY'", (pa,)).fetchall()
+    assert all(r["trade_date"] == "2026-10-01" and Dec(r["price"]) == Dec("6.0030") for r in rows)
+    assert paper_execute_allocation(app, prop.id, paper, "augmented") == bought   # at most once
+    assert len(app.conn.execute("SELECT id FROM ledger_event WHERE account_id=? AND event_type='BUY'", (pa,)).fetchall()) == len(rows)
 
 
 def test_process_metrics_runs(app):

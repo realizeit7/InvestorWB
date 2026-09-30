@@ -148,8 +148,12 @@ def settlement_days(app: App, account_id: str) -> int:
 
 
 def record_events(app: App, account_id: str, new_events: list[NewEvent], *, batch_id: str | None = None,
-                  recorded_by: str | None = None) -> RecordResult:
-    """Validate and append events. Duplicates are skipped; invalid rows are rejected, not coerced."""
+                  recorded_by: str | None = None, allow_negative_cash: bool = True) -> RecordResult:
+    """Validate and append events. Duplicates are skipped; invalid rows are rejected, not coerced.
+
+    Broker imports keep ``allow_negative_cash=True``: negative cash there is a reconciliation case (an issue is
+    raised and allocation is withheld). Paper execution passes False: a batch that would take cash below zero
+    at any point is rejected as a whole, because paper trading never borrows."""
     res = RecordResult()
     acct = one(app.conn, "SELECT * FROM account WHERE id=?", (account_id,))
     if acct is None:
@@ -187,6 +191,12 @@ def record_events(app: App, account_id: str, new_events: list[NewEvent], *, batc
     state = replay_account(account_id, existing + [c[1] for c in candidates], strict=False,
                            settlement_days=acct["settlement_days"])
     new_ids = {c[1].id for c in candidates}
+    if not allow_negative_cash and candidates and any(i["type"] == "NEGATIVE_CASH" for i in state.issues):
+        neg = next(i for i in state.issues if i["type"] == "NEGATIVE_CASH")
+        for c in candidates:
+            res.rejected.append({"row": c[0].import_row, "error": f"insufficient cash: balance would reach "
+                                 f"{neg['min_cash']} on {neg['on']} (no borrowing)"})
+        return res
     bad = {i["event_id"]: i for i in state.issues if i["type"] == "REJECTED_EVENT" and i["event_id"] in new_ids}
     old_bad = [i for i in state.issues if i["type"] == "REJECTED_EVENT" and i["event_id"] not in new_ids]
     if old_bad:

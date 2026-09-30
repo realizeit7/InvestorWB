@@ -457,3 +457,137 @@ def test_allocation_uses_current_policy_and_rejects_future_cutoff(app):
     future = generate(app, pf, sid)
     p2 = propose(app, pf, as_of=AS_OF)
     assert future not in {v["recommendation_id"] for v in p2.validated}
+
+
+# ------------------------------------------------------------------ #4 paper execution
+from equity_monitor.data.prices import Bar, PriceFetch, store_fetch
+from equity_monitor.evaluation.paper import PaperError, paper_execute, paper_execute_allocation
+from equity_monitor.ledger.csv_import import import_csv
+from equity_monitor.ledger.store import NewEvent, create_account, create_portfolio, record_events
+
+FILL = date(2026, 10, 1)
+
+
+def _paper_book(app, name, csv_body="2026-09-01,DEPOSIT,,,,100000\n"):
+    p = create_portfolio(app, name, "PAPER")
+    a = create_account(app, p, "paper")
+    import_csv(app, a, text="date,type,symbol,quantity,price,amount\n" + csv_body)
+    return p, a
+
+
+def _open_bars(app, d, syms, open_=Dec("10")):
+    for s in syms:
+        store_fetch(app, d["securities"][s]["security_id"], PriceFetch([Bar(FILL, open_, open=open_)]), "fixture")
+
+
+def _frozen_demo(app, **portfolio):
+    app.clock.set(AS_OF)
+    d = build_demo(app)
+    app.policy = Policy(status="FROZEN", portfolio=PortfolioPolicy(**portfolio) if portfolio else PortfolioPolicy())
+    return d
+
+
+def _cash(app, pf):
+    return portfolio_view(app, pf, FILL).cash
+
+
+def test_paper_allocation_never_borrows(app):
+    d = _frozen_demo(app)
+    prop = propose(app, d["portfolio_id"])
+    assert sum((l.amount for l in prop.lines), Dec(0)) > Dec(3000)
+    _open_bars(app, d, ("ZZADD", "ZZNEW"))
+    empty, _ = _paper_book(app, "unfunded", "")
+    assert paper_execute_allocation(app, prop.id, empty, "augmented") == []      # was: bought both, cash -13,281
+    assert _cash(app, empty) == 0
+    small, _ = _paper_book(app, "small", "2026-09-01,DEPOSIT,,,,3000\n")
+    bought = paper_execute_allocation(app, prop.id, small, "augmented")
+    assert bought and _cash(app, small) >= 0
+    import json
+    fills = json.loads(app.conn.execute("SELECT fills_json FROM paper_allocation_execution WHERE paper_portfolio_id=?",
+                                        (small,)).fetchone()[0])
+    # limits are measured on the paper book: 10% of a 3,000 book, not the proposal's 5,040 / 8,240
+    assert all(f["binding"] == "ISSUER_LIMIT" and Dec(f["amount"]) <= Dec(300) for f in fills)
+
+
+def test_paper_allocation_charges_fees_and_respects_share_rounding(app):
+    d = _frozen_demo(app, fractional_shares=False)
+    app.policy = app.policy.model_copy(update={"paper": app.policy.paper.model_copy(update={"fee_per_trade_usd": Dec("25")})})
+    prop = propose(app, d["portfolio_id"])
+    _open_bars(app, d, ("ZZADD", "ZZNEW"), open_=Dec("33.33"))
+    book, acct = _paper_book(app, "fees", "2026-09-01,DEPOSIT,,,,5000\n")
+    app.policy = app.policy.model_copy(update={"paper": app.policy.paper.model_copy(update={"fee_per_trade_usd": Dec("0")})})
+    with pytest.raises(PaperError, match="differs from the FROZEN policy"):
+        paper_execute_allocation(app, prop.id, book, "augmented")                   # bound to the originating policy
+    app.policy = app.policy.model_copy(update={"paper": app.policy.paper.model_copy(update={"fee_per_trade_usd": Dec("25")})})
+    bought = paper_execute_allocation(app, prop.id, book, "augmented")
+    rows = app.conn.execute("SELECT quantity, price, fees FROM ledger_event WHERE account_id=? AND event_type='BUY'",
+                            (acct,)).fetchall()
+    assert len(rows) == len(bought) >= 1
+    spent = sum(Dec(r["quantity"]) * Dec(r["price"]) + Dec(r["fees"]) for r in rows)
+    assert all(Dec(r["quantity"]) == Dec(r["quantity"]).to_integral_value() and Dec(r["fees"]) == 25 for r in rows)
+    assert _cash(app, book) == Dec(5000) - spent >= 0
+
+
+def test_paper_allocation_is_idempotent_and_atomic(app):
+    d = _frozen_demo(app)
+    prop = propose(app, d["portfolio_id"])
+    book, acct = _paper_book(app, "idem")
+    _open_bars(app, d, ("ZZADD",))                      # ZZNEW's fill bar is missing: nothing may be recorded
+    assert paper_execute_allocation(app, prop.id, book, "augmented") == []
+    assert app.conn.execute("SELECT COUNT(*) FROM ledger_event WHERE account_id=? AND event_type='BUY'", (acct,)).fetchone()[0] == 0
+    _open_bars(app, d, ("ZZNEW",))
+    first = paper_execute_allocation(app, prop.id, book, "augmented")
+    n = app.conn.execute("SELECT COUNT(*) FROM ledger_event WHERE account_id=?", (acct,)).fetchone()[0]
+    for _ in range(3):
+        assert paper_execute_allocation(app, prop.id, book, "augmented") == first
+    assert app.conn.execute("SELECT COUNT(*) FROM ledger_event WHERE account_id=?", (acct,)).fetchone()[0] == n
+    with pytest.raises(Exception):
+        app.conn.execute("DELETE FROM paper_allocation_execution")
+
+
+def test_paper_respects_variant_eligibility(app):
+    d = _frozen_demo(app)
+    new = d["securities"]["ZZNEW"]["security_id"]
+    app.conn.execute("DELETE FROM exposure_approval WHERE exposure_version_id IN "
+                     "(SELECT id FROM exposure_profile_version WHERE security_id=?)", (new,))
+    prop = propose(app, d["portfolio_id"])
+    rec = get(app, next(v["recommendation_id"] for v in prop.validated if v["symbol"] == "ZZNEW"))
+    assert (rec["action"], rec["purchase_eligibility"], rec["baseline_eligibility"]) == ("ADD", "PAUSED", "ELIGIBLE")
+    with pytest.raises(PaperError, match="ADD is paper-executed only through an allocation"):
+        paper_execute(app, rec["id"], _paper_book(app, "direct")[0])            # was: PAUSED ADD filled anyway
+    _open_bars(app, d, ("ZZADD", "ZZNEW"))
+    aug, _ = _paper_book(app, "aug")
+    base, _ = _paper_book(app, "base")
+    assert "ZZNEW" not in paper_execute_allocation(app, prop.id, aug, "augmented")
+    assert "ZZNEW" in paper_execute_allocation(app, prop.id, base, "baseline")
+
+
+def test_record_events_can_refuse_negative_cash(app):
+    app.clock.set(AS_OF)
+    d = build_demo(app)
+    book, acct = _paper_book(app, "neg", "2026-09-01,DEPOSIT,,,,100\n")
+    ev = NewEvent("BUY", FILL, d["securities"]["ZZADD"]["security_id"], quantity=Dec(20), price=Dec(10), fees=Dec(0),
+                  external_id="x1")
+    assert record_events(app, acct, [ev], allow_negative_cash=False).rejected
+    assert record_events(app, acct, [ev]).inserted                   # broker import path: kept, reconciliation issue
+
+
+def test_paper_trim_sells_to_documented_target_weight(app):
+    d = _frozen_demo(app)
+    sid = d["securities"]["ZZTRM"]["security_id"]
+    rec = get(app, generate(app, d["portfolio_id"], sid))
+    assert rec["action"] == "TRIM"
+    tw = Dec(str(rec["payload"]["proposed_trade"]["target_weight"]))
+    book, acct = _paper_book(app, "trim", "2026-09-01,DEPOSIT,,,,6000\n2026-09-02,BUY,ZZTRM,100,40,\n")
+    store_fetch(app, sid, PriceFetch([Bar(FILL, Dec("40"), open=Dec("40"))]), "fixture")
+    pv = portfolio_view(app, book, date(2026, 9, 30))
+    assert pv.holding(sid).shares == 100
+    assert paper_execute(app, rec["id"], book)
+    sold = Dec(app.conn.execute("SELECT quantity FROM ledger_event WHERE account_id=? AND event_type='SELL'",
+                                (acct,)).fetchone()[0])
+    assert sold != 50                                                   # was: always half the position
+    px = Dec("40") * (1 - app.policy.paper.slippage_bps / 10000)
+    nav = pv.cash + 100 * px
+    w_after = (100 - sold) * px / nav
+    assert w_after <= tw and w_after > tw - px / nav * 2                # at the target, within one-share rounding
+    assert paper_execute(app, rec["id"], book) is None                  # at most once
