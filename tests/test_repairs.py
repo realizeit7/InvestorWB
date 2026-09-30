@@ -591,3 +591,62 @@ def test_paper_trim_sells_to_documented_target_weight(app):
     w_after = (100 - sold) * px / nav
     assert w_after <= tw and w_after > tw - px / nav * 2                # at the target, within one-share rounding
     assert paper_execute(app, rec["id"], book) is None                  # at most once
+
+
+# ------------------------------------------------------------------ #6 benchmark replayed from inception
+from equity_monitor.data.prices import Action
+from equity_monitor.evaluation.performance import contribution_matched, performance
+
+
+@pytest.fixture
+def bm(app):
+    from equity_monitor.data.securities import register_security
+    sid = register_security(app.conn, app.now_iso(), "BM", security_type="ETF")
+    bars = [Bar(date(2026, 3, 2), Dec(100)), Bar(date(2026, 3, 3), Dec(100)), Bar(date(2026, 3, 4), Dec(50)),
+            Bar(date(2026, 3, 5), Dec(50)), Bar(date(2026, 3, 6), Dec(55))]
+    acts = [Action("SPLIT", date(2026, 3, 4), Dec(2), Dec(1)), Action("CASH_DIVIDEND", date(2026, 3, 5), cash_amount=Dec(1))]
+    store_fetch(app, sid, PriceFetch(bars, acts), "fixture")
+
+    def book(name, csv):
+        p = create_portfolio(app, name, "ACTUAL")
+        import_csv(app, create_account(app, p, "a"), text="date,type,amount\n" + csv)
+        return p
+    return book
+
+
+def test_subperiod_benchmark_keeps_earlier_funding(app, bm):
+    # 2026-03-01 is a Sunday: the deposit executes on Monday's session
+    pf = bm("b1", "2026-03-01,DEPOSIT,1000\n2026-03-04,DEPOSIT,500\n2026-03-06,WITHDRAWAL,300\n")
+    full = dict(contribution_matched(app, pf, "BM", date(2026, 3, 1), date(2026, 3, 6)).values)
+    later = contribution_matched(app, pf, "BM", date(2026, 3, 5), date(2026, 3, 6))
+    assert later.mode == "inception" and later.replay_start == date(2026, 3, 1)
+    assert dict(later.values) == {d: v for d, v in full.items() if d >= date(2026, 3, 5)}   # was: 0 -> -300
+    assert dict(later.values)[date(2026, 3, 5)] == Dec(1530)
+    assert later.flows_applied[0]["date"] == date(2026, 3, 2)
+    rebased = contribution_matched(app, pf, "BM", date(2026, 3, 5), date(2026, 3, 6), mode="rebased")
+    # starts from the portfolio NAV on 03-04 (1500, all cash) bought at the 03-05 close of 50 -> 30 units
+    assert rebased.mode == "rebased" and dict(rebased.values)[date(2026, 3, 5)] == Dec(1500)
+    assert round(dict(rebased.values)[date(2026, 3, 6)], 6) == Dec(1350)
+    rep = performance(app, pf, date(2026, 3, 5), date(2026, 3, 6), benchmarks=["BM"])
+    assert rep["benchmarks"]["BM"]["start_value"] == Dec(1530) and rep["benchmarks"]["BM"]["mode"] == "inception"
+
+
+def test_withdrawal_larger_than_benchmark_empties_it(app, bm):
+    pf = bm("b2", "2026-03-02,DEPOSIT,1000\n2026-03-04,WITHDRAWAL,900\n")
+    b = contribution_matched(app, pf, "BM", date(2026, 3, 2), date(2026, 3, 6))
+    # 10 units -> split 20 units at 50 = 1000; withdraw 900 -> 2 units; no negative units ever
+    assert dict(b.values)[date(2026, 3, 4)] == Dec(100)
+    pf2 = bm("b3", "2026-03-02,DEPOSIT,1000\n2026-03-04,WITHDRAWAL,1200\n")
+    b2 = contribution_matched(app, pf2, "BM", date(2026, 3, 2), date(2026, 3, 6))
+    assert b2.units == 0 and dict(b2.values)[date(2026, 3, 4)] == 0 and any("emptied" in w for w in b2.warnings)
+
+
+def test_missing_benchmark_bars_execute_late_or_stay_unapplied(app, bm):
+    from equity_monitor.data.securities import register_security
+    sid = register_security(app.conn, app.now_iso(), "BM2", security_type="ETF")
+    store_fetch(app, sid, PriceFetch([Bar(date(2026, 3, 2), Dec(100)), Bar(date(2026, 3, 4), Dec(100))]), "fixture")
+    pf = bm("b4", "2026-03-02,DEPOSIT,1000\n2026-03-03,DEPOSIT,500\n2026-03-05,DEPOSIT,200\n")
+    b = contribution_matched(app, pf, "BM2", date(2026, 3, 2), date(2026, 3, 6))
+    assert dict(b.values)[date(2026, 3, 4)] == Dec(1500)
+    assert any("late" in w and "2026-03-03" in w for w in b.warnings)
+    assert [u["amount"] for u in b.unapplied] == [Dec(200)]

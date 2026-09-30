@@ -8,6 +8,13 @@ Benchmark construction (POLICY.md §7, stated assumptions):
   slippage by default (``fee_bps`` configurable). Fractional units allowed.
 - Dividends are reinvested at the ex-date close; splits multiply units. Raw prices + explicit
   actions => no double counting.
+- Subperiods: the benchmark is replayed from INCEPTION (the first external flow) and then sliced to
+  [start, end], so money contributed before ``start`` is invested in the benchmark too (mode "inception").
+  ``mode="rebased"`` instead starts the benchmark at ``start`` with the portfolio's NAV on the last
+  session before ``start`` and is labelled REBASED.
+- A flow on a non-trading day executes at the next session; if that session has no benchmark bar, it
+  executes at the next available bar (warning: late execution); with no bar through ``end`` it is
+  unapplied. A withdrawal larger than the benchmark value empties it (warning) — units never go negative.
 All figures are PRE-TAX. Cash drag is part of portfolio performance by construction.
 """
 
@@ -36,6 +43,9 @@ class BenchmarkResult:
     units: Decimal
     flows_applied: list[dict]
     unapplied: list[dict] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    mode: str = "inception"                    # inception (replayed from first flow, then sliced) | rebased
+    replay_start: date | None = None
 
 
 def external_flows(app: App, portfolio_id: str, end: date) -> list[tuple[date, Decimal | None, str]]:
@@ -51,44 +61,75 @@ def external_flows(app: App, portfolio_id: str, end: date) -> list[tuple[date, D
     return sorted(out, key=lambda x: x[0])
 
 
-def contribution_matched(app: App, portfolio_id: str, symbol: str, start: date, end: date, fee_bps: Decimal = ZERO) -> BenchmarkResult:
+def contribution_matched(app: App, portfolio_id: str, symbol: str, start: date, end: date, fee_bps: Decimal = ZERO,
+                         mode: str = "inception") -> BenchmarkResult:
+    if mode not in ("inception", "rebased"):
+        raise ValueError("mode must be 'inception' or 'rebased'")
     sid = find_security(app.conn, symbol)
     if sid is None:
         raise KeyError(f"benchmark {symbol} has no price data; refresh prices for it first")
-    closes = price_series(app, sid, start - timedelta(days=10), end)
-    acts = {}
-    for a in actions_for(app, sid, start, end):
-        acts.setdefault(date.fromisoformat(a["ex_date"]), []).append(a)
     flows = external_flows(app, portfolio_id, end)
-    pending: dict[date, Decimal] = {}
+    warnings: list[str] = []
     unapplied, applied = [], []
-    for d, amt, kind in flows:
-        if d < start or d > end:
-            continue
-        if amt is None:
-            unapplied.append({"date": d, "kind": kind, "reason": "in-kind position without a price"})
-            continue
-        exec_d = cal.session_on_or_after(d)
-        pending[exec_d] = pending.get(exec_d, ZERO) + amt
+    pending: list[tuple[date, Decimal, str]] = []
+    if mode == "inception":
+        replay_start = min([d for d, _a, _k in flows] + [start])
+        for d, amt, kind in flows:
+            if d > end:
+                continue
+            if amt is None:
+                unapplied.append({"date": d, "kind": kind, "reason": "in-kind position without a price"})
+                continue
+            pending.append((cal.session_on_or_after(d), amt, kind))
+    else:
+        replay_start = start
+        base_day = cal.previous_session(cal.session_on_or_after(start))
+        nav0 = portfolio_view(app, portfolio_id, base_day).nav
+        if nav0 is None:
+            warnings.append(f"portfolio NAV on {base_day} unknown: rebased benchmark starts empty")
+        elif nav0 > 0:
+            pending.append((cal.session_on_or_after(start), nav0, "REBASE"))
+        for d, amt, kind in flows:
+            if start <= d <= end:
+                if amt is None:
+                    unapplied.append({"date": d, "kind": kind, "reason": "in-kind position without a price"})
+                else:
+                    pending.append((cal.session_on_or_after(d), amt, kind))
+    closes = price_series(app, sid, replay_start - timedelta(days=10), end)
+    acts = {}
+    for a_ in actions_for(app, sid, replay_start, end):
+        acts.setdefault(date.fromisoformat(a_["ex_date"]), []).append(a_)
+    pending.sort(key=lambda x: x[0])
     units = ZERO
     values = []
-    for d in sorted(x for x in closes if start <= x <= end):
+    for d in sorted(x for x in closes if replay_start <= x <= end):
         px = closes[d]
-        for a in acts.get(d, []):
-            if a["action_type"] == "SPLIT":
-                units *= Decimal(a["ratio_num"]) / Decimal(a["ratio_den"])
-        for a in acts.get(d, []):
-            if a["action_type"] == "CASH_DIVIDEND" and px > 0:
-                units += units * Decimal(a["cash_amount"]) / px
-        if d in pending:
-            amt = pending.pop(d)
-            fee = abs(amt) * fee_bps / Decimal(10000)
-            units += (amt - fee) / px if amt > 0 else amt / px
-            applied.append({"date": d, "amount": amt, "price": px})
-        values.append((d, units * px))
-    for d, amt in pending.items():
-        unapplied.append({"date": d, "amount": amt, "reason": "no benchmark price on/after flow date within range"})
-    return BenchmarkResult(symbol, values, units, applied, unapplied)
+        for a_ in acts.get(d, []):
+            if a_["action_type"] == "SPLIT":
+                units *= Decimal(a_["ratio_num"]) / Decimal(a_["ratio_den"])
+        for a_ in acts.get(d, []):
+            if a_["action_type"] == "CASH_DIVIDEND" and px > 0:
+                units += units * Decimal(a_["cash_amount"]) / px
+        due = [p for p in pending if p[0] <= d]
+        pending = [p for p in pending if p[0] > d]
+        for exec_d, amt, kind in due:
+            if exec_d < d:
+                warnings.append(f"{kind} {amt} due {exec_d} executed late on {d}: no {symbol} bar on {exec_d}")
+            if amt > 0:
+                units += (amt - abs(amt) * fee_bps / Decimal(10000)) / px
+            else:
+                sell = -amt / px
+                if sell > units:
+                    warnings.append(f"withdrawal {amt} on {d} exceeds benchmark value {units * px:.2f}; benchmark emptied")
+                    sell = units
+                units -= sell
+            applied.append({"date": d, "amount": amt, "price": px, "kind": kind})
+        if d >= start:
+            values.append((d, units * px))
+    for exec_d, amt, kind in pending:
+        unapplied.append({"date": exec_d, "amount": amt, "kind": kind,
+                          "reason": "no benchmark price on/after flow date within range"})
+    return BenchmarkResult(symbol, values, units, applied, unapplied, warnings, mode, replay_start)
 
 
 def nav_series(app: App, portfolio_id: str, start: date, end: date) -> list[tuple[date, Decimal | None]]:
@@ -141,12 +182,15 @@ def performance(app: App, portfolio_id: str, start: date, end: date, benchmarks:
         bflows = {d: a for d, a in flow_by_day.items() if first_nav_day and d > first_nav_day}
         btwr, bidx = time_weighted_return([(d, v) for d, v in b.values if v > 0], bflows)
         bench[sym] = {"end_value": b.values[-1][1] if b.values else None, "twr": btwr,
+                      "start_value": b.values[0][1] if b.values else None, "mode": b.mode,
+                      "replayed_from": b.replay_start, "warnings": b.warnings,
                       "max_drawdown": max_drawdown(bidx)[0], "unapplied_flows": b.unapplied,
                       "assumptions": "close of first session on/after flow date; no fees; dividends reinvested at ex-date close"}
         for d, v in b.values[-1:]:
             insert(app.conn, "benchmark_snapshot", {"id": new_id("bm"), "portfolio_id": portfolio_id, "benchmark_symbol": sym,
                                                     "as_of_date": d.isoformat(), "units": str(b.units), "value": str(v),
-                                                    "method_json": to_json({"start": start, "end": end}),
+                                                    "method_json": to_json({"start": start, "end": end, "mode": b.mode,
+                                                                            "replayed_from": b.replay_start}),
                                                     "created_at": app.now_iso()}, or_ignore=True)
     return {
         "label": end_view.kind, "pre_tax": True, "start": start, "end": end, "sessions": len(navs),
