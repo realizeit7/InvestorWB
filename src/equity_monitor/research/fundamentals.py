@@ -48,7 +48,9 @@ CONCEPTS: dict[str, tuple[str, list[tuple[str, str]], str]] = {
                       ("us-gaap", "PaymentsToAcquireProductiveAssets")], "DURATION"),
     "dna": ("USD", [("us-gaap", "DepreciationDepletionAndAmortization"),
                     ("us-gaap", "DepreciationAndAmortization"),
-                    ("us-gaap", "DepreciationAmortizationAndAccretionNet")], "DURATION"),
+                    ("us-gaap", "DepreciationAmortizationAndAccretionNet"),
+                    ("us-gaap", "DepreciationAmortizationAndOther"),
+                    ("us-gaap", "DepreciationDepletionAndAmortizationPropertyPlantAndEquipment")], "DURATION"),
     "sbc": ("USD", [("us-gaap", "ShareBasedCompensation"),
                     ("us-gaap", "AllocatedShareBasedCompensationExpense")], "DURATION"),
     "interest_expense": ("USD", [("us-gaap", "InterestExpense"), ("us-gaap", "InterestExpenseNonoperating"),
@@ -71,6 +73,8 @@ CONCEPTS: dict[str, tuple[str, list[tuple[str, str]], str]] = {
     "shares_outstanding": ("shares", [("dei", "EntityCommonStockSharesOutstanding"),
                                       ("us-gaap", "CommonStockSharesOutstanding")], "INSTANT"),
 }
+# Weighted averages and other non-additive durations must never be derived by YTD subtraction.
+NON_ADDITIVE = {"shares_diluted_weighted"}
 TAG_PRIORITY = {(c, tax, tag): i for c, (_, tags, _) in CONCEPTS.items() for i, (tax, tag) in enumerate(tags)}
 FORMS = {"10-K", "10-Q", "10-K/A", "10-Q/A"}
 
@@ -209,8 +213,10 @@ class FactView:
         return vals[-1] if vals else None
 
     def quarters(self, concept: str) -> list[FactValue]:
-        """Discrete quarterly values, deriving from YTD durations where needed."""
+        """Discrete quarterly values, deriving from YTD durations where needed (additive concepts only)."""
         by_end: dict[date, FactValue] = {f.end: f for f in self.durations(concept, 3)}
+        if concept in NON_ADDITIVE:
+            return [by_end[k] for k in sorted(by_end)]
         ytd = {m: {f.end: f for f in self.durations(concept, m)} for m in (6, 9, 12)}
         # Walk YTD chains: a YTD value of m months ending at E with start S; the prior YTD shares start S.
         for m, prev_m in ((6, 3), (9, 6), (12, 9)):
@@ -230,6 +236,8 @@ class FactView:
         return [by_end[k] for k in sorted(by_end)]
 
     def ttm(self, concept: str) -> FactValue | None:
+        if concept in NON_ADDITIVE:
+            return None
         q = self.quarters(concept)
         if len(q) < 4:
             return None

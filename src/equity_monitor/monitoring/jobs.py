@@ -7,7 +7,7 @@ job finishes PARTIAL; it never reports "nothing changed" after a failure.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from ..app import App
 from ..data import calendar as cal
@@ -98,7 +98,10 @@ def daily_refresh(app: App, run_id: str, scheduled_for: datetime, ctx: JobContex
             for iid in issuers:
                 record_check(app, "SEC_EDGAR", iid, "FILINGS", False, None, "SEC user agent not configured", run_id)
             issuers = []
+    baseline_cutoff = iso_utc(app.now() - timedelta(days=7))
     for iid in issuers:
+        had_prior_check = one(app.conn, "SELECT 1 FROM source_check WHERE subject=? AND check_type='FILINGS' AND success=1",
+                              (iid,)) is not None
         try:
             res = sync_filings(app, client, iid, job_run_id=run_id, submissions_json=ctx.submissions.get(iid))
         except ProviderError as exc:
@@ -107,6 +110,9 @@ def daily_refresh(app: App, run_id: str, scheduled_for: datetime, ctx: JobContex
         need_facts = False
         for did in res.new_document_ids:
             d = one(app.conn, "SELECT * FROM source_document WHERE id=?", (did,))
+            need_facts |= d["doc_type"].startswith(("10-K", "10-Q"))
+            if not had_prior_check and (d["public_at"] or "") < baseline_cutoff:
+                continue   # first sync = baseline backfill; only recent filings raise events
             sev, label = _filing_severity(d["doc_type"], d["items"])
             sec_row = one(app.conn, "SELECT id FROM security WHERE issuer_id=? ORDER BY created_at LIMIT 1", (iid,))
             eid, created = record_event(app, f"filing:{d['accession_no']}:{d['doc_type']}", "NEW_FILING", severity=sev,
@@ -116,7 +122,6 @@ def daily_refresh(app: App, run_id: str, scheduled_for: datetime, ctx: JobContex
                                                  "url": d["source_url"]})
             if created:
                 new_events.append(eid)
-            need_facts |= d["doc_type"].startswith(("10-K", "10-Q"))
         if need_facts and client is not None and not ctx.submissions:
             try:
                 raw, rid = fetch_companyfacts(app, client, iid)

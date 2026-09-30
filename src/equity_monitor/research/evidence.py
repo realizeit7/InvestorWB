@@ -62,6 +62,9 @@ def extract_numbers(text: str) -> list[tuple[str, Decimal]]:
     out = []
     for m in _NUM.finditer(text):
         tok = m.group(0)
+        nxt = text[m.end():m.end() + 2]
+        if re.match(r"-?[A-Za-z]", nxt) and not re.match(r"(bn|mm|m|k)\b", text[m.end():m.end() + 3], re.I):
+            continue   # identifiers such as 10-K, 8-K, Q3, 2025E, item 2.02a are not quantities
         core = re.sub(r"[^\d.]", "", tok.split()[0] if " " in tok else re.sub(r"[a-zA-Z]+$", "", tok))
         if not core or core == ".":
             continue

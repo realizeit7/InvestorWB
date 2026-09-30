@@ -55,7 +55,8 @@ def _prices(demo, extra=None, fail=None):
 
 def test_restart_does_not_duplicate_events(app, demo):  # §18.21
     subs = {demo["real"]["issuer_id"]: _submissions([("0001-26-000001", "8-K", "1.03", "2026-09-30T20:45:00.000Z"),
-                                                     ("0001-26-000002", "10-Q", "", "2026-09-29T20:00:00.000Z")])}
+                                                     ("0001-26-000002", "10-Q", "", "2026-09-29T20:00:00.000Z"),
+                                                     ("0001-24-000009", "10-K", "", "2024-11-01T20:00:00.000Z")])}
     ctx = JobContext(price_provider=_prices(demo), submissions=subs)
     h = handlers(ctx)
     spec = sch.DEFAULT_JOBS[0]
@@ -70,6 +71,9 @@ def test_restart_does_not_duplicate_events(app, demo):  # §18.21
     sch.run_instance(app, spec, due, h["daily_refresh"], force=True)
     assert app.conn.execute("SELECT COUNT(*) FROM detected_event").fetchone()[0] == n_events
     assert app.conn.execute("SELECT COUNT(*) FROM alert").fetchone()[0] == n_alerts
+    # first sync is a baseline: the 2024 10-K is indexed but raises no event
+    assert app.conn.execute("SELECT COUNT(*) FROM detected_event WHERE event_key LIKE 'filing:0001-24%'").fetchone()[0] == 0
+    assert app.conn.execute("SELECT COUNT(*) FROM source_document WHERE accession_no='0001-24-000009'").fetchone()[0] == 1
     crit = app.conn.execute("SELECT * FROM detected_event WHERE severity='CRITICAL'").fetchone()
     assert crit["event_type"] == "NEW_FILING" and "Bankruptcy" in json.loads(crit["payload_json"])["label"]
 

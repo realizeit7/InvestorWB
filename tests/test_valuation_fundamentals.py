@@ -166,3 +166,14 @@ def test_missing_inputs_block_valuation(app):
     with pytest.raises(MissingInputs) as e:
         build_scenarios(FactView(app, iss, _t(2026, 6, 1)), ValuationDefaults())
     assert "revenue" in str(e.value)
+
+
+def test_weighted_shares_are_never_derived_by_subtraction(app):
+    iss = get_or_create_issuer(app.conn, app.now_iso(), name="Co", cik="3")
+    for months, end, val, acc in ((3, date(2025, 3, 31), 100, "Q1"), (6, date(2025, 6, 30), 99, "Q2"),
+                                  (12, date(2025, 12, 31), 98, "FY")):
+        add_fact(app, iss, "shares_diluted_weighted", val, start=date(2025, 1, 1), end=end,
+                 public_at=_t(2026, 2, 20), accession=acc)
+    fv = FactView(app, iss, _t(2026, 3, 1))
+    assert [q.value for q in fv.quarters("shares_diluted_weighted")] == [100]     # no bogus 99-100 = -1
+    assert fv.ttm("shares_diluted_weighted") is None

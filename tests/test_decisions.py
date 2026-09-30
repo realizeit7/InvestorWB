@@ -241,6 +241,7 @@ def test_citation_verification(app):  # §18.16
     assert verify_claim(app, ClaimIn(text="x", claim_type="FACT"), iss, AS_OF).status == "UNVERIFIED"
     assert verify_claim(app, ClaimIn(text="margins will rise", claim_type="ASSUMPTION"), iss, AS_OF).status == "NOT_REQUIRED"
     assert [v for _, v in extract_numbers("up 12% to $4.2 billion in 2025")] == [Dec(12), Dec("4.2") * 10 ** 9]
+    assert extract_numbers("The 10-K and an 8-K were filed; see the 10-Q") == []
 
 
 def test_prompt_injection_cannot_change_policy_or_trigger_actions(app, demo):  # §18.26
