@@ -13,7 +13,8 @@ holdout was never touched and the stocks-plus-BTC ranking experiment was not sta
 - **M2 Research & valuation**: live SEC EDGAR ingestion (filing index, XBRL facts, filing text) with provenance and
   point-in-time `public_at`; normalization (tags, units, YTD→quarters, TTM, restatements); screening with documented
   metrics; FCFF DCF (bear/base/bull, sensitivity, reverse DCF, terminal-value share) with sourced assumptions;
-  versioned theses with verified citations; LLM drafting behind a strict schema (no-LLM mode by default).
+  versioned theses with checked citations (citation integrity and substantive support are separate statuses since the
+  repair milestone); LLM drafting behind a strict schema (no-LLM mode by default).
 - **M3 Decisions**: deterministic engine (business assessment + action, spec precedence, hysteresis, reason codes,
   what-changed, change conditions); owner decisions/overrides recorded separately; monthly allocator with limits,
   rounding, fees, remaining cash.
@@ -87,4 +88,34 @@ vintage history (needs a FRED API key); licensed news feed (none; manual entry o
 ### Tested
 
 99 automated tests (19 new for this amendment; see VALIDATION.md §4) and a live run on real FRED/FINRA/Yahoo/SEC data. No claim is
-made that the augmented system improves outcomes; `eqm evaluate` reports "insufficient evidence" until ≥ 20 pauses have matured.
+made that the augmented system improves outcomes; `eqm evaluate` is descriptive only (see the repair section below).
+
+## Correctness repair of a2d0ef8 (2026-09-30)
+
+Seven review findings reproduced and fixed at the mechanism level, each with regression tests that fail on a2d0ef8
+(`tests/test_repairs.py`, 38 tests; suite 137 passed). Details and before/after numbers: [VALIDATION.md §5](VALIDATION.md);
+rules: [POLICY.md](POLICY.md) §5, §7, §8, §9, §10, §11 and the change log.
+
+| # | area | what changed |
+|---|---|---|
+| 1 | evidence | citation integrity (`SOURCE_MATCHED`) separated from substantive support; numeric statements checked on metric, value, scale, unit, sign, direction, period; free text never VERIFIED; thesis/exposure approval and engine gates; LLM opinion never upgrades; migration 0004 |
+| 2 | allocation | aggregate issuer exposure across share classes, post-fee/rounding revalidation, aggregate displayed weights, both variants |
+| 3 | allocation | every candidate re-reviewed at the cutoff under current policy/evidence; 7-day reuse removed; future cutoffs refused; exclusions explained |
+| 4 | paper | allocation-only purchases with per-variant eligibility, cash/fees/rounding/limits, no borrowing, TRIM to target weight, originating FROZEN policy binding, atomic idempotent fills (migration 0005) |
+| 5 | fundamentals | separate debt concepts combined per balance-sheet date without double counting; unknown components flagged; assumptions never FACT; `--accept-assumptions`; migration 0003 |
+| 6 | evaluation | benchmark replayed from inception then sliced (+ labelled rebased mode); late/unapplied flows; no negative units |
+| 7 | monitoring | alerts on eligibility transitions with pause reasons, evidence and reassessment; reversal not suppressed by cooldown |
+| — | evaluation | pause episodes, fixed horizon, per-proposal withheld cash, descriptive verdict |
+
+New policy keys: `market.evaluation_horizon_sessions`, `market.evaluation_min_episodes`, `recommendation.claim_value_tolerance`
+(policy content hash changes: re-freeze before paper execution). New CLI flags: `eqm valuation approve --accept-assumptions`,
+`eqm thesis approve --acknowledge-unverified`, `eqm exposure approve --acknowledge-unverified`.
+
+Research status: rules-based screening, DCF and market context only. Regression attribution is descriptive, not a
+predictor. There is no predictive-model training or walk-forward backtest pipeline. Paper and performance tools establish
+no edge. Passing tests establish software behaviour, not profitability.
+
+Remaining limitations: the claim parser covers a fixed English metric vocabulary (other phrasing stays SOURCE_MATCHED);
+real issuers need `eqm sec sync` to populate the new debt concepts; paper TRIM/limit sizing uses the paper book valued at
+the previous close with the traded security at the fill price; episode grouping by (start date, codes) is a heuristic for
+shared causes; exposure-profile versions created before the repair keep their original verification snapshot.

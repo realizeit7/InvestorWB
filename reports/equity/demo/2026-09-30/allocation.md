@@ -17,10 +17,10 @@
 
 Excluded candidates:
 
-- ZZTRM: action at cutoff is TRIM (VALUATION_ABOVE_TRIM_BAND)
 - ZZEXT: action at cutoff is EXIT (VERIFIED_THESIS_INVALIDATION)
-- ZZREV: action at cutoff is REVIEW (VALUATION_NOT_APPROVED): valuation assumptions not approved
 - ZZHLD: action at cutoff is HOLD (NO_ADD)
+- ZZTRM: action at cutoff is TRIM (VALUATION_ABOVE_TRIM_BAND)
+- ZZREV: action at cutoff is REVIEW (VALUATION_NOT_APPROVED): valuation assumptions not approved
 - ZZNEW: ADD but purchases PAUSED: ADVERSE_REFINANCING_HIGH_EXPOSURE (reassess 2026-10-30)
 
 Notes:
@@ -31,11 +31,11 @@ Notes:
 
 Decisions re-validated at the cutoff (current policy and evidence):
 
-- ZZTRM: TRIM / purchases BLOCKED — rec_6aa868eae24746b6a551 (equivalent earlier review reused as of 2026-09-30T22:00:00.000000Z)
-- ZZNEW: ADD / purchases PAUSED — rec_80fb95a718d24e3d9a62 (equivalent earlier review reused as of 2026-09-30T22:00:00.000000Z)
-- ZZEXT: EXIT / purchases BLOCKED — rec_1419fa250e1242ff9989 (equivalent earlier review reused as of 2026-09-30T22:00:00.000000Z)
-- ZZADD: ADD / purchases ELIGIBLE — rec_0b08c315197542adb2de (equivalent earlier review reused as of 2026-09-30T22:00:00.000000Z)
-- ZZREV: REVIEW / purchases BLOCKED — rec_f15d23fc72594a1fa528 (equivalent earlier review reused as of 2026-09-30T22:00:00.000000Z)
-- ZZHLD: HOLD / purchases ELIGIBLE — rec_bf164652ac83467d97d5 (equivalent earlier review reused as of 2026-09-30T22:00:00.000000Z)
+- ZZEXT: EXIT / purchases BLOCKED — rec_b62dd2d702214d3a9e68 (equivalent earlier review reused as of 2026-09-30T22:00:00.000000Z)
+- ZZHLD: HOLD / purchases ELIGIBLE — rec_6339d8d91c744c0597ad (equivalent earlier review reused as of 2026-09-30T22:00:00.000000Z)
+- ZZTRM: TRIM / purchases BLOCKED — rec_9748e8d7144e4c40a76b (equivalent earlier review reused as of 2026-09-30T22:00:00.000000Z)
+- ZZADD: ADD / purchases ELIGIBLE — rec_8bbd6dd6a1ea4017a76c (equivalent earlier review reused as of 2026-09-30T22:00:00.000000Z)
+- ZZREV: REVIEW / purchases BLOCKED — rec_38c5c343e1b74cddb12f (equivalent earlier review reused as of 2026-09-30T22:00:00.000000Z)
+- ZZNEW: ADD / purchases PAUSED — rec_105a8e1f08b8471c99b8 (equivalent earlier review reused as of 2026-09-30T22:00:00.000000Z)
 
 Record your decision with `eqm decide --allocation <id> ACCEPT|REJECT|OVERRIDE`. After trading, record the actual fills with `eqm ledger add` or a CSV import.

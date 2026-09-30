@@ -114,7 +114,7 @@ _WS = re.compile(r"\s+")
 _NUM = re.compile(r"(?<![\w.])[-(]?\$?\d[\d,]*(?:\.\d+)?%?\)?(?:\s*(?:trillion|billion|million|thousand|tn|bn|mm|m|k)\b)?", re.I)
 SCALE = {"trillion": Decimal(10) ** 12, "tn": Decimal(10) ** 12, "billion": Decimal(10) ** 9, "bn": Decimal(10) ** 9,
          "million": Decimal(10) ** 6, "mm": Decimal(10) ** 6, "m": Decimal(10) ** 6, "thousand": Decimal(1000), "k": Decimal(1000)}
-TOL = Decimal("0.005")
+TOL = Decimal("0.005")       # default; the active value is policy.recommendation.claim_value_tolerance
 # words that carry no checkable assertion of their own (numbers, metrics, directions and periods are checked structurally)
 _FILLER = set("""a an the to of in for from by at on and or was were is are be been being its it their our company company's
 year years fiscal quarter quarterly annual compared with versus vs prior previous same period reported approximately about
@@ -244,8 +244,8 @@ def parse_statements(text: str, default_year: int | None = None) -> list[Quantit
     return qs
 
 
-def _close(a: Decimal, b: Decimal) -> bool:
-    return a == b if b == 0 else abs(a - b) <= abs(b) * TOL
+def _close(a: Decimal, b: Decimal, tol: Decimal = TOL) -> bool:
+    return a == b if b == 0 else abs(a - b) <= abs(b) * tol
 
 
 def _units_compatible(a: str | None, b: str | None) -> bool:
@@ -270,27 +270,27 @@ def _same_metric(a: str | None, b: str | None) -> bool:
     return a is not None and b is not None and (a == b or b in METRIC_CONCEPTS.get(a, ()) or a in METRIC_CONCEPTS.get(b, ()))
 
 
-def _check(c: Quantity, sources: list[Quantity]) -> tuple[str, str]:
+def _check(c: Quantity, sources: list[Quantity], tol: Decimal = TOL) -> tuple[str, str]:
     """Return (CONFIRMED|CONTRADICTED|UNSUPPORTED|UNCONFIRMED, reason) for one claim statement."""
     same_metric = [s for s in sources if _same_metric(c.metric, s.metric) and _units_compatible(c.unit, s.unit)]
     for s in same_metric:
-        if (_close(c.value, s.value) and _periods(c, s) == "ok" and c.negated == s.negated
+        if (_close(c.value, s.value, tol) and _periods(c, s) == "ok" and c.negated == s.negated
                 and (c.direction is None or c.direction == s.direction)):
             return "CONFIRMED", f"'{c.token}' matches source '{s.token}' ({s.describe()})"
     for s in same_metric:
         per = _periods(c, s)
-        if per == "conflict" and _close(abs(c.value), abs(s.value)):
+        if per == "conflict" and _close(abs(c.value), abs(s.value), tol):
             return "CONTRADICTED", f"period: claim {c.describe()} vs source {s.describe()}"
         if per == "conflict" or c.negated != s.negated:
             continue
-        if _close(-c.value, s.value) and c.value != 0:
+        if _close(-c.value, s.value, tol) and c.value != 0:
             return "CONTRADICTED", f"sign: claim {c.value} vs source {s.value} for {c.metric}"
-        if _close(c.value, s.value) and c.direction and s.direction and c.direction != s.direction:
+        if _close(c.value, s.value, tol) and c.direction and s.direction and c.direction != s.direction:
             return "CONTRADICTED", f"direction: claim says {c.direction}, source says {s.direction} for {c.metric}"
         if (c.direction is None or s.direction is None or c.direction == s.direction) and c.unit == s.unit \
-                and not _close(c.value, s.value) and not any(_close(c.value, o.value) for o in same_metric):
+                and not _close(c.value, s.value, tol) and not any(_close(c.value, o.value, tol) for o in same_metric):
             return "CONTRADICTED", f"value/scale: claim {c.token} ({c.value}) vs source {s.token} ({s.value}) for {c.metric}"
-    near = [s for s in sources if _close(abs(c.value), abs(s.value)) and _units_compatible(c.unit, s.unit)]
+    near = [s for s in sources if _close(abs(c.value), abs(s.value), tol) and _units_compatible(c.unit, s.unit)]
     if not near:
         return "UNSUPPORTED", f"number '{c.token}' is not supported by the cited evidence"
     if c.metric is None:
@@ -401,7 +401,8 @@ def verify_claim(app: App, claim: ClaimIn, issuer_id: str, as_of: datetime) -> V
     if failed:
         return Verification(FAILED, details, valid, citation_status=FAILED)
     stmts = parse_statements(claim.text)
-    results = [(q, *_check(q, sources)) for q in stmts]
+    tol = app.policy.recommendation.claim_value_tolerance
+    results = [(q, *_check(q, sources, tol)) for q in stmts]
     recs = [{"statement": q.describe(), "result": r, "reason": why} for q, r, why in results]
     details += [f"{r}: {why}" for _q, r, why in results]
     bad = [r for _q, r, _w in results if r in ("CONTRADICTED", "UNSUPPORTED")]

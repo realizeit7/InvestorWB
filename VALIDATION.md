@@ -5,7 +5,7 @@ This report covers **software acceptance only**. Nothing here is evidence of inv
 
 ## 1. Automated tests
 
-`uv run pytest` → **99 passed, 0 failed** (≈11 s). The tests use synthetic fixtures and hand-computed expectations and
+`uv run pytest` → **99 passed, 0 failed** (≈11 s) at v1.0/v1.1; **137 passed, 0 failed** (≈13 s) after the §5 correctness repair. The tests use synthetic fixtures and hand-computed expectations and
 need no network, API key or paid inference.
 
 | spec §18 item | covered by (tests/…) |
@@ -25,8 +25,8 @@ need no network, API key or paid inference.
 | 13 price rise without value change stops additions | `test_price_rise_without_value_change_stops_additions`, `test_rerun_without_changes_is_idempotent_and_changes_are_explained` |
 | 14 price fall + broken thesis ≠ ADD | `test_price_fall_with_broken_thesis_never_adds` |
 | 15 missing critical evidence → REVIEW | `test_missing_critical_evidence_gives_review` (12 parametrized cases) |
-| 16 unsupported/forged citations cannot drive decisions | `test_citation_verification`, `test_llm_assessed_trigger_is_ambiguous_not_exit`, `test_llm_event_assessment_leads_to_review` |
-| 17 allocation respects budget/issuer/sector/rounding | `test_allocation_respects_constraints_and_keeps_cash` |
+| 16 unsupported/forged citations cannot drive decisions | `test_citation_verification`, `test_repairs.py` §1 tests, `test_llm_assessed_trigger_is_ambiguous_not_exit`, `test_llm_event_assessment_leads_to_review` |
+| 17 allocation respects budget/issuer/sector/rounding | `test_allocation_respects_constraints_and_keeps_cash`, `test_share_classes_share_one_issuer_limit_in_both_variants`, `test_proposal_is_revalidated_after_fees_and_rounding` |
 | 18 unused cash stays unallocated | same test + `test_hypothetical_contribution_is_labelled` |
 | 19 recommendations don't modify holdings | `test_all_five_states_end_to_end_and_holdings_untouched` |
 | 20 actual/paper/fixture cannot mix | `test_ledger.py::test_actual_paper_fixture_cannot_mix`, paper test in `test_evaluation.py` |
@@ -34,7 +34,7 @@ need no network, API key or paid inference.
 | 22 failed refresh → visible warnings | `test_failed_refresh_is_visible`, `test_scheduler_not_running_is_reported` |
 | 23 delivery retries obey dedup | `test_delivery_retries_and_dedup`, `test_ambiguous_timeout_is_held`, `test_permanent_error_and_max_attempts`, `test_delivery_disabled_without_authorization` |
 | 24 calendar & DST boundaries | `test_calendar_ops.py` (2026 holidays, observed rules, early closes, DST closes, latest session) + `test_schedule_dst_boundaries` |
-| 25 benchmarks with flows & corporate actions | `test_evaluation.py::test_contribution_matched_benchmark_hand_computed`, `test_total_return_index_no_double_counting` |
+| 25 benchmarks with flows & corporate actions | `test_evaluation.py::test_contribution_matched_benchmark_hand_computed`, `test_total_return_index_no_double_counting`, `test_subperiod_benchmark_keeps_earlier_funding` |
 | 26 injected instructions cannot change policy or act | `test_prompt_injection_cannot_change_policy_or_trigger_actions` |
 | 27 all five states on labelled fixtures | `test_all_actions_from_engine`, `test_all_five_states_end_to_end_and_holdings_untouched` |
 | 28 thesis history & overrides auditable | `test_original_and_current_thesis_are_auditable`, `test_override_is_recorded_separately`, `test_correction_is_append_only` |
@@ -51,7 +51,7 @@ pages render with labels, CSRF rejection, and CLI smoke paths.
 | SEC EDGAR submissions + companyfacts for AAPL, MSFT, KO, PEP, CAT, JPM | OK: 29–203 filings indexed per issuer, 2.8k–4.4k facts normalized each |
 | `acceptanceDateTime` time zone | verified UTC (Apple's 2026-07-30 earnings 8-K = 16:30 ET); an initial ET assumption was **wrong** and was corrected |
 | 10-K/10-Q text extraction | Apple 10-K 165 passages; MSFT 10-K 261 + 10-Q 162 |
-| Citation verification on real text | two real quotes and one XBRL fact VERIFIED; a fabricated passage FAILED |
+| Citation verification on real text | two real quotes and one XBRL fact VERIFIED; a fabricated passage FAILED (run with the pre-repair matcher; under §5 rules the quotes are SOURCE_MATCHED unless every statement is confirmed field by field — not re-run live) |
 | Yahoo chart prices | ~276 daily bars per symbol; raw prices recovered around NVDA's 2024-06-10 10:1 split (1208.88 → 121.79) |
 | Screening | 5 ranked; JPM excluded as BANK_OR_CREDIT |
 | DCF + reverse DCF (AAPL, MSFT) | ran; e.g. AAPL at $329.40 implies ~27% constant 5-yr revenue growth at a 9% WACC. ILLUSTRATIVE only, not approved |
@@ -107,3 +107,39 @@ fails fast without one, and has a 15 s timeout; approving an exposure profile no
 Not run: single-stock options, ETF flows/holdings (no reliable free source), CFTC positioning (deferred), ALFRED vintages (needs a
 FRED key), LLM cluster explanations against a real model (no key; tested with a fixture model), prospective baseline-vs-augmented
 outcomes (no live record yet).
+
+## 5. Correctness repair of a2d0ef8 (2026-09-30)
+
+Scope: the seven review findings plus the evaluation corrections. No ML, feeds, deployment, purchases, notifications or
+trades were added. Every finding was first reproduced on a2d0ef8 with a scratch script (outputs below), then covered by a
+regression test in `tests/test_repairs.py` (38 tests). **All 38 fail when run against a2d0ef8** (with imports of new
+APIs stubbed so each test is collected) and pass after the repair. Full suite: **137 passed, 0 failed**, offline, no
+credentials.
+
+| # | finding | before (a2d0ef8, reproduced) | after | tests |
+|---|---|---|---|---|
+| 1 | citation match labelled as verification | "Revenue **decreased** 12% to $4.2 billion", "…$4.2 **trillion**" and "The company is insolvent" all VERIFIED against "Revenue increased 12% to $4.2 billion…" | FAILED (direction), FAILED (scale), SOURCE_MATCHED (free text); thesis/exposure approval and engine gates respect it | `test_confirmed_numeric_claim_is_verified_on_every_field`, `test_contradicted_claims_fail` ×5 (direction, scale ×2, period, value), `test_sign_change_fails`, `test_unrelated_and_free_text_claims_are_never_verified`, `test_fact_citations_check_metric_and_period`, `test_llm_support_opinion_never_upgrades`, `test_thesis_approval_respects_verification`, `test_approved_thesis_with_failed_claim_is_review`, `test_legacy_verified_claims_are_downgraded_to_source_matched` |
+| 2 | issuer limit exceeded across share classes | ZZADD $5,040.84 + ZZADD.B $5,040.84 → issuer weight **12.89%** (limit 10%, target 8%), same in baseline | ZZADD $5,040.84 only → **8.00%**; both variants; revalidated after fees/rounding; displayed weight is aggregate | `test_share_classes_share_one_issuer_limit_in_both_variants[True/False]`, `test_proposal_is_revalidated_after_fees_and_rounding` |
+| 3 | stale recommendations reused (≤ 7 days) | two days after the review, allocation proposed ZZADD $5,040.84 and ZZNEW $8,240.28 although a fresh review is REVIEW (STALE_PRICE, FILINGS_NOT_CHECKED) | nothing proposed; each exclusion names the cutoff review's codes; future cutoffs refused | `test_allocation_revalidates_stale_recommendations`, `test_allocation_sees_changed_eligibility_and_new_evidence`, `test_allocation_uses_current_policy_and_rejects_future_cutoff` |
+| 4 | paper execution | unfunded paper book bought ZZADD+ZZNEW, cash **−13,281.12**; a PAUSED ADD filled directly (cash −999.99); TRIM always sold half | unfunded book buys nothing, cash 0; direct ADD refused; per-variant eligibility, cash, fees, rounding, paper-book limits; TRIM to documented target weight; bound to the originating FROZEN policy; atomic and idempotent | `test_paper_allocation_never_borrows`, `test_paper_allocation_charges_fees_and_respects_share_rounding`, `test_paper_allocation_is_idempotent_and_atomic`, `test_paper_respects_variant_eligibility`, `test_record_events_can_refuse_negative_cash`, `test_paper_trim_sells_to_documented_target_weight` |
+| 5 | debt normalization | LongTermDebtCurrent 100 and DebtCurrent 300 folded into one concept; only the first tag's value (100) used; missing components silently 0 and labelled FACT | separate concepts; total 1,100 (noncurrent 800 + DebtCurrent 300, current maturities not double counted); missing parts unknown and flagged; approval needs `--accept-assumptions` | `test_total_and_component_are_not_double_counted`, `test_separate_short_term_borrowings_and_current_maturities_are_both_counted`, `test_missing_debt_components_stay_unknown`, `test_debt_components_from_different_dates_are_not_combined`, `test_screening_treats_incomplete_debt_as_unknown`, `test_valuation_with_assumptions_needs_explicit_acceptance`, `test_legacy_debt_concepts_are_remapped_by_source_tag` |
+| 6 | subperiod benchmark drops earlier funding | September benchmark ended at **0.00** against a NAV of 103,003.56 | 105,760.78 (replayed from inception, then sliced); `rebased` mode separately labelled | `test_subperiod_benchmark_keeps_earlier_funding`, `test_withdrawal_larger_than_benchmark_empties_it`, `test_missing_benchmark_bars_execute_late_or_stay_unapplied` |
+| 7 | alerts ignore eligibility transitions | ADD/ELIGIBLE → ADD/PAUSED produced **no alert** | "ZZADD: purchases ELIGIBLE → PAUSED" with pause code, evidence and reassess condition; PAUSED → ELIGIBLE alerted; unchanged reruns silent | `test_eligibility_transitions_raise_explained_alerts_once`, `test_monthly_allocation_revalidation_alerts_changed_eligibility` |
+| — | augmented evaluation | repeated rows counted as separate pauses; withheld cash summed across proposals; returns "until today"; ≥ 20 rows → "readout allowed" | episodes; per-proposal cash (never summed); fixed 63-session horizon; descriptive verdict only | `test_augmented_evaluation_uses_episodes_fixed_horizon_and_no_cumulative_cash` |
+
+Existing tests changed because the behaviour they encoded was the defect: `test_paper_fill_uses_next_open_never_earlier_price`
+(ADD now goes through an allocation; the policy must be FROZEN before the decision) and
+`test_paper_variants_for_prospective_comparison` (proposal re-made under the FROZEN policy); `test_market.py` evaluation key
+renamed; fixtures gained explicit zero `debt_current` / `minority_interest` / `short_term_investments` facts so the fictional
+balance sheets are complete rather than assumed.
+
+Not re-run in this milestone: live SEC/Yahoo/FRED checks (no provider code changed except the debt concept split; a live
+re-sync is needed to populate the new debt concepts for real issuers), LLM calls (no key), external notification delivery
+(disabled). **Passing tests establish software behaviour, not profitability.**
+
+### Research status (clarification)
+
+The system does rules-based screening, DCF valuation and market-context conditions. Its regression price attribution is
+descriptive (association), not a predictor. There is **no predictive-model training and no walk-forward backtest
+pipeline** in this repository. The paper-execution and performance tools measure what a frozen policy would have done
+prospectively; they establish no edge, and no fixture output is performance evidence.

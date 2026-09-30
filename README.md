@@ -8,6 +8,10 @@ growth, employment, USD, commodities, VIX), the company's **sector/industry** be
 reports a long-term action plus a separate **purchase eligibility** (ELIGIBLE / PAUSED / BLOCKED).
 
 **It never trades.** Recommendations never modify holdings; you place orders yourself and record the fills.
+
+**Research status.** Rules-based screening, DCF valuation and market-context conditions only. Price attribution is
+descriptive, not a predictor; there is no predictive-model training and no walk-forward backtest pipeline. Paper and
+performance tools measure a frozen policy prospectively and establish no edge.
 All thresholds are provisional (see [POLICY.md](POLICY.md)) and outputs are labelled PREVIEW until you approve the
 policy and supply your settings. Fixture and illustrative outputs are labelled as such and are not market evidence.
 
@@ -73,10 +77,10 @@ uv run eqm show                           # holdings, cash, weights, basis (unkn
 uv run eqm valuation build MSFT --dump msft_valuation.yaml   # edit assumptions if needed, then:
 uv run eqm valuation build MSFT --inputs msft_valuation.yaml --reason "my assumptions"
 uv run eqm valuation show MSFT && uv run eqm valuation reverse MSFT --variable revenue_growth
-uv run eqm valuation approve MSFT --downside-reviewed
+uv run eqm valuation approve MSFT --downside-reviewed   # add --accept-assumptions only after reviewing the listed flags
 uv run eqm thesis template > msft_thesis.yaml               # or: uv run eqm thesis draft MSFT (LLM, if configured)
 uv run eqm thesis create MSFT --file msft_thesis.yaml --reason "original thesis"
-uv run eqm thesis approve --version-id <printed id>
+uv run eqm thesis approve --version-id <printed id>    # FAILED claims block; SOURCE_MATCHED ones need --acknowledge-unverified
 uv run eqm exposure draft MSFT --out msft_exposure.yaml     # benchmarks + sensitivities; evidence or ANALYST_ASSUMPTION each
 uv run eqm exposure create MSFT --file msft_exposure.yaml --reason "initial exposure profile"
 uv run eqm exposure approve --version-id <printed id>        # without an approved profile, purchases stay PAUSED

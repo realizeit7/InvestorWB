@@ -122,29 +122,7 @@ def daily_refresh(app: App, run_id: str, scheduled_for: datetime, ctx: JobContex
     changed = []
     for p in pids:
         before = {r["id"] for r in all_rows(app.conn, "SELECT id FROM recommendation WHERE portfolio_id=?", (p,))}
-        for rid in rec_mod.review_portfolio(app, p):
-            r = rec_mod.get(app, rid)
-            if rid in before or not r["previous_recommendation_id"]:
-                continue
-            prev = one(app.conn, "SELECT action, purchase_eligibility FROM recommendation WHERE id=?",
-                       (r["previous_recommendation_id"],))
-            action_changed = prev["action"] != r["action"]
-            elig_changed = prev["purchase_eligibility"] != r["purchase_eligibility"]
-            if not (action_changed or elig_changed):
-                continue
-            parts = ([f"{prev['action']} → {r['action']}"] if action_changed else []) + \
-                ([f"purchases {prev['purchase_eligibility'] or 'UNKNOWN'} → {r['purchase_eligibility']}"] if elig_changed else [])
-            eid, created = record_event(
-                app, f"{'action' if action_changed else 'eligibility'}:{rid}",
-                "ACTION_CHANGE" if action_changed else "ELIGIBILITY_CHANGE",
-                severity="CRITICAL" if r["action"] == "EXIT" else "MATERIAL", verified=True,
-                security_id=r["security_id"], public_at=r["as_of"], job_run_id=run_id,
-                payload={"label": "; ".join(parts), "recommendation_id": rid, "portfolio_id": p,
-                         "previous_recommendation_id": r["previous_recommendation_id"],
-                         "action": {"before": prev["action"], "now": r["action"]},
-                         "eligibility": {"before": prev["purchase_eligibility"], "now": r["purchase_eligibility"]}})
-            if created:
-                changed.append(eid)
+        changed += decision_change_events(app, p, rec_mod.review_portfolio(app, p), before, run_id)
     # 4. alerts
     for eid in new_events + changed:
         _alert_for_event(app, eid, pids)
@@ -160,6 +138,36 @@ def daily_refresh(app: App, run_id: str, scheduled_for: datetime, ctx: JobContex
     detail.update({"price_results": {k: v.get("ok") for k, v in pr.items()}, "new_events": len(new_events),
                    "action_changes": len(changed), "failures": failures, "delivery": deliver_pending(app)})
     return detail
+
+
+def decision_change_events(app: App, portfolio_id: str, rec_ids: list[str], before: set[str], run_id: str | None) -> list[str]:
+    """One event per NEW recommendation whose action or purchase eligibility differs from its predecessor. Used by every
+    job that can create recommendations (daily review, monthly allocation re-validation) so no transition is missed."""
+    out = []
+    for rid in rec_ids:
+        r = rec_mod.get(app, rid)
+        if rid in before or not r["previous_recommendation_id"]:
+            continue
+        prev = one(app.conn, "SELECT action, purchase_eligibility FROM recommendation WHERE id=?",
+                   (r["previous_recommendation_id"],))
+        action_changed = prev["action"] != r["action"]
+        elig_changed = prev["purchase_eligibility"] != r["purchase_eligibility"]
+        if not (action_changed or elig_changed):
+            continue
+        parts = ([f"{prev['action']} → {r['action']}"] if action_changed else []) + \
+            ([f"purchases {prev['purchase_eligibility'] or 'UNKNOWN'} → {r['purchase_eligibility']}"] if elig_changed else [])
+        eid, created = record_event(
+            app, f"{'action' if action_changed else 'eligibility'}:{rid}",
+            "ACTION_CHANGE" if action_changed else "ELIGIBILITY_CHANGE",
+            severity="CRITICAL" if r["action"] == "EXIT" else "MATERIAL", verified=True,
+            security_id=r["security_id"], public_at=r["as_of"], job_run_id=run_id,
+            payload={"label": "; ".join(parts), "recommendation_id": rid, "portfolio_id": portfolio_id,
+                     "previous_recommendation_id": r["previous_recommendation_id"],
+                     "action": {"before": prev["action"], "now": r["action"]},
+                     "eligibility": {"before": prev["purchase_eligibility"], "now": r["purchase_eligibility"]}})
+        if created:
+            out.append(eid)
+    return out
 
 
 def refresh_market_context(app: App, ctx: JobContext, tracked: list[str], provider, run_id: str | None) -> dict:
@@ -260,8 +268,13 @@ def weekly_digest(app: App, run_id: str, scheduled_for: datetime, ctx: JobContex
 def monthly_allocation(app: App, run_id: str, scheduled_for: datetime, ctx: JobContext | None = None) -> dict:
     ctx = ctx or JobContext()
     out = {}
-    for p in _portfolios(app, ctx):
+    pids = _portfolios(app, ctx)
+    for p in pids:
+        before = {r["id"] for r in all_rows(app.conn, "SELECT id FROM recommendation WHERE portfolio_id=?", (p,))}
         prop = propose(app, p, as_of=app.now())
+        # allocation re-validates every candidate; a changed decision it records is alerted like a daily change
+        for eid in decision_change_events(app, p, [v["recommendation_id"] for v in prop.validated], before, run_id):
+            _alert_for_event(app, eid, pids)
         from ..decisions.allocation import load
         md = reports.allocation_md(app, load(app, prop.id))
         name = one(app.conn, "SELECT name FROM portfolio WHERE id=?", (p,))["name"]

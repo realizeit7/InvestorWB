@@ -69,7 +69,8 @@ An LLM assessment can never verify an invalidation; it becomes AMBIGUOUS ⇒ REV
 1. **REVIEW** if any of: unsupported valuation framework (banks, insurers, REITs, shells, pre-revenue biotech, unclassified);
    open CRITICAL reconciliation issue on the holding; CRITICAL data-refresh failure; missing price or price older than
    `max_price_age_sessions` (1) completed sessions; filings not checked within `max_filing_check_age_hours` (36) or last
-   check failed; latest financial period older than `max_financials_age_days` (200); no approved thesis; no valuation;
+   check failed; latest financial period older than `max_financials_age_days` (200); no approved thesis; an approved
+   thesis with a FACT claim that FAILED verification (`THESIS_EVIDENCE_FAILED`, §10); no valuation;
    valuation not approved; valuation older than `max_valuation_age_days` (400); financial statements published after the
    valuation's evidence cutoff; base value not meaningful; METRIC condition unevaluable; ambiguous/unverified invalidation;
    unreviewed verified CRITICAL event (e.g. 8-K items 1.03, 2.04, 3.01, 4.02, 5.01). Verified invalidations and limit
@@ -99,11 +100,25 @@ concentration is reported as UNKNOWN. Defaults: 10–15 holdings, 10% issuer, 30
 
 ## 5. Monthly allocation (`decisions/allocation.py`)
 
-1. Candidates: holdings + APPROVED watchlist names whose latest recommendation (≤ 7 days old) is ADD.
+1. Candidates: holdings + APPROVED watchlist names. Each candidate is **re-reviewed at the allocation cutoff** under the
+   current policy and current evidence (`generate(as_of=cutoff)`). An earlier recommendation is reused only when every
+   decision input, the policy content hash, the exposure-profile version, the decision-relevant conditions and the
+   eligibility hash identically ("equivalent earlier review reused" in the report); otherwise a new review row is written.
+   Only a validated **ADD** qualifies. REVIEW (stale price, filings not checked, new financials since the valuation, …),
+   HOLD/TRIM/EXIT and PAUSED/BLOCKED names are excluded with the reason codes. A cutoff in the future is refused; a
+   recommendation dated after the cutoff is never used. (Replaces the former "latest recommendation ≤ 7 days old" rule.)
 2. Rank: margin of safety desc → latest screen score desc (missing last) → symbol asc (final tie-breaker).
-3. Amount = min(target-weight room, issuer-limit room, sector-limit room, remaining budget − fee) against post-contribution NAV.
+3. Amount = min(target-weight room, issuer-limit room, sector-limit room, remaining budget − fee) against post-contribution
+   NAV. Target and issuer rooms use **aggregate issuer exposure**: every share class currently held plus everything already
+   proposed for the same issuer in this run. The holdings cap (`target_holdings_max`) counts issuers.
 4. Skip amounts < `min_trade_usd` ($50); whole shares only if `fractional_shares: false`; fee `fee_per_trade_usd` ($0).
-5. Remaining money stays cash; no candidate or binding limits ⇒ cash, explained. New names blocked beyond `target_holdings_max`.
+5. **Revalidation**: after rounding and fees the complete proposal is re-checked against NAV after fees; an issuer or
+   sector over its limit is cut back (last line first; whole shares if required), and a line that falls below the
+   minimum trade is dropped. Displayed "proposed weight" is the aggregate issuer weight after the whole proposal.
+6. Remaining money stays cash; no candidate or binding limits ⇒ cash, explained.
+
+The same fill (same limits, same revalidation) runs for the augmented variant (`purchase_eligibility = ELIGIBLE`) and the
+fundamental-only baseline (`baseline_eligibility = ELIGIBLE`); baseline lines carry their recommendation ids.
 
 Budget = settled available cash − `cash_buffer_usd` (+ hypothetical contribution, labelled HYPOTHETICAL). Unsettled sale
 proceeds and proposed sales are excluded unless explicitly passed as conditional proceeds (labelled). Allocation is withheld
@@ -120,12 +135,33 @@ quality and value scores are averaged separately; a score is withheld when compl
 ## 7. Evaluation
 
 - Contribution-matched benchmark: same external flows on the same dates, executed at the close of the first session on
-  or after the flow date, no fees, dividends reinvested at ex-date close, splits applied as units. Default benchmarks:
-  SCHG and VTI (broad market). A value/quality comparison is not implemented yet.
+  or after the flow date (a flow on a weekend/holiday executes at the next session; if that session has no benchmark bar,
+  at the next available bar with a "late execution" warning; with no bar through the end date it is listed as unapplied),
+  no fees, dividends reinvested at ex-date close, splits applied as units. A withdrawal larger than the benchmark value
+  empties it (warning); units never go negative. Default benchmarks: SCHG and VTI. A value/quality comparison is not
+  implemented yet.
+- **Subperiods**: the benchmark is replayed from inception (the first external flow) and then sliced to [start, end], so
+  money contributed before the start date is invested in the benchmark too (mode `inception`, default). Mode `rebased`
+  starts the benchmark at `start` with the portfolio NAV on the last session before `start` and is labelled REBASED.
 - TWR: daily chain-linking with flows at the start of the day; MWR: XIRR reported only when there is exactly one root
   in (−99%, 10000%); drawdown on the TWR index; turnover = gross trades / average NAV. All pre-tax.
-- Paper execution: fills at the open of the first session whose open is after the recommendation's creation time,
-  `paper.slippage_bps` (5 bp) adverse, `paper.fee_per_trade_usd`; requires policy status FROZEN and a PAPER portfolio.
+- **Paper execution** (`evaluation/paper.py`), PAPER portfolios only:
+  - Bound to the **originating** decision's policy: the proposal's (or recommendation's) policy version must be FROZEN and
+    must equal the active policy. Freezing after the decision is not enough.
+  - Fills at the open of the first session whose open is after the decision's creation time, `paper.slippage_bps` (5 bp)
+    adverse, `paper.fee_per_trade_usd`. If any needed bar is missing nothing is recorded (pending, all-or-nothing).
+  - Purchases only through an allocation proposal, per variant: augmented lines need `purchase_eligibility = ELIGIBLE`,
+    baseline lines `baseline_eligibility = ELIGIBLE`, both with action ADD under the proposal's policy/cutoff. Each line
+    is capped by the proposal amount, the paper book's available cash (fees included), and issuer/sector limits measured
+    on the paper book; `fractional_shares` and `min_trade_usd` apply. Paper execution **never borrows**: the ledger
+    rejects any paper batch that would take cash below zero (`allow_negative_cash=False`). Broker imports keep negative
+    cash as a reconciliation issue.
+  - Direct recommendation execution: TRIM sells down to the recommendation's documented `proposed_trade.target_weight`
+    (issuer weight in the paper book at the fill price, shares rounded up so the weight ends at or below the target;
+    sector breaches without a target sell to the sector limit); EXIT sells the whole position. ADD is refused here.
+  - Each (proposal, variant, paper portfolio) and each recommendation executes at most once; ledger rows and the
+    execution record (`paper_allocation_execution` / `paper_execution`, with fills, skips and policy version) are written
+    in one transaction.
 
 ## 8. Monitoring
 
@@ -133,6 +169,14 @@ Default schedules (America/New_York, DST handled by zoneinfo): `daily_refresh` 1
 Saturday 09:00; `monthly_allocation` 09:00 on the first session of each month. Alert cooldown 24 h for non-critical
 alerts of the same kind and security; CRITICAL events are never suppressed. The first filings sync of an issuer is a
 baseline: only filings public in the last 7 days raise events.
+
+The daily refresh (and the monthly allocation job, whose re-validation can record new reviews) compares each new
+recommendation with its predecessor on **action and purchase eligibility**. Either
+change creates one event (`ACTION_CHANGE` or `ELIGIBILITY_CHANGE`, keyed by recommendation id, so reruns never duplicate)
+and a MATERIAL alert (CRITICAL for EXIT) that lists the pause codes, their evidence (observation ids and publication
+times), the reassessment condition/date, and any blocks. For these alerts the cooldown is keyed on the exact transition
+(e.g. "purchases ELIGIBLE → PAUSED"), so a reversal is never suppressed. Delivery outside the local inbox still requires
+`webhook_enabled` + `webhook_authorized`.
 
 ## 9. Current conditions and purchase eligibility (market / sector / company context)
 
@@ -196,10 +240,69 @@ Each recommendation stores the snapshot id, exposure-profile version, thesis/val
 observation ids, source ids and publication times, the fundamental-only **baseline eligibility**, and the change in eligibility
 since the previous review. A new row is written only when a decision-relevant input changes.
 
-### Evaluation (prospective)
+### Evaluation (prospective, descriptive only)
 
-`eqm evaluate` compares the augmented system with the fundamental-only baseline: diverging eligibility, pause codes, cash
-withheld vs the baseline allocation (cash drag), later returns of paused names vs SPY and the sector ETF (association only),
-source success rates, alert usefulness ratings (`eqm alerts useful|not-useful`), and costs. Drawdown and benchmark-relative
-outcomes of the two variants need two PAPER portfolios fed by `eqm paper --variant augmented|baseline` under a FROZEN policy.
-Fewer than 20 matured pauses ⇒ "insufficient evidence"; no edge is claimed from a short record.
+`eqm evaluate` compares the augmented system with the fundamental-only baseline. Consecutive PAUSED-while-baseline-ELIGIBLE
+ADD recommendations of one security are collapsed into one **pause episode** (daily rows are not independent observations);
+episodes starting on the same day with the same pause codes are counted as one likely shared cause. Outcomes are measured
+only for matured episodes over a **fixed horizon** (`market.evaluation_horizon_sessions`, 63 sessions) from the episode start (never "until today"), for the
+stock, SPY and the sector ETF; missing data leaves an outcome unknown. Cash withheld versus the baseline is reported **per
+proposal** (each proposal is a what-if on the same money) and the latest value; it is never summed. Also reported: source
+success rates, alert usefulness ratings (`eqm alerts useful|not-useful`) and costs. Drawdown and benchmark-relative outcomes
+of the two variants need two PAPER portfolios fed by `eqm paper --variant augmented|baseline` under a FROZEN policy.
+Below `market.evaluation_min_episodes` (20) matured episodes the verdict is "insufficient evidence"; above it the output is
+still **descriptive only** — no statistical test is run and 20 episodes are not a validation. No edge is claimed.
+
+## 10. Evidence verification (`research/evidence.py`)
+
+Two separate checks, stored separately on every claim (`citation_status`, `support_status`, `verifier_version`):
+
+1. **Citation integrity** — the passage or fact exists, belongs to the same issuer, was public at or before the cutoff,
+   and a passage quote appears verbatim. A broken citation ⇒ `FAILED`. An intact citation proves only that the quote is
+   real: `SOURCE_MATCHED`.
+2. **Substantive support** — the claim is parsed into quantitative statements (metric, value, scale, unit, sign,
+   direction, period) and each is compared with the statements in the full source sentence(s) around the quote, or with
+   the cited facts (concept, value within `recommendation.claim_value_tolerance` = 0.5%, fiscal year/quarter). A periodic filing's fiscal period is the default
+   period of its unlabelled figures.
+
+| status | meaning | can drive decisions |
+|---|---|---|
+| `VERIFIED` | every quantitative statement confirmed on all fields, and no other free-text assertion | yes |
+| `FAILED` | broken citation, or a statement contradicted (value/scale, sign, direction, period) or its number absent | no; blocks approval |
+| `SOURCE_MATCHED` | citation intact; claim is free text, or a field (metric, period, direction) could not be confirmed | no; review required |
+| `UNVERIFIED` | no citation | no |
+| `NOT_REQUIRED` | ASSUMPTION / OPINION (labelled, never verified) | — |
+
+Gates: thesis approval refuses FACT claims that FAILED and requires `--acknowledge-unverified` for SOURCE_MATCHED /
+UNVERIFIED ones (recorded in the approval note); the engine returns REVIEW (`THESIS_EVIDENCE_FAILED`) for an approved thesis
+with FAILED FACT claims; exposure-profile approval refuses FAILED evidence and requires acknowledgement for unverified
+evidence; external observations and news claims act only when VERIFIED. An LLM's opinion that a claim is supported is
+recorded as a note and never raises a status (`with_llm_assessment`). Migration 0004 downgraded claims verified by the
+former quote/number matcher to SOURCE_MATCHED (`support_status = LEGACY`).
+
+Limits: the parser uses a fixed metric vocabulary (revenue, operating/net income, cash flow, capex, debt concepts, cash,
+margins, EPS, shares, equity, assets); other phrasing stays SOURCE_MATCHED. It does not understand causal or comparative
+language; those parts always need a human.
+
+## 11. Balance-sheet aggregates in valuations (`research/fundamentals.py::debt_total/cash_total`)
+
+Debt is modelled as separate concepts: `LongTermDebtNoncurrent`, `LongTermDebt` (includes current maturities),
+`LongTermDebtCurrent`, `DebtCurrent` (all current debt), `ShortTermBorrowings`, `CommercialPaper`. The total is built at one
+balance-sheet date (the latest with any debt concept): long-term part = noncurrent, else LongTermDebt − current maturities,
+else LongTermDebt; current part = DebtCurrent (minus current maturities when LongTermDebt already includes them), else
+current maturities + short-term borrowings (commercial paper only when short-term borrowings are not reported). Components
+from other dates are never combined (warning). Unreported components are listed as missing — never zero. A valuation input
+with missing components or an unreported item is labelled `ANALYST_JUDGMENT` (never FACT) with a review flag;
+`eqm valuation approve` then requires `--accept-assumptions`, and the accepted flags are recorded. Screening treats an
+incomplete debt total as unknown (leverage metrics withheld).
+
+## Change log
+
+- **2026-09-30 correctness repair** (review of a2d0ef8): §5 allocation re-validation at the cutoff and aggregate issuer
+  limits with post-fee revalidation; §7 benchmark replay from inception and paper-execution rules; §8 eligibility-change
+  alerts; §9 episode-based descriptive evaluation; §10 evidence verification split; §11 debt aggregation and assumption
+  acknowledgement. New policy keys: `market.evaluation_horizon_sessions` (63), `market.evaluation_min_episodes` (20, was the
+  module constant MIN_PAUSES_FOR_READOUT; the former MIN_DAYS_AFTER_PAUSE = 60 days measured "until today" is replaced
+  by the fixed horizon), `recommendation.claim_value_tolerance` (0.005, was a module constant). The
+  former "recommendation ≤ 7 days old" allocation rule was removed (replaced by re-validation at the cutoff). No other
+  threshold changed. Adding keys changes the policy content hash, so a FROZEN policy must be re-frozen.

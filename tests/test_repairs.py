@@ -537,6 +537,7 @@ def test_paper_allocation_is_idempotent_and_atomic(app):
     assert app.conn.execute("SELECT COUNT(*) FROM ledger_event WHERE account_id=? AND event_type='BUY'", (acct,)).fetchone()[0] == 0
     _open_bars(app, d, ("ZZNEW",))
     first = paper_execute_allocation(app, prop.id, book, "augmented")
+    assert first == ["ZZADD", "ZZNEW"]
     n = app.conn.execute("SELECT COUNT(*) FROM ledger_event WHERE account_id=?", (acct,)).fetchone()[0]
     for _ in range(3):
         assert paper_execute_allocation(app, prop.id, book, "augmented") == first
@@ -742,3 +743,19 @@ def test_augmented_evaluation_uses_episodes_fixed_horizon_and_no_cumulative_cash
     assert ev["matured_episodes"] == [] and ev["verdict"].startswith("insufficient evidence")
     assert "descriptive" in ev["verdict"]
     assert _horizon_end(date(2026, 9, 30)) == date(2026, 12, 30) and HORIZON_SESSIONS == 63
+
+
+def test_monthly_allocation_revalidation_alerts_changed_eligibility(app):
+    from equity_monitor.data.prices import FixturePriceProvider
+    from equity_monitor.monitoring.jobs import JobContext, handlers
+    app.clock.set(AS_OF)
+    d = build_demo(app)
+    prov = FixturePriceProvider({s: PriceFetch([Bar(date(2026, 9, 30), v.get("price") or Dec(30))])
+                                 for s, v in d["securities"].items()})
+    _daily(app, prov)
+    new = d["securities"]["ZZNEW"]["security_id"]
+    app.conn.execute("DELETE FROM exposure_approval WHERE exposure_version_id IN "
+                     "(SELECT id FROM exposure_profile_version WHERE security_id=?)", (new,))
+    handlers(JobContext(price_provider=prov, refresh_market_series=False))["monthly_allocation"](app, None, app.now())
+    titles = [a["title"] for a in _alerts(app)]
+    assert "ZZNEW: purchases ELIGIBLE → PAUSED" in titles          # the allocation's re-review is not silent

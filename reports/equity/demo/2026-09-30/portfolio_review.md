@@ -31,7 +31,7 @@
 
 ## Market context used by these reviews
 
-- Shared snapshot `mks_254b93150aa940728466` as of 2026-09-30T22:00:00.000000Z (session 2026-09-30); full detail: `eqm market show`
+- Shared snapshot `mks_0072e7b2e6ca4ceab314` as of 2026-09-30T22:00:00.000000Z (session 2026-09-30); full detail: `eqm market show`
 - Flags (conditions, not forecasts): CREDIT_TIGHTENING
 - Missing inputs (UNKNOWN, not neutral): none
 - Not available: single-stock options (IV/skew/term structure/OI); ETF fund flows; ETF holdings look-through; futures positioning (CFTC COT, deferred); licensed news feed
@@ -55,7 +55,7 @@
 8. **Position size and next contribution** — HOLD: keep the position; no new money preferred
 9. **Missing data and freshness** — price 2026-09-30 (0 session(s) old); filings checked 0.00 h before; latest period 2026-06-30; market snapshot 2026-09-30T22:00:00.000000Z; missing: none
 10. **What would change the decision** — ADD band starts at price <= 20.20 (MoS 25%) if thesis stays intact; TRIM considered at price >= 32.32 (120% of base value); EXIT considered at price >= 46.06 (bull value); EXIT if verified: Operating margin below 10% for 2 consecutive fiscal years; EXIT if verified: Loss of the largest customer contract
-    - Traceability: recommendation `rec_bf164652ac83467d97d5`, snapshot `mks_254b93150aa940728466`, exposure profile `exv_c53e0aae3baa4ea9bf30`, thesis `thv_38e7dca8e8494bb8a5de`, valuation `val_6fff289c8b1f48b6b969`, policy `pol_c4b4e76656e24834b8f9`
+    - Traceability: recommendation `rec_6339d8d91c744c0597ad`, snapshot `mks_0072e7b2e6ca4ceab314`, exposure profile `exv_9d032cd2088e4facb78d`, thesis `thv_99438008607a4b4e9c8d`, valuation `val_4e73bdedd90d4f66a101`, policy `pol_90dd733085c5486e99f9`
 
 ### ZZTRM: TRIM · purchases BLOCKED
 
@@ -74,7 +74,7 @@
 8. **Position size and next contribution** — No new purchases: long-term action is TRIM. Proposed (not executed): SELL ~4545.361222926400000000000000000000
 9. **Missing data and freshness** — price 2026-09-30 (0 session(s) old); filings checked 0.00 h before; latest period 2026-06-30; market snapshot 2026-09-30T22:00:00.000000Z; missing: none
 10. **What would change the decision** — ADD band starts at price <= 22.93 (MoS 25%) if thesis stays intact; TRIM considered at price >= 36.68 (120% of base value); EXIT considered at price >= 51.15 (bull value); EXIT if verified: Operating margin below 10% for 2 consecutive fiscal years; EXIT if verified: Loss of the largest customer contract
-    - Traceability: recommendation `rec_6aa868eae24746b6a551`, snapshot `mks_254b93150aa940728466`, exposure profile `exv_a618f486a8304f33b01c`, thesis `thv_fadef35639cd492a875a`, valuation `val_b1031b7925fe414bbcb5`, policy `pol_c4b4e76656e24834b8f9`
+    - Traceability: recommendation `rec_9748e8d7144e4c40a76b`, snapshot `mks_0072e7b2e6ca4ceab314`, exposure profile `exv_a391ba9609754ea4a254`, thesis `thv_ee2f0ec0faca45a68666`, valuation `val_5e044fbae8c94ec8b6f1`, policy `pol_90dd733085c5486e99f9`
 
 ### ZZREV: REVIEW · purchases BLOCKED
 
@@ -93,7 +93,7 @@
 8. **Position size and next contribution** — No new purchases: long-term action is REVIEW
 9. **Missing data and freshness** — price 2026-09-30 (0 session(s) old); filings checked 0.00 h before; latest period 2026-06-30; market snapshot 2026-09-30T22:00:00.000000Z; missing: valuation assumptions not approved
 10. **What would change the decision** — Resolve: valuation assumptions not approved
-    - Traceability: recommendation `rec_f15d23fc72594a1fa528`, snapshot `mks_254b93150aa940728466`, exposure profile `exv_e94d2fccf25043d28b42`, thesis `thv_93819bdbb4204be99a00`, valuation `val_eb520ed90190494c9eeb`, policy `pol_c4b4e76656e24834b8f9`
+    - Traceability: recommendation `rec_38c5c343e1b74cddb12f`, snapshot `mks_0072e7b2e6ca4ceab314`, exposure profile `exv_dd58edc2bc114dea8cd1`, thesis `thv_b2dcda0b95494b929e29`, valuation `val_7ae323efa5ac49ca812a`, policy `pol_90dd733085c5486e99f9`
 
 ### ZZEXT: EXIT · purchases BLOCKED
 
@@ -114,7 +114,7 @@
 8. **Position size and next contribution** — No new purchases: long-term action is EXIT; thesis invalidated (BROKEN). Proposed (not executed): SELL ~3997.48110674
 9. **Missing data and freshness** — price 2026-09-30 (0 session(s) old); filings checked 0.00 h before; latest period 2026-06-30; market snapshot 2026-09-30T22:00:00.000000Z; missing: none
 10. **What would change the decision** — Owner may override with a documented rationale; the original thesis stays on record.; pause lifts when CREDIT_TIGHTENING clears, or owner re-approves the valuation/exposure with this condition considered
-    - Traceability: recommendation `rec_1419fa250e1242ff9989`, snapshot `mks_254b93150aa940728466`, exposure profile `exv_3797dab1b11a43d59bcf`, thesis `thv_14227e46ba494f9c8e32`, valuation `val_10b036f16138416db8d4`, policy `pol_c4b4e76656e24834b8f9`
+    - Traceability: recommendation `rec_b62dd2d702214d3a9e68`, snapshot `mks_0072e7b2e6ca4ceab314`, exposure profile `exv_7d392639566f49bbbf81`, thesis `thv_839fd19e3f4f45618419`, valuation `val_b9f4a3a03dca49c9b833`, policy `pol_90dd733085c5486e99f9`
 
 ### ZZADD: ADD · purchases ELIGIBLE
 
@@ -132,7 +132,7 @@
 8. **Position size and next contribution** — Eligible for the next monthly contribution, up to about 5,040.85 of room to the target weight
 9. **Missing data and freshness** — price 2026-09-30 (0 session(s) old); filings checked 0.00 h before; latest period 2026-06-30; market snapshot 2026-09-30T22:00:00.000000Z; missing: none
 10. **What would change the decision** — ADD band starts at price <= 28.38 (MoS 25%) if thesis stays intact; TRIM considered at price >= 45.40 (120% of base value); EXIT considered at price >= 61.34 (bull value); EXIT if verified: Operating margin below 10% for 2 consecutive fiscal years; EXIT if verified: Loss of the largest customer contract
-    - Traceability: recommendation `rec_0b08c315197542adb2de`, snapshot `mks_254b93150aa940728466`, exposure profile `exv_70a92b27514d43b79841`, thesis `thv_69729e7595cc47ec8633`, valuation `val_693a8e33ce374bb7ade7`, policy `pol_c4b4e76656e24834b8f9`
+    - Traceability: recommendation `rec_8bbd6dd6a1ea4017a76c`, snapshot `mks_0072e7b2e6ca4ceab314`, exposure profile `exv_f5d129a46bae41f5b43c`, thesis `thv_300ec0a783cf46f09f94`, valuation `val_38f209c0f91740a28d42`, policy `pol_90dd733085c5486e99f9`
 
 ### ZZNEW: ADD · purchases PAUSED
 
@@ -151,5 +151,5 @@
 8. **Position size and next contribution** — Long-term case supports adding, but purchases are PAUSED (ADVERSE_REFINANCING_HIGH_EXPOSURE); the next contribution skips it until the pause is reassessed
 9. **Missing data and freshness** — price 2026-09-30 (0 session(s) old); filings checked 0.00 h before; latest period 2026-06-30; market snapshot 2026-09-30T22:00:00.000000Z; missing: none
 10. **What would change the decision** — ADD band starts at price <= 28.38 (MoS 25%) if thesis stays intact; TRIM considered at price >= 45.40 (120% of base value); EXIT considered at price >= 61.34 (bull value); EXIT if verified: Operating margin below 10% for 2 consecutive fiscal years; EXIT if verified: Loss of the largest customer contract; pause lifts when CREDIT_TIGHTENING clears, or owner re-approves the valuation/exposure with this condition considered
-    - Traceability: recommendation `rec_80fb95a718d24e3d9a62`, snapshot `mks_254b93150aa940728466`, exposure profile `exv_43b21e176cf64d318901`, thesis `thv_00796bfd57eb4ba8b2f7`, valuation `val_67e015915c244a1892ca`, policy `pol_c4b4e76656e24834b8f9`
+    - Traceability: recommendation `rec_105a8e1f08b8471c99b8`, snapshot `mks_0072e7b2e6ca4ceab314`, exposure profile `exv_4855578f322744feb653`, thesis `thv_225dd1af345c4bddbaf9`, valuation `val_e4d1ca42d9a741d5b66b`, policy `pol_90dd733085c5486e99f9`
 

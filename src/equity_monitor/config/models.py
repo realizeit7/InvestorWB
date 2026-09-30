@@ -37,6 +37,7 @@ class RecommendationPolicy(_Strict):
     max_filing_check_age_hours: int = 36
     max_financials_age_days: int = 200                      # latest period end older than this => overdue filing
     next_review_days: int = 90
+    claim_value_tolerance: Decimal = Decimal("0.005")       # relative tolerance when matching a claimed number to evidence
 
     @model_validator(mode="after")
     def _bands(self):
@@ -131,6 +132,8 @@ class MarketPolicy(_Strict):
     sector_relative_research: Decimal = Decimal("0.15")       # sector ETF 3m return vs SPY
     company_specific_move_research: Decimal = Decimal("0.15") # |company-specific 1m component|
     stress_wacc_shift: Decimal = Decimal("0.01")              # illustrative stress of the bear case (context only)
+    evaluation_horizon_sessions: int = 63                     # fixed outcome horizon for pause episodes (descriptive)
+    evaluation_min_episodes: int = 20                         # below: "insufficient evidence"; above: still descriptive
 
 
 class Policy(_Strict):

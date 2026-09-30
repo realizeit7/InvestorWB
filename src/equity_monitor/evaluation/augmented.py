@@ -28,13 +28,13 @@ from ..db.core import all_rows, one
 from ..market.metrics import tr_series
 from ..util import from_json, parse_utc
 
-HORIZON_SESSIONS = 63          # ~3 months, fixed before any outcome is observed
-MIN_EPISODES_FOR_SUMMARY = 20  # below this only the raw episodes are listed; above it, still descriptive only
+HORIZON_SESSIONS = 63          # defaults; active values: policy.market.evaluation_horizon_sessions / _min_episodes
+MIN_EPISODES_FOR_SUMMARY = 20
 
 
-def _horizon_end(start: date) -> date:
+def _horizon_end(start: date, sessions: int = HORIZON_SESSIONS) -> date:
     d = cal.session_on_or_after(start)
-    for _ in range(HORIZON_SESSIONS):
+    for _ in range(sessions):
         d = cal.next_session(d)
     return d
 
@@ -80,10 +80,11 @@ def compare(app: App, portfolio_id: str) -> dict:
     session = cal.latest_completed_session(app.now())
     spy = find_security(app.conn, "SPY")
     episodes = pause_episodes(app, portfolio_id)
+    horizon, min_eps = app.policy.market.evaluation_horizon_sessions, app.policy.market.evaluation_min_episodes
     matured = []
     for ep in episodes:
         start = parse_utc(ep["start"]).date()
-        end = _horizon_end(start)
+        end = _horizon_end(start, horizon)
         ep["horizon_end"] = end
         if end > session:
             continue
@@ -109,14 +110,14 @@ def compare(app: App, portfolio_id: str) -> dict:
         "pause_episodes": len(episodes), "ongoing_episodes": sum(1 for e in episodes if e["end"] is None),
         "likely_shared_causes": len(causes),
         "pause_codes_by_episode": _count([c for e in episodes for c in e["codes"]]),
-        "horizon_sessions": HORIZON_SESSIONS, "matured_episodes": matured,
+        "horizon_sessions": horizon, "matured_episodes": matured,
         "cash_withheld_vs_baseline_per_proposal": withheld,
         "cash_withheld_vs_baseline_latest": withheld[-1]["cash_withheld_vs_baseline"] if withheld else None,
         "source_quality": [{"provider": c["provider"], "checks": c["n"], "success_rate": (c["ok"] or 0) / c["n"]} for c in checks],
         "alert_usefulness": {"rated": fb["n"], "useful": fb["useful"] or 0},
         "costs": {c["category"]: c["s"] for c in costs},
-        "verdict": (f"insufficient evidence: {len(matured)} matured pause episodes (< {MIN_EPISODES_FOR_SUMMARY}); "
-                    "descriptive only, no claim either way" if len(matured) < MIN_EPISODES_FOR_SUMMARY else
+        "verdict": (f"insufficient evidence: {len(matured)} matured pause episodes (< {min_eps}); "
+                    "descriptive only, no claim either way" if len(matured) < min_eps else
                     f"descriptive only: {len(matured)} matured episodes from {len(causes)} likely causes; no statistical "
                     "test is run and this does not establish that pausing helps or hurts"),
         "caveat": "Association only. Episodes sharing a cause are not independent; withheld cash per proposal is a what-if "

@@ -21,6 +21,7 @@ recommendation:
   max_filing_check_age_hours: 36
   max_financials_age_days: 200
   next_review_days: 90
+  claim_value_tolerance: '0.005'
 portfolio:
   target_holdings_min: 10
   target_holdings_max: 15
@@ -100,4 +101,6 @@ market:
   sector_relative_research: '0.15'
   company_specific_move_research: '0.15'
   stress_wacc_shift: '0.01'
+  evaluation_horizon_sessions: 63
+  evaluation_min_episodes: 20
 

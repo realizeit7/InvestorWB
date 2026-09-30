@@ -42,9 +42,28 @@ normalizer versions recorded.
 - Units: USD for money, `shares` for share counts. **Non-USD reporters are unsupported** (their USD facts are simply
   missing → REVIEW).
 - Missing facts stay missing (`None`), never zero. A valuation input that had to be assumed (e.g. cash or debt not
-  found) carries a `review_flags` entry shown before approval.
+  found) carries a `review_flags` entry shown before approval, is labelled `ANALYST_JUDGMENT` (never FACT), and
+  approval requires `--accept-assumptions`.
+- **Debt** (normalizer `norm-2`): totals and components are separate concepts — `long_term_debt_noncurrent`
+  (LongTermDebtNoncurrent), `long_term_debt_total` (LongTermDebt, which includes current maturities),
+  `long_term_debt_current` (LongTermDebtCurrent), `debt_current` (DebtCurrent, all current debt), `short_term_borrowings`,
+  `commercial_paper`. `debt_total()` combines them at one balance-sheet date without double counting (POLICY §11) and
+  lists unreported components as missing; components dated differently are not combined. Cash = cash and equivalents +
+  short-term investments at the same date. Migration 0003 remapped rows stored by `norm-1` (which kept only the first tag
+  of a folded list) by their source tag; components `norm-1` never stored stay unknown until the issuer is re-synced
+  (`eqm sec sync SYMBOL`). Scope: consolidated US-GAAP tags only; finance leases, IFRS tags and segment debt are not read.
 - Known gaps: some filers stop using a tag (e.g. Apple's `InterestExpense` after FY2023) → those metrics become unknown;
   segment data, leases detail, off-balance-sheet items and non-GAAP measures are not extracted.
+
+## Evidence (claims) — what "verified" means
+
+A cited claim is `SOURCE_MATCHED` when its citation is intact (same issuer, public before the cutoff, verbatim quote);
+it is `VERIFIED` only when every quantitative statement in it matches the cited sentence(s) or facts on metric, value,
+scale, unit, sign, direction and period and it contains no other free-text assertion (POLICY §10). Contradictions and
+numbers absent from the evidence are `FAILED`. The parser covers a fixed vocabulary of financial metrics in English; any
+other phrasing, causal language or qualitative statements remain `SOURCE_MATCHED` (review required). Claims recorded
+before this rule (verifier `legacy-1`) were downgraded from VERIFIED to SOURCE_MATCHED; exposure-profile versions are
+immutable and keep the verification snapshot recorded at their creation.
 
 ## Freshness and quality gates
 
