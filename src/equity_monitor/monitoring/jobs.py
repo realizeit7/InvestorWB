@@ -124,14 +124,27 @@ def daily_refresh(app: App, run_id: str, scheduled_for: datetime, ctx: JobContex
         before = {r["id"] for r in all_rows(app.conn, "SELECT id FROM recommendation WHERE portfolio_id=?", (p,))}
         for rid in rec_mod.review_portfolio(app, p):
             r = rec_mod.get(app, rid)
-            if rid not in before and r["previous_action"] and r["previous_action"] != r["action"]:
-                eid, created = record_event(app, f"action:{rid}", "ACTION_CHANGE",
-                                            severity="CRITICAL" if r["action"] == "EXIT" else "MATERIAL", verified=True,
-                                            security_id=r["security_id"], public_at=r["as_of"], job_run_id=run_id,
-                                            payload={"label": f"{r['previous_action']} → {r['action']}", "recommendation_id": rid,
-                                                     "portfolio_id": p})
-                if created:
-                    changed.append(eid)
+            if rid in before or not r["previous_recommendation_id"]:
+                continue
+            prev = one(app.conn, "SELECT action, purchase_eligibility FROM recommendation WHERE id=?",
+                       (r["previous_recommendation_id"],))
+            action_changed = prev["action"] != r["action"]
+            elig_changed = prev["purchase_eligibility"] != r["purchase_eligibility"]
+            if not (action_changed or elig_changed):
+                continue
+            parts = ([f"{prev['action']} → {r['action']}"] if action_changed else []) + \
+                ([f"purchases {prev['purchase_eligibility'] or 'UNKNOWN'} → {r['purchase_eligibility']}"] if elig_changed else [])
+            eid, created = record_event(
+                app, f"{'action' if action_changed else 'eligibility'}:{rid}",
+                "ACTION_CHANGE" if action_changed else "ELIGIBILITY_CHANGE",
+                severity="CRITICAL" if r["action"] == "EXIT" else "MATERIAL", verified=True,
+                security_id=r["security_id"], public_at=r["as_of"], job_run_id=run_id,
+                payload={"label": "; ".join(parts), "recommendation_id": rid, "portfolio_id": p,
+                         "previous_recommendation_id": r["previous_recommendation_id"],
+                         "action": {"before": prev["action"], "now": r["action"]},
+                         "eligibility": {"before": prev["purchase_eligibility"], "now": r["purchase_eligibility"]}})
+            if created:
+                changed.append(eid)
     # 4. alerts
     for eid in new_events + changed:
         _alert_for_event(app, eid, pids)
@@ -205,12 +218,29 @@ def _alert_for_event(app: App, event_id: str, pids: list[str]) -> None:
                     + (" — PREVIEW" if r["is_preview"] else ""))
         body.append(f"- Data freshness: price {r['payload']['freshness'].get('price_date')}, filings checked "
                     f"{r['payload']['freshness'].get('filings_checked_hours_ago')} h before the review")
+    if e["event_type"] in ("ACTION_CHANGE", "ELIGIBILITY_CHANGE") and p.get("recommendation_id"):
+        r = rec_mod.get(app, p["recommendation_id"])
+        cc = r["payload"].get("current_conditions") or {}
+        body.append(f"- Purchase eligibility: {r['purchase_eligibility']} (was {(p.get('eligibility') or {}).get('before')})")
+        for pz in cc.get("pauses", []):
+            srcs = ", ".join(f"{s_.get('observation') or s_.get('source_id')} ({s_.get('public_at')})"
+                             for s_ in pz.get("sources", [])[:5]) or "no market observation (see detail)"
+            body.append(f"  - PAUSED {pz['code']}: {pz['detail']}. Evidence: {srcs}. Reassess: {pz['reassess_condition']}"
+                        + (f" (by {pz['reassess_on']})" if pz.get("reassess_on") else ""))
+        for b_ in cc.get("blocks", []):
+            body.append(f"  - BLOCKED: {b_}")
+        if r["purchase_eligibility"] == "ELIGIBLE" and (p.get("eligibility") or {}).get("before") != "ELIGIBLE":
+            body.append("  - The earlier pause/block no longer applies; the next allocation re-validates it at its cutoff.")
     body.append("- Required next step: " + ("review the filing against the thesis and record your assessment "
                                               "(`eqm thesis assess`), then re-run `eqm review`." if e["event_type"] == "NEW_FILING"
                                               else "read the recommendation and record a decision (`eqm decide`)."))
-    create_alert(app, f"alert:{e['event_key']}", "MATERIAL_EVENT", f"{sym}: {p.get('label', e['event_type'])}",
+    title = f"{sym}: {p.get('label', e['event_type'])}"
+    # Cooldown suppresses repeats of the same development; a decision/eligibility change is keyed on the exact
+    # transition, so a reversal (e.g. PAUSED -> ELIGIBLE soon after ELIGIBLE -> PAUSED) is never suppressed.
+    group = title if e["event_type"] in ("ACTION_CHANGE", "ELIGIBILITY_CHANGE") else f"{sym}: "
+    create_alert(app, f"alert:{e['event_key']}", "MATERIAL_EVENT", title,
                  "\n".join(body), severity=e["severity"], event_id=e["id"], security_id=e["security_id"],
-                 cooldown_group=f"{sym}: ")
+                 cooldown_group=group)
 
 
 def weekly_digest(app: App, run_id: str, scheduled_for: datetime, ctx: JobContext | None = None) -> dict:

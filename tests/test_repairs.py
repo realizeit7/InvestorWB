@@ -650,3 +650,64 @@ def test_missing_benchmark_bars_execute_late_or_stay_unapplied(app, bm):
     assert dict(b.values)[date(2026, 3, 4)] == Dec(1500)
     assert any("late" in w and "2026-03-03" in w for w in b.warnings)
     assert [u["amount"] for u in b.unapplied] == [Dec(200)]
+
+
+# ------------------------------------------------------------------ #7 eligibility transitions alert
+def _daily(app, prov, force=False):
+    from equity_monitor.monitoring import scheduler as sch
+    from equity_monitor.monitoring.jobs import JobContext, handlers
+    ctx = JobContext(price_provider=prov, refresh_market_series=False)
+    spec = sch.DEFAULT_JOBS[0]
+    sch.run_instance(app, spec, sch.latest_due(spec, app.now()), handlers(ctx)["daily_refresh"], force=force)
+
+
+def _alerts(app):
+    return [dict(r) for r in app.conn.execute("SELECT alert_key, title, body_md, severity FROM alert "
+                                              "WHERE kind='MATERIAL_EVENT' ORDER BY created_at")]
+
+
+def test_eligibility_transitions_raise_explained_alerts_once(app):
+    from equity_monitor.data.prices import FixturePriceProvider
+    from equity_monitor.decisions.recommend import latest_for
+    from equity_monitor.fixtures import build_market_fixture
+    from equity_monitor.market.exposures import Exposure, approve_profile, create_profile, current_profile
+    app.clock.set(AS_OF)
+    d = build_demo(app)
+    build_market_fixture(app)
+    prov = FixturePriceProvider({s: PriceFetch([Bar(date(2026, 9, 30), v.get("price") or Dec(30))])
+                                 for s, v in d["securities"].items()})
+    _daily(app, prov)
+    s = d["securities"]["ZZADD"]["security_id"]
+    assert latest_for(app, d["portfolio_id"], s)["purchase_eligibility"] == "ELIGIBLE"
+    n0 = len(_alerts(app))
+    original = current_profile(app, s)[1]
+    prof = original.with_exposure(Exposure(factor="REFINANCING", direction="NEGATIVE", magnitude="HIGH",
+                                                             mechanism="x", basis="ANALYST_ASSUMPTION"))
+    approve_profile(app, create_profile(app, s, prof, change_reason="x", label="FIXTURE"))
+    # ELIGIBLE -> PAUSED (action unchanged: ADD)
+    app.clock.set(AS_OF + timedelta(hours=1))
+    build_market_fixture(app, as_of=app.now(), hy_level=Dec("6.5"))
+    _daily(app, prov, force=True)
+    r = latest_for(app, d["portfolio_id"], s)
+    assert (r["action"], r["purchase_eligibility"]) == ("ADD", "PAUSED")
+    new = _alerts(app)[n0:]
+    assert [a["title"] for a in new] == ["ZZADD: purchases ELIGIBLE → PAUSED"]            # was: no alert
+    body = new[0]["body_md"]
+    assert "PAUSED" in body and "Reassess:" in body and "Evidence:" in body
+    # repeated unchanged runs: no new alert (dedup by recommendation/event key)
+    _daily(app, prov, force=True)
+    app.clock.set(AS_OF + timedelta(hours=2))
+    _daily(app, prov, force=True)
+    assert len(_alerts(app)) == n0 + 1
+    # PAUSED -> ELIGIBLE: the owner reassesses and re-approves the profile without the HIGH refinancing exposure
+    app.clock.set(AS_OF + timedelta(hours=3))
+    approve_profile(app, create_profile(app, s, original, change_reason="reassessed: refinancing exposure LOW",
+                                        label="FIXTURE"))
+    _daily(app, prov, force=True)
+    assert latest_for(app, d["portfolio_id"], s)["purchase_eligibility"] == "ELIGIBLE"
+    last = _alerts(app)[n0 + 1:]
+    assert [a["title"] for a in last] == ["ZZADD: purchases PAUSED → ELIGIBLE"]
+    assert "no longer applies" in last[0]["body_md"]
+    # notification authorization is preserved: nothing leaves the machine without it
+    sent = app.conn.execute("SELECT COUNT(*) FROM delivery_attempt").fetchone()[0]
+    assert sent == 0
