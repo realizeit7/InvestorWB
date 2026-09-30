@@ -31,7 +31,7 @@ from ..app import App
 from ..data.prices import price_on_or_before
 from ..db.core import insert, one
 from ..util import dstr, new_id, to_json
-from .fundamentals import FactView
+from .fundamentals import FactView, cash_total, debt_total
 
 ZERO = Decimal(0)
 QUALITY = {"op_margin_avg_3y": 1, "op_margin_trend": 1, "fcf_margin_avg_3y": 1, "fcf_positive_years": 1, "roic": 1,
@@ -95,14 +95,14 @@ def compute_metrics(si: ScreenInput) -> tuple[dict[str, Decimal | None], dict[st
     else:
         notes["fcf"] = "operating cash flow or capex missing"
     ebit = oi.get(ends[-1]) if ends else None
-    cash_f, sti_f = fv.instant("cash"), fv.instant("short_term_investments")
-    cash = (cash_f.value if cash_f and cash_f.value is not None else None)
-    if cash is not None and sti_f and sti_f.value is not None:
-        cash += sti_f.value
-    ltd, cd, eq = fv.instant("long_term_debt"), fv.instant("current_debt"), fv.instant("total_equity")
-    debt = None
-    if ltd or cd:
-        debt = (ltd.value if ltd and ltd.value else ZERO) + (cd.value if cd and cd.value else ZERO)
+    cash_agg, debt_agg = cash_total(fv), debt_total(fv)
+    cash = cash_agg.value                      # known components; missing short-term investments noted below
+    if cash_agg.missing and cash is not None:
+        notes["cash"] = f"cash excludes unreported: {', '.join(cash_agg.missing)}"
+    debt = debt_agg.value if debt_agg.complete else None     # an incomplete debt total is UNKNOWN, not understated
+    if debt_agg.missing:
+        notes["debt"] = f"debt total incomplete ({', '.join(debt_agg.missing)}): leverage metrics withheld"
+    eq = fv.instant("total_equity")
     if ebit is not None and debt is not None and eq and eq.value is not None and cash is not None:
         ic = debt + eq.value - cash
         if ic > 0:

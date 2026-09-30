@@ -362,7 +362,7 @@ def test_paper_variants_for_prospective_comparison(app, demo):
 def test_drafted_refinancing_claim_verifies_with_multiple_debt_facts(app, demo):
     from equity_monitor.research.fundamentals import add_fact
     iss, s = demo["securities"]["ZZHLD"]["issuer_id"], sec(demo, "ZZHLD")
-    add_fact(app, iss, "current_debt", 120_000_000, start=None, end=date(2026, 6, 30),
+    add_fact(app, iss, "debt_current", 120_000_000, start=None, end=date(2026, 6, 30),
              public_at=datetime(2026, 8, 15, 20, 5, tzinfo=UTC), accession="FIXTURE-CD")
     prof = draft_default_profile(app, s)
     vid = create_profile(app, s, prof, change_reason="with current debt", label="FIXTURE")

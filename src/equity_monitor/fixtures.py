@@ -68,8 +68,8 @@ def _facts(app: App, iss: str, cik: str, margins: list[Decimal]) -> None:
         for concept, v in vals.items():
             add_fact(app, iss, concept, v, start=start, end=end, public_at=pub, accession=acc, fiscal_year=end.year,
                      fiscal_period="FY")
-        for concept, v in {"cash": D(500_000_000), "long_term_debt": D(800_000_000), "total_equity": D(1_500_000_000),
-                           "shares_outstanding": D(100_000_000)}.items():
+        for concept, v in {"cash": D(500_000_000), "short_term_investments": D(0), "long_term_debt_noncurrent": D(800_000_000),
+                           "debt_current": D(0), "minority_interest": D(0), "total_equity": D(1_500_000_000), "shares_outstanding": D(100_000_000)}.items():
             add_fact(app, iss, concept, v, start=None, end=end, public_at=pub, accession=acc)
         rev *= D("1.08")
 

@@ -252,7 +252,8 @@ def cmd_valuation(args):
             print(f"inputs written to {args.dump} (edit, then `eqm valuation build {args.symbol} --inputs {args.dump}`)")
     elif args.action == "approve":
         v = latest_valuation(app, sid)
-        approve_valuation(app, v.id, downside_reviewed=args.downside_reviewed, note=args.note or "")
+        approve_valuation(app, v.id, downside_reviewed=args.downside_reviewed, note=args.note or "",
+                          accept_assumptions=args.accept_assumptions)
         print(f"approved {v.id} (downside reviewed: {args.downside_reviewed})")
     elif args.action == "show":
         v = latest_valuation(app, sid)
@@ -687,6 +688,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--dump", help="write the generated inputs to YAML for editing")
     s.add_argument("--reason")
     s.add_argument("--downside-reviewed", action="store_true")
+    s.add_argument("--accept-assumptions", action="store_true", help="explicitly accept flagged assumptions (listed by `valuation show`)")
     s.add_argument("--note")
     s.add_argument("--variable", default="revenue_growth", choices=["revenue_growth", "ebit_margin", "wacc", "terminal_growth"])
     s.set_defaults(fn=cmd_valuation)

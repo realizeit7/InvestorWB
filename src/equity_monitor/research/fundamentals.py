@@ -27,7 +27,7 @@ from ..data.sec import end_of_day_public
 from ..db.core import all_rows, insert, one
 from ..util import D, dstr, iso_utc, new_id, parse_utc
 
-NORMALIZER_VERSION = "norm-1"
+NORMALIZER_VERSION = "norm-2"
 
 # canonical concept -> (unit kind, [(taxonomy, tag) in priority order], period type)
 CONCEPTS: dict[str, tuple[str, list[tuple[str, str]], str]] = {
@@ -63,9 +63,14 @@ CONCEPTS: dict[str, tuple[str, list[tuple[str, str]], str]] = {
                      ("us-gaap", "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents")], "INSTANT"),
     "short_term_investments": ("USD", [("us-gaap", "ShortTermInvestments"), ("us-gaap", "MarketableSecuritiesCurrent"),
                                        ("us-gaap", "AvailableForSaleSecuritiesDebtSecuritiesCurrent")], "INSTANT"),
-    "long_term_debt": ("USD", [("us-gaap", "LongTermDebtNoncurrent"), ("us-gaap", "LongTermDebt")], "INSTANT"),
-    "current_debt": ("USD", [("us-gaap", "LongTermDebtCurrent"), ("us-gaap", "DebtCurrent"),
-                             ("us-gaap", "ShortTermBorrowings")], "INSTANT"),
+    # Debt is modelled as separate concepts: the us-gaap tags below have DIFFERENT scopes and are never
+    # substitutes for one another (see debt_total()).
+    "long_term_debt_noncurrent": ("USD", [("us-gaap", "LongTermDebtNoncurrent")], "INSTANT"),
+    "long_term_debt_total": ("USD", [("us-gaap", "LongTermDebt")], "INSTANT"),          # includes current maturities
+    "long_term_debt_current": ("USD", [("us-gaap", "LongTermDebtCurrent")], "INSTANT"),  # current maturities only
+    "debt_current": ("USD", [("us-gaap", "DebtCurrent")], "INSTANT"),                    # all current debt
+    "short_term_borrowings": ("USD", [("us-gaap", "ShortTermBorrowings")], "INSTANT"),
+    "commercial_paper": ("USD", [("us-gaap", "CommercialPaper")], "INSTANT"),           # often inside short-term borrowings
     "operating_lease_liabilities": ("USD", [("us-gaap", "OperatingLeaseLiability")], "INSTANT"),
     "minority_interest": ("USD", [("us-gaap", "MinorityInterest")], "INSTANT"),
     "total_equity": ("USD", [("us-gaap", "StockholdersEquity")], "INSTANT"),
@@ -212,6 +217,16 @@ class FactView:
                 and (on_or_before is None or f.end <= on_or_before)]
         return vals[-1] if vals else None
 
+    def instant_at(self, concept: str, d: date) -> FactValue | None:
+        """Instant value reported for exactly period end ``d`` (no substitution from other dates)."""
+        vals = [f for f in self._facts.get(concept, []) if f.start is None and f.end == d]
+        return vals[-1] if vals else None
+
+    def instant_dates(self, concepts: tuple[str, ...], on_or_before: date | None = None) -> list[date]:
+        return sorted({f.end for c in concepts for f in self._facts.get(c, [])
+                       if f.start is None and f.value is not None and (on_or_before is None or f.end <= on_or_before)},
+                      reverse=True)
+
     def quarters(self, concept: str) -> list[FactValue]:
         """Discrete quarterly values, deriving from YTD durations where needed (additive concepts only)."""
         by_end: dict[date, FactValue] = {f.end: f for f in self.durations(concept, 3)}
@@ -263,3 +278,130 @@ def latest_financials_public_at(app: App, issuer_id: str) -> str | None:
 
 def as_of_dt(value: datetime | str) -> datetime:
     return parse_utc(value) if isinstance(value, str) else value  # type: ignore[return-value]
+
+
+
+# ------------------------------------------------------------------ balance-sheet aggregates
+DEBT_CONCEPTS = ("long_term_debt_noncurrent", "long_term_debt_total", "long_term_debt_current", "debt_current",
+                 "short_term_borrowings", "commercial_paper")
+
+
+@dataclass
+class Aggregate:
+    """A balance-sheet total built from same-date components.
+
+    ``value`` covers only KNOWN components. ``missing`` lists components that were not reported for that date:
+    the total is complete only when ``missing`` is empty. ``basis`` is FACT (one reported total), DERIVED (sum or
+    difference of reported facts) or None (nothing reported). Missing parts are never silently zero.
+    """
+    name: str
+    value: Decimal | None
+    period_end: date | None
+    method: str
+    components: list[tuple[str, Decimal, str | None, str | None]]   # (concept, value, fact_id, accession)
+    missing: list[str]
+    warnings: list[str]
+    basis: str | None
+
+    @property
+    def complete(self) -> bool:
+        return self.value is not None and not self.missing
+
+    @property
+    def fact_ids(self) -> list[str]:
+        return [c[2] for c in self.components if c[2]]
+
+
+def debt_total(fv: FactView, on_or_before: date | None = None) -> Aggregate:
+    """Total financial debt at the latest balance-sheet date with any debt concept, without double counting.
+
+    Long-term part: LongTermDebtNoncurrent; else LongTermDebt - LongTermDebtCurrent; else LongTermDebt (which
+    already includes current maturities). Current part: DebtCurrent (all current debt) when reported; otherwise
+    current maturities + short-term borrowings (commercial paper only when short-term borrowings are absent,
+    because CP is commonly inside them). Components from other dates are never mixed in.
+    """
+    dates = fv.instant_dates(DEBT_CONCEPTS, on_or_before)
+    if not dates:
+        return Aggregate("debt", None, None, "no debt concept reported", [], ["all debt concepts"], [], None)
+    d = dates[0]
+    g = {c: fv.instant_at(c, d) for c in DEBT_CONCEPTS}
+    v = {c: (f.value if f and f.value is not None else None) for c, f in g.items()}
+    comps: list[tuple[str, Decimal, str | None, str | None]] = []
+    missing: list[str] = []
+    warnings: list[str] = []
+    method: list[str] = []
+
+    def use(c: str, sign: int = 1) -> Decimal:
+        comps.append((c if sign > 0 else f"-{c}", v[c] * sign, g[c].fact_id, g[c].accession))
+        return v[c] * sign
+
+    total = Decimal(0)
+    long_includes_current = False
+    if v["long_term_debt_noncurrent"] is not None:
+        total += use("long_term_debt_noncurrent")
+        method.append("LongTermDebtNoncurrent")
+    elif v["long_term_debt_total"] is not None and v["long_term_debt_current"] is not None:
+        total += use("long_term_debt_total") + use("long_term_debt_current", -1)
+        method.append("LongTermDebt - LongTermDebtCurrent")
+    elif v["long_term_debt_total"] is not None:
+        total += use("long_term_debt_total")
+        long_includes_current = True
+        method.append("LongTermDebt (includes current maturities)")
+    else:
+        missing.append("long-term debt")
+    st_key = "short_term_borrowings" if v["short_term_borrowings"] is not None else \
+        ("commercial_paper" if v["commercial_paper"] is not None else None)
+    if v["debt_current"] is not None:
+        if long_includes_current:
+            if v["long_term_debt_current"] is not None:
+                total += use("debt_current") + use("long_term_debt_current", -1)
+                method.append("+ DebtCurrent - LongTermDebtCurrent (maturities already in LongTermDebt)")
+            elif st_key:
+                total += use(st_key)
+                method.append(f"+ {st_key} (DebtCurrent overlaps LongTermDebt; its split is unknown)")
+                warnings.append("DebtCurrent reported but not separable from LongTermDebt; used short-term borrowings instead")
+            else:
+                missing.append("short-term borrowings (DebtCurrent overlaps LongTermDebt and cannot be separated)")
+        else:
+            total += use("debt_current")
+            method.append("+ DebtCurrent")
+    else:
+        if not long_includes_current:
+            if v["long_term_debt_current"] is not None:
+                total += use("long_term_debt_current")
+                method.append("+ LongTermDebtCurrent")
+            else:
+                missing.append("current maturities of long-term debt")
+        if st_key:
+            total += use(st_key)
+            method.append(f"+ {st_key}")
+        else:
+            missing.append("short-term borrowings")
+    if v["short_term_borrowings"] is not None and v["commercial_paper"] is not None:
+        warnings.append("commercial paper not added separately (commonly included in short-term borrowings)")
+    other_dates = [c for c in DEBT_CONCEPTS if g[c] is None and fv.instant(c, on_or_before) is not None]
+    for c in other_dates:
+        warnings.append(f"{c} reported only for other dates ({fv.instant(c, on_or_before).end}); not combined with {d}")
+    basis = None if missing else ("FACT" if len(comps) == 1 else "DERIVED")
+    return Aggregate("debt", total, d, " ".join(method), comps, missing, warnings, basis)
+
+
+def cash_total(fv: FactView, on_or_before: date | None = None) -> Aggregate:
+    dates = fv.instant_dates(("cash",), on_or_before)
+    if not dates:
+        return Aggregate("cash", None, None, "no cash concept reported", [], ["cash and equivalents"], [], None)
+    d = dates[0]
+    c, s = fv.instant_at("cash", d), fv.instant_at("short_term_investments", d)
+    comps = [("cash", c.value, c.fact_id, c.accession)]
+    missing, warnings = [], []
+    total = c.value
+    if s is not None and s.value is not None:
+        comps.append(("short_term_investments", s.value, s.fact_id, s.accession))
+        total += s.value
+    else:
+        missing.append("short-term investments")
+        later = fv.instant("short_term_investments", on_or_before)
+        if later is not None:
+            warnings.append(f"short-term investments reported only for {later.end}; not combined with {d}")
+    return Aggregate("cash", total, d, "cash" + (" + short-term investments" if len(comps) > 1 else ""), comps, missing,
+                     warnings, "FACT" if len(comps) == 1 else "DERIVED")

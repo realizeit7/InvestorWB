@@ -325,7 +325,7 @@ def test_invalid_denominators_do_not_look_attractive(app):  # §18.11
             for c, v in {"revenue": 1000, "operating_income": oi, "cfo": cfo, "capex": 50, "dna": 30,
                          "shares_diluted_weighted": 100}.items():
                 add_fact(app, iss, c, v, start=s, end=e, public_at=p, accession=f"{i}-{y}")
-            for c, v in {"cash": 100, "long_term_debt": 200, "total_equity": 500}.items():
+            for c, v in {"cash": 100, "long_term_debt_noncurrent": 200, "debt_current": 0, "total_equity": 500}.items():
                 add_fact(app, iss, c, v, start=None, end=e, public_at=p, accession=f"{i}-{y}")
         rows.append(ScreenInput(sid, f"S{i}", "3570", "SIC35", FactView(app, iss, AS_OF), Dec(px)))
     res = {r.symbol: r for r in score(app, rows)}

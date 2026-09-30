@@ -56,7 +56,21 @@ def create_valuation(app: App, security_id: str, scenarios: dict[str, ScenarioIn
     return vid
 
 
-def approve_valuation(app: App, valuation_id: str, *, downside_reviewed: bool, note: str = "", approver: str = "owner") -> None:
+class AssumptionsNotAcknowledged(ValueError):
+    pass
+
+
+def approve_valuation(app: App, valuation_id: str, *, downside_reviewed: bool, note: str = "", approver: str = "owner",
+                      accept_assumptions: bool = False) -> None:
+    """Approve a valuation. Inputs flagged as assumptions (e.g. unreported balance-sheet components assumed 0)
+    must be explicitly accepted; the accepted flags are recorded with the approval."""
+    r = one(app.conn, "SELECT inputs_json FROM valuation_version WHERE id=?", (valuation_id,))
+    flags = from_json(r["inputs_json"])["base"].get("review_flags") or []
+    if flags and not accept_assumptions:
+        raise AssumptionsNotAcknowledged("valuation contains unapproved assumptions; review and pass accept_assumptions=True "
+                                         "(CLI: --accept-assumptions): " + "; ".join(flags))
+    if flags:
+        note = (note + " | " if note else "") + "accepted assumptions: " + "; ".join(flags)
     insert(app.conn, "valuation_approval", {"id": new_id("vap"), "valuation_version_id": valuation_id,
                                             "approved_at": app.now_iso(), "approver": approver,
                                             "downside_reviewed": int(downside_reviewed), "note": note})

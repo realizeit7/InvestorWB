@@ -144,7 +144,9 @@ def _company(app, cik, margin: Dec):
         add_fact(app, iss, "operating_income", rev[i] * margin, start=s, end=e, public_at=p, accession=f"{cik}-{y}")
         add_fact(app, iss, "shares_diluted_weighted", 100, start=s, end=e, public_at=p, accession=f"{cik}-{y}")
         add_fact(app, iss, "cash", 50, start=None, end=e, public_at=p, accession=f"{cik}-{y}")
-        add_fact(app, iss, "long_term_debt", 100, start=None, end=e, public_at=p, accession=f"{cik}-{y}")
+        add_fact(app, iss, "long_term_debt_noncurrent", 100, start=None, end=e, public_at=p, accession=f"{cik}-{y}")
+        add_fact(app, iss, "debt_current", 0, start=None, end=e, public_at=p, accession=f"{cik}-{y}")
+        add_fact(app, iss, "short_term_investments", 0, start=None, end=e, public_at=p, accession=f"{cik}-{y}")
     return iss
 
 

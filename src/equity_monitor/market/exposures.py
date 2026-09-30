@@ -19,7 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from ..app import App
 from ..db.core import all_rows, insert, one
 from ..research.evidence import Citation, ClaimIn, verify_claim
-from ..research.fundamentals import FactView
+from ..research.fundamentals import FactView, cash_total, debt_total
 from ..util import from_json, iso_utc, new_id, stable_hash, to_json
 from .series import REFERENCE_ETFS, SECTOR_ETFS
 
@@ -151,18 +151,23 @@ def draft_default_profile(app: App, security_id: str, as_of: datetime | None = N
         fv = FactView(app, r["iid"], as_of)
         oi = fv.annual("operating_income")
         ie = fv.annual("interest_expense")
-        ltd, cd, cash = fv.instant("long_term_debt"), fv.instant("current_debt"), fv.instant("cash")
-        if oi and (ltd or cd):
-            debt = sum((f.value for f in (ltd, cd) if f and f.value), Decimal(0))
+        debt_agg, cash_agg = debt_total(fv, as_of.date()), cash_total(fv, as_of.date())
+        if oi and debt_agg.value is not None:
+            debt = debt_agg.value
             cov = (oi[-1].value / ie[-1].value) if ie and ie[-1].value and ie[-1].end == oi[-1].end else None
             ebit = oi[-1].value
-            lev = (debt - (cash.value if cash and cash.value else 0)) / ebit if ebit and ebit > 0 else None
+            lev = (debt - (cash_agg.value or 0)) / ebit if ebit and ebit > 0 else None
             mag = "HIGH" if (lev is not None and lev > 3) or (cov is not None and cov < 4) or ebit <= 0 else \
                   "MEDIUM" if (lev is not None and lev > 1.5) else "LOW"
-            cits = [Citation(fact_id=f.fact_id) for f in (oi[-1], ltd, cd) if f is not None and f.fact_id]
-            parts = [f"operating income {ebit:,.0f} USD"] + \
-                [f"{lbl} {f.value:,.0f} USD" for lbl, f in (("long-term debt", ltd), ("current debt", cd)) if f and f.value]
-            txt = "Filed figures: " + "; ".join(parts)   # each number is a filed fact (a computed total would not verify)
+            if debt_agg.missing:
+                mag = "UNKNOWN" if mag == "LOW" else mag      # incomplete debt can only understate leverage
+            labels = {"long_term_debt_noncurrent": "long-term debt (noncurrent)", "long_term_debt_total": "long-term debt",
+                      "long_term_debt_current": "current maturities of long-term debt", "debt_current": "current debt",
+                      "short_term_borrowings": "short-term borrowings", "commercial_paper": "commercial paper"}
+            facts = [(f"operating income", oi[-1].value, oi[-1].fact_id)] + \
+                [(labels[c.lstrip('-')], abs(v), fid) for c, v, fid, _acc in debt_agg.components]
+            cits = [Citation(fact_id=fid) for _l, _v, fid in facts if fid]
+            txt = "Filed figures: " + "; ".join(f"{lbl} {val:,.0f} USD" for lbl, val, _ in facts)
             exposures.append(Exposure(factor="REFINANCING", direction="NEGATIVE", magnitude=mag,
                                       mechanism="maturing debt must be refinanced at prevailing yields and spreads; "
                                                 f"net debt/EBIT {lev:.2f}" if lev is not None else "maturing debt refinanced at prevailing rates",

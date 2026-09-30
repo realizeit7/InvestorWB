@@ -10,7 +10,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from ..config.models import ValuationDefaults
-from ..research.fundamentals import FactValue, FactView
+from ..research.fundamentals import Aggregate, FactValue, FactView, cash_total, debt_total
 from .dcf import A, ScenarioInputs, Series, Source
 
 ZERO = Decimal(0)
@@ -103,24 +103,40 @@ def build_scenarios(fv: FactView, defaults: ValuationDefaults) -> dict[str, Scen
 
     flags: list[str] = []
 
-    def inst(concept: str) -> tuple[Decimal, Source]:
+    def aggregate(agg: Aggregate, label: str) -> A:
+        """Bridge input from a same-date aggregate. Unknown parts are an explicit, flagged assumption (0 until
+        the owner approves the valuation with the assumption acknowledged); never labelled FACT."""
+        refs = ",".join(sorted({c[3] or c[2] or "?" for c in agg.components})) or None
+        if agg.value is None:
+            flags.append(f"{label}: nothing reported; ASSUMED 0 — confirm before approving")
+            return A(value=ZERO, source=Source(kind="ANALYST_JUDGMENT", note=f"{label} not reported; assumed 0 (unapproved)"))
+        note = f"{label} as of {agg.period_end}: {agg.method}"
+        for w in agg.warnings:
+            flags.append(f"{label}: {w}")
+        if agg.missing:
+            flags.append(f"{label}: components not reported for {agg.period_end} ({', '.join(agg.missing)}); "
+                         f"ASSUMED 0 — confirm before approving")
+            return A(value=agg.value, source=Source(kind="ANALYST_JUDGMENT", ref=refs,
+                                                    note=note + f"; unreported components assumed 0: {', '.join(agg.missing)}"))
+        return A(value=agg.value, source=Source(kind=agg.basis or "DERIVED", ref=refs, note=note))
+
+    def inst(concept: str, label: str) -> A:
         f = fv.instant(concept)
         if f is None or f.value is None:
-            if concept in ("cash", "long_term_debt"):
-                flags.append(f"{concept} not found in filings; assumed 0 pending owner review")
-            return ZERO, Source(kind="ANALYST_JUDGMENT", note=f"{concept} not reported; assumed 0 — REVIEW")
-        return f.value, _src("FACT", [f], f"{concept} as of {f.end}")
+            flags.append(f"{label}: not reported; ASSUMED 0 — confirm before approving")
+            return A(value=ZERO, source=Source(kind="ANALYST_JUDGMENT", note=f"{label} not reported; assumed 0 (unapproved)"))
+        return A(value=f.value, source=_src("FACT", [f], f"{label} as of {f.end}"))
 
-    cash_v, cash_s = inst("cash")
-    sti_v, sti_s = inst("short_term_investments")
-    ltd_v, ltd_s = inst("long_term_debt")
-    cd_v, cd_s = inst("current_debt")
-    mi_v, mi_s = inst("minority_interest")
-    lease_v, lease_s = inst("operating_lease_liabilities")
-    cash_a = A(value=cash_v + sti_v, source=Source(kind="FACT", ref=f"{cash_s.ref},{sti_s.ref}",
-                                                   note=f"cash + short-term investments ({cash_s.note}; {sti_s.note})"))
-    debt_a = A(value=ltd_v + cd_v, source=Source(kind="FACT", ref=f"{ltd_s.ref},{cd_s.ref}",
-                                                 note=f"long-term + current debt ({ltd_s.note}; {cd_s.note})"))
+    cash_agg, debt_agg = cash_total(fv), debt_total(fv)
+    cash_a = aggregate(cash_agg, "cash & short-term investments")
+    debt_a = aggregate(debt_agg, "debt")
+    if cash_agg.period_end and debt_agg.period_end and cash_agg.period_end != debt_agg.period_end:
+        flags.append(f"cash ({cash_agg.period_end}) and debt ({debt_agg.period_end}) come from different balance-sheet dates")
+    mi_a = inst("minority_interest", "minority interest")
+    lease_f = fv.instant("operating_lease_liabilities")
+    lease_a = A(value=lease_f.value, source=_src("FACT", [lease_f], f"operating leases as of {lease_f.end}")) \
+        if lease_f is not None and lease_f.value is not None else \
+        A(value=ZERO, source=Source(kind="ANALYST_JUDGMENT", note="operating lease cost left in EBIT (leases not treated as debt)"))
     base_rev = A(value=base_rev_fact.value, source=_src("FACT" if not base_rev_fact.derived else "DERIVED",
                                                         [base_rev_fact], base_rev_fact.note or "latest fiscal-year revenue"))
     shares_a = A(value=shares_fact.value, source=_src("FACT", [shares_fact], f"diluted shares for period ending {shares_fact.end}"))
@@ -132,7 +148,7 @@ def build_scenarios(fv: FactView, defaults: ValuationDefaults) -> dict[str, Scen
         name="base", base_revenue=base_rev, revenue_growth=Series(values=growth, source=g_src),
         ebit_margin=Series(values=[m] * n, source=m_src), tax_rate=tax_a, dna_pct_revenue=dna, capex_pct_revenue=capex,
         nwc_pct_incremental_revenue=nwc, wacc=wacc, terminal_growth=gt, cash_and_investments=cash_a, debt=debt_a,
-        minority_interest=A(value=mi_v, source=mi_s), lease_liabilities=A(value=lease_v, source=lease_s),
+        minority_interest=mi_a, lease_liabilities=lease_a,
         diluted_shares=shares_a, review_flags=flags)
 
     def shifted(name: str, sign: int) -> ScenarioInputs:
