@@ -27,6 +27,12 @@ def _inline(s: str) -> str:
 
 
 def md_to_html(md: str, title: str = "Report") -> str:
+    return (f"<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content='width=device-width,"
+            f"initial-scale=1'><title>{html.escape(title)}</title><style>{CSS}</style></head><body>{md_fragment(md)}</body></html>")
+
+
+def md_fragment(md: str) -> str:
+    """HTML body fragment (used by the dashboard)."""
     out: list[str] = []
     lines = md.splitlines()
     i = 0
@@ -51,6 +57,18 @@ def md_to_html(md: str, title: str = "Report") -> str:
                        + "".join("<tr>" + "".join(f"<td>{_inline(c)}</td>" for c in r) + "</tr>" for r in body)
                        + "</tbody></table>")
             continue
+        if re.match(r"^\d+\.\s+", ln):
+            items = []
+            while i < len(lines) and (re.match(r"^\d+\.\s+", lines[i]) or re.match(r"^\s{2,}[-*]\s+", lines[i])):
+                cur = lines[i]
+                if re.match(r"^\d+\.\s+", cur):
+                    items.append([re.sub(r"^\d+\.\s+", "", cur), []])
+                elif items:
+                    items[-1][1].append(re.sub(r"^\s*[-*]\s+", "", cur))
+                i += 1
+            out.append("<ol>" + "".join(f"<li>{_inline(t)}" + ("<ul>" + "".join(f"<li>{_inline(x)}</li>" for x in sub) + "</ul>" if sub else "")
+                                        + "</li>" for t, sub in items) + "</ol>")
+            continue
         if re.match(r"^\s*[-*]\s+", ln):
             items = []
             while i < len(lines) and re.match(r"^\s*[-*]\s+", lines[i]):
@@ -66,9 +84,8 @@ def md_to_html(md: str, title: str = "Report") -> str:
             out.append("<blockquote>" + "<br>".join(_inline(x) for x in buf) + "</blockquote>")
             continue
         buf = []
-        while i < len(lines) and lines[i].strip() and not re.match(r"^(#|\||>|\s*[-*]\s)", lines[i]):
+        while i < len(lines) and lines[i].strip() and not re.match(r"^(#|\||>|\s*[-*]\s|\d+\.\s)", lines[i]):
             buf.append(lines[i])
             i += 1
         out.append("<p>" + _inline(" ".join(buf)) + "</p>")
-    return (f"<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content='width=device-width,"
-            f"initial-scale=1'><title>{html.escape(title)}</title><style>{CSS}</style></head><body>{''.join(out)}</body></html>")
+    return "".join(out)

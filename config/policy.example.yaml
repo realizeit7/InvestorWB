@@ -1,6 +1,8 @@
 # Decision policy. ALL numbers are provisional engineering defaults, not validated investment rules.
 # status: PREVIEW until you review and approve (eqm policy approve, then set status: APPROVED).
 # FROZEN is required before prospective paper execution. See POLICY.md for every definition.
+# market: current-conditions rules (purchase eligibility). They can only pause/block purchases or raise research;
+#         they never create ADD/TRIM/EXIT and never relax portfolio limits. pause_on_market_stress is opt-in.
 name: provisional-preview
 version: 0.1.0
 status: PREVIEW
@@ -69,4 +71,33 @@ valuation:
   scenario_growth_shift: '0.04'
   scenario_margin_shift: '0.03'
   scenario_wacc_shift: '0.01'
+market:
+  enabled: true
+  require_exposure_profile_for_purchase: true
+  pause_on_adverse_high_exposure: true
+  pause_on_unknown_high_exposure: true
+  pause_on_market_stress: false
+  unreviewed_event_pause_days: 30
+  pause_reassess_days: 30
+  cluster_window_before_days: 3
+  cluster_window_after_days: 10
+  stale_daily_days: 7
+  stale_monthly_days: 75
+  rates_1m_change_pp: '0.50'
+  hy_oas_level_pct: '5.0'
+  hy_oas_3m_change_pp: '1.0'
+  usd_3m_change: '0.05'
+  oil_3m_change: '0.25'
+  copper_3m_change: '0.20'
+  cpi_yoy_high: '0.04'
+  unemployment_3m_rise_pp: '0.5'
+  indpro_yoy_contraction: '-0.02'
+  market_drawdown: '0.10'
+  vix_elevated: '30'
+  short_interest_days_to_cover_research: '8'
+  short_interest_change_research: '0.5'
+  valuation_rate_change_proposal_pp: '0.50'
+  sector_relative_research: '0.15'
+  company_specific_move_research: '0.15'
+  stress_wacc_shift: '0.01'
 

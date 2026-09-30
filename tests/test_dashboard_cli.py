@@ -41,7 +41,7 @@ def _call(wsgi, path, method="GET", body=b"", qs=""):
 def test_dashboard_views(demo_home):
     home, d = demo_home
     wsgi = server.make_wsgi(SimpleNamespace(home=str(home), policy="none", settings="none"))
-    for path in ("/", "/allocation", "/health", "/inbox", f"/company/{d['securities']['ZZEXT']['security_id']}"):
+    for path in ("/", "/market", "/allocation", "/health", "/inbox", f"/company/{d['securities']['ZZEXT']['security_id']}"):
         status, html = _call(wsgi, path)
         assert status.startswith("200"), (path, html[:500])
         assert "FIXTURE" in html and "PREVIEW" in html

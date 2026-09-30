@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block body %}
+{% if lt %}<div class="kpis"><div class="card kpi"><div class="muted">Portfolio beta to SPY</div><div class="v">{{ lt.portfolio_beta_spy|num }}</div><div class="muted">counted once at portfolio level</div></div>
+<div class="card kpi"><div class="muted">Portfolio beta to QQQ</div><div class="v">{{ lt.portfolio_beta_qqq|num }}</div><div class="muted">beta unknown for: {{ lt.beta_unknown_for|join(', ') or 'none' }}</div></div>
+<div class="card kpi"><div class="muted">Cash weight</div><div class="v">{{ lt.cash_weight|pct }}</div><div class="muted">ETF weight without look-through {{ lt.etf_weight_without_lookthrough|pct }}</div></div></div>{% endif %}
+<div class="card md scroll">{{ body|safe }}</div>
+{% endblock %}

@@ -185,8 +185,18 @@ def parse_fred_csv(text: str) -> list[tuple[date, Decimal | None]]:
 
 def refresh_fred(app: App, keys: list[str] | None = None, client: HttpClient | None = None, *, since_days: int = 1500,
                  job_run_id: str | None = None, fetch=None) -> dict:
-    client = client or HttpClient(provider="fred", user_agent="equity-monitor/0.1 (personal research)", min_interval_s=0.5)
     out = {}
+    if client is None and fetch is None:
+        contact = app.settings.sec_user_agent
+        if not contact:
+            # Verified 2026-09-30: FRED silently stalls requests whose User-Agent lacks a contact email.
+            msg = "FRED needs a User-Agent with contact details: set sec_user_agent in config/user.yaml"
+            for k in (keys or list(SPECS)):
+                record_check(app, "fred", k, "SERIES", False, None, msg, job_run_id)
+                out[k] = {"ok": False, "error": msg}
+            return out
+        client = HttpClient(provider="fred", user_agent=f"InvestorWB/0.1 {contact}", min_interval_s=0.5,
+                            timeout_s=15, max_retries=1)
     for spec in [SPECS[k] for k in (keys or list(SPECS))]:
         fid = spec.key.split(":", 1)[1]
         url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={fid}"

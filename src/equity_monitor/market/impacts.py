@@ -277,8 +277,7 @@ def analyze(app: App, *, security_id: str, issuer_id: str | None, symbol: str, s
         except (ValuationError, KeyError, ValueError):
             stress = None
 
-    dev = {"market": [o.statement for o in obs if o.level == "MARKET"], "sector": [o.statement for o in obs if o.level == "SECTOR"],
-           "company": [o.statement for o in obs if o.level == "COMPANY"]}
+    dev = {lv.lower(): list(dict.fromkeys(o.statement for o in obs if o.level == lv)) for lv in ("MARKET", "SECTOR", "COMPANY")}
     chains.sort(key=lambda c: (-EFFECT_RANK[c.effect], c.cluster_key))
     return ImpactAnalysis(snapshot["id"] if snapshot else None, profile[0] if profile else None, obs, clusters, chains, unknowns,
                           list(proposals.values()), dev, stress)

@@ -14,89 +14,142 @@
 
 ## Holdings and current recommendation
 
-| Symbol | Shares | Price (date) | Value | Weight | Cost basis | Unrealized | Business | Action | MoS | Freshness |
-|---|---|---|---|---|---|---|---|---|---|---|
-| SCHG | 600.0000 | 32.08 (2026-09-30) | $19,248.00 | 18.7% | $18,240.00 | $1,008.00 | — | **ETF (tracked, no company valuation)** | — | price 0 session(s) old |
-| ZZHLD | 396.0396 | 24.24 (2026-09-30) | $9,600.00 | 9.3% | $8,000.00 | $1,600.00 | INTACT | **HOLD** | 10.0% | price 0 session(s) old |
-| ZZTRM | 218.0550 | 39.74 (2026-09-30) | $8,665.50 | 8.4% | $5,000.00 | $3,665.50 | INTACT | **TRIM** | -30.0% | price 0 session(s) old |
-| ZZREV | 288.1844 | 22.67 (2026-09-30) | $6,533.14 | 6.3% | $7,000.00 | -$466.86 | INTACT | **REVIEW** | 30.0% | price 0 session(s) old |
-| ZZEXT | 755.6675 | 5.29 (2026-09-30) | $3,997.48 | 3.9% | $6,000.00 | -$2,002.52 | BROKEN | **EXIT** | 50.0% | price 0 session(s) old |
-| ZZADD | 140.9443 | 22.70 (2026-09-30) | $3,199.44 | 3.1% | $4,000.00 | -$800.56 | INTACT | **ADD** | 40.0% | price 0 session(s) old |
+| Symbol | Shares | Price (date) | Value | Weight | Cost basis | Unrealized | Business | Action | Purchases | MoS | Freshness |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| SCHG | 600.0000 | 32.08 (2026-09-30) | $19,248.00 | 18.7% | $18,240.00 | $1,008.00 | — | **ETF (tracked, no company valuation)** | — | — | price 0 session(s) old |
+| ZZHLD | 396.0396 | 24.24 (2026-09-30) | $9,600.00 | 9.3% | $8,000.00 | $1,600.00 | INTACT | **HOLD** | ELIGIBLE | 10.0% | price 0 session(s) old |
+| ZZTRM | 218.0550 | 39.74 (2026-09-30) | $8,665.50 | 8.4% | $5,000.00 | $3,665.50 | INTACT | **TRIM** | BLOCKED | -30.0% | price 0 session(s) old |
+| ZZREV | 288.1844 | 22.67 (2026-09-30) | $6,533.14 | 6.3% | $7,000.00 | -$466.86 | INTACT | **REVIEW** | BLOCKED | 30.0% | price 0 session(s) old |
+| ZZEXT | 755.6675 | 5.29 (2026-09-30) | $3,997.48 | 3.9% | $6,000.00 | -$2,002.52 | BROKEN | **EXIT** | BLOCKED | 50.0% | price 0 session(s) old |
+| ZZADD | 140.9443 | 22.70 (2026-09-30) | $3,199.44 | 3.1% | $4,000.00 | -$800.56 | INTACT | **ADD** | ELIGIBLE | 40.0% | price 0 session(s) old |
 
 ## Watchlist
 
-| Symbol | Status | Action | MoS | Explanation |
-|---|---|---|---|---|
-| ZZNEW | APPROVED | ADD | 35.0% | Thesis intact; margin of safety 35.0% >= 25%; within limits. |
+| Symbol | Status | Action | Purchases | MoS | Explanation |
+|---|---|---|---|---|---|
+| ZZNEW | APPROVED | ADD | PAUSED | 35.0% | Thesis intact; margin of safety 35.0% >= 25%; within limits. |
 
-## Recommendation details
+## Market context used by these reviews
 
-### ZZHLD: HOLD (business INTACT)
+- Shared snapshot `mks_e036b98ff3344fe48396` as of 2026-09-30T22:00:00.000000Z (session 2026-09-30); full detail: `eqm market show`
+- Flags (conditions, not forecasts): CREDIT_TIGHTENING
+- Missing inputs (UNKNOWN, not neutral): none
+- Not available: single-stock options (IV/skew/term structure/OI); ETF fund flows; ETF holdings look-through; futures positioning (CFTC COT, deferred); licensed news feed
+- Portfolio market exposure counted once: beta to SPY -0.62, to QQQ -0.17 (cash weight 50.3%; beta unknown for none). Company reviews add no separate market-move penalty.
 
-- As of 2026-09-30T22:00:00.000000Z · previous action: none · reasons: NO_ADD
-- Ownership remains reasonable but new money is not preferred: margin of safety 10.0% < 25%; position at/above target weight 8%
-- Price 24.24 vs values bear/base/bull: 15.22 / 26.94 / 46.06 (scenarios, not forecasts)
-- Bear-case downside from price: -37.2%
-- Concentration: issuer 9.3% (limit 10.0%), sector Consumer Staples 9.3% (limit 30.0%)
-- Freshness: price date 2026-09-30, filings checked 0.00 h ago, latest period 2026-06-30
-- Next review: 2026-10-08
-- What would change this: ADD band starts at price <= 20.20 (MoS 25%) if thesis stays intact; TRIM considered at price >= 32.32 (120% of base value); EXIT considered at price >= 46.06 (bull value); EXIT if verified: Operating margin below 10% for 2 consecutive fiscal years; EXIT if verified: Loss of the largest customer contract
+## Per-holding review
 
-### ZZTRM: TRIM (business INTACT)
+### ZZHLD: HOLD · purchases ELIGIBLE
 
-- As of 2026-09-30T22:00:00.000000Z · previous action: none · reasons: VALUATION_ABOVE_TRIM_BAND
-- Price is 130% of base value (> 120%).
-- Price 39.74 vs values bear/base/bull: 17.88 / 30.57 / 51.15 (scenarios, not forecasts)
-- Bear-case downside from price: -55.0%
-- Concentration: issuer 8.4% (limit 10.0%), sector Industrials 8.4% (limit 30.0%)
-- Freshness: price date 2026-09-30, filings checked 0.00 h ago, latest period 2026-06-30
-- Next review: 2026-10-08
-- Proposed (not executed): SELL about $4,545.36 — illustrative trim to half the target weight; owner decides size
-- What would change this: ADD band starts at price <= 22.93 (MoS 25%) if thesis stays intact; TRIM considered at price >= 36.68 (120% of base value); EXIT considered at price >= 51.15 (bull value); EXIT if verified: Operating margin below 10% for 2 consecutive fiscal years; EXIT if verified: Loss of the largest customer contract
+1. **Action and purchase eligibility** — long-term action **HOLD** (business INTACT); purchases **ELIGIBLE** (fundamental-only baseline: ELIGIBLE). Ownership remains reasonable but new money is not preferred: margin of safety 10.0% < 25%; position at/above target weight 8%
+2. **Thesis** — original v1 (approved 2026-09-30); current v1 (unchanged); status INTACT
+3. **Broad-market developments** — CREDIT_TIGHTENING: HY OAS 6.2% (+3.20pp over 3m); SPY 1m -0.6%, 3m +0.5%, 12m +8.1%, -1.1% from 52w high; QQQ 1m +1.8%, 3m +2.8%, 12m +9.5%, -0.2% from 52w high
+   - `market:CREDIT` → relevance LINKED via REFINANCING → mechanism: REFINANCING (LOW, NEGATIVE when the company's cost of refinancing debt rises): maturing debt must be refinanced at prevailing yields and spreads; net debt/EBIT 1.32 → implication: RISK → **NO_CHANGE** (LINKED_NO_CHANGE)
+   - `market:EQUITY_MARKET` → relevance CONTEXT → mechanism: none applied: market strength does not justify buying and weakness does not justify selling → implication: NONE → **CONTEXT_ONLY** (BROAD_MARKET_CONTEXT)
+4. **Sector / industry developments** — Consumer Staples (XLP) 3m +0.9%, vs SPY +0.4%
+   - `sector:SECTOR:XLP` → relevance SECTOR_MEMBER → mechanism: none identified → implication: NONE → **CONTEXT_ONLY** (SECTOR_CONTEXT)
+5. **Company-specific developments** — ZZHLD 1m +20.0%: market +0.0%, sector +0.0%, company-specific +20.0% (association, not causation)
+   - `company:PRICE:2026-W40` → relevance COMPANY → mechanism: unclear: may reflect information not yet in filings, hedging, or noise → implication: RESEARCH → **RESEARCH_TASK** (LARGE_COMPANY_SPECIFIC_MOVE)
+6. **Evidence** — supporting: none cited · contradicting: none cited · research tasks: LARGE_COMPANY_SPECIFIC_MOVE (company:PRICE:2026-W40)
+7. **Valuation assumptions** — no changes proposed
+8. **Position size and next contribution** — HOLD: keep the position; no new money preferred
+9. **Missing data and freshness** — price 2026-09-30 (0 session(s) old); filings checked 0.00 h before; latest period 2026-06-30; market snapshot 2026-09-30T22:00:00.000000Z; missing: none
+10. **What would change the decision** — ADD band starts at price <= 20.20 (MoS 25%) if thesis stays intact; TRIM considered at price >= 32.32 (120% of base value); EXIT considered at price >= 46.06 (bull value); EXIT if verified: Operating margin below 10% for 2 consecutive fiscal years; EXIT if verified: Loss of the largest customer contract
+    - Traceability: recommendation `rec_9c975d7847444f2a8f40`, snapshot `mks_e036b98ff3344fe48396`, exposure profile `exv_2f8634354da94d6fbd37`, thesis `thv_24071a9ed98c41758a67`, valuation `val_b24d41eecc2d44e98b35`, policy `pol_a4a6a4e61548455482f0`
 
-### ZZREV: REVIEW (business INTACT)
+### ZZTRM: TRIM · purchases BLOCKED
 
-- As of 2026-09-30T22:00:00.000000Z · previous action: none · reasons: VALUATION_NOT_APPROVED
-- Review required before any action: valuation assumptions not approved
-- Price 22.67 vs values bear/base/bull: 19.20 / 32.38 / 53.70 (scenarios, not forecasts)
-- Bear-case downside from price: -15.3%
-- Concentration: issuer 6.3% (limit 10.0%), sector Communication Services 6.3% (limit 30.0%)
-- Freshness: price date 2026-09-30, filings checked 0.00 h ago, latest period 2026-06-30
-- Next review: 2026-10-08
-- Missing / to resolve: valuation assumptions not approved
-- What would change this: Resolve: valuation assumptions not approved
+1. **Action and purchase eligibility** — long-term action **TRIM** (business INTACT); purchases **BLOCKED** (fundamental-only baseline: BLOCKED). Price is 130% of base value (> 120%).
+   - blocked: long-term action is TRIM
+2. **Thesis** — original v1 (approved 2026-09-30); current v1 (unchanged); status INTACT
+3. **Broad-market developments** — CREDIT_TIGHTENING: HY OAS 6.2% (+3.20pp over 3m); SPY 1m -0.6%, 3m +0.5%, 12m +8.1%, -1.1% from 52w high; QQQ 1m +1.8%, 3m +2.8%, 12m +9.5%, -0.2% from 52w high
+   - `market:CREDIT` → relevance LINKED via REFINANCING → mechanism: REFINANCING (LOW, NEGATIVE when the company's cost of refinancing debt rises): maturing debt must be refinanced at prevailing yields and spreads; net debt/EBIT 1.19 → implication: RISK → **NO_CHANGE** (LINKED_NO_CHANGE)
+   - `market:EQUITY_MARKET` → relevance CONTEXT → mechanism: none applied: market strength does not justify buying and weakness does not justify selling → implication: NONE → **CONTEXT_ONLY** (BROAD_MARKET_CONTEXT)
+4. **Sector / industry developments** — Industrials (XLI) 3m +0.9%, vs SPY +0.4%
+   - `sector:SECTOR:XLI` → relevance SECTOR_MEMBER → mechanism: none identified → implication: NONE → **CONTEXT_ONLY** (SECTOR_CONTEXT)
+5. **Company-specific developments** — ZZTRM 1m +73.3%: market +0.0%, sector +0.0%, company-specific +73.3% (association, not causation)
+   - `company:PRICE:2026-W40` → relevance COMPANY → mechanism: unclear: may reflect information not yet in filings, hedging, or noise → implication: RESEARCH → **RESEARCH_TASK** (LARGE_COMPANY_SPECIFIC_MOVE)
+6. **Evidence** — supporting: none cited · contradicting: none cited · research tasks: LARGE_COMPANY_SPECIFIC_MOVE (company:PRICE:2026-W40)
+7. **Valuation assumptions** — no changes proposed
+8. **Position size and next contribution** — No new purchases: long-term action is TRIM. Proposed (not executed): SELL ~4545.361222926400000000000000000000
+9. **Missing data and freshness** — price 2026-09-30 (0 session(s) old); filings checked 0.00 h before; latest period 2026-06-30; market snapshot 2026-09-30T22:00:00.000000Z; missing: none
+10. **What would change the decision** — ADD band starts at price <= 22.93 (MoS 25%) if thesis stays intact; TRIM considered at price >= 36.68 (120% of base value); EXIT considered at price >= 51.15 (bull value); EXIT if verified: Operating margin below 10% for 2 consecutive fiscal years; EXIT if verified: Loss of the largest customer contract
+    - Traceability: recommendation `rec_a343cf2e5b584d158ec8`, snapshot `mks_e036b98ff3344fe48396`, exposure profile `exv_fb0200ccf5eb4c71b1c0`, thesis `thv_5197bd6aac6b4b8a9f98`, valuation `val_b048138bae644a63ade2`, policy `pol_a4a6a4e61548455482f0`
 
-### ZZEXT: EXIT (business BROKEN)
+### ZZREV: REVIEW · purchases BLOCKED
 
-- As of 2026-09-30T22:00:00.000000Z · previous action: none · reasons: VERIFIED_THESIS_INVALIDATION
-- Pre-declared invalidation condition met and verified: Operating margin below 10% for 2 consecutive fiscal years
-- Price 5.29 vs values bear/base/bull: 3.26 / 10.59 / 23.14 (scenarios, not forecasts)
-- Bear-case downside from price: -38.3%
-- Concentration: issuer 3.9% (limit 10.0%), sector Consumer Discretionary 3.9% (limit 30.0%)
-- Freshness: price date 2026-09-30, filings checked 0.00 h ago, latest period 2026-06-30
-- Next review: 2026-10-08
-- Proposed (not executed): SELL about $3,997.48
-- What would change this: Owner may override with a documented rationale; the original thesis stays on record.
+1. **Action and purchase eligibility** — long-term action **REVIEW** (business INTACT); purchases **BLOCKED** (fundamental-only baseline: BLOCKED). Review required before any action: valuation assumptions not approved
+   - blocked: long-term action is REVIEW
+2. **Thesis** — original v1 (approved 2026-09-30); current v1 (unchanged); status INTACT
+3. **Broad-market developments** — CREDIT_TIGHTENING: HY OAS 6.2% (+3.20pp over 3m); SPY 1m -0.6%, 3m +0.5%, 12m +8.1%, -1.1% from 52w high; QQQ 1m +1.8%, 3m +2.8%, 12m +9.5%, -0.2% from 52w high
+   - `market:CREDIT` → relevance LINKED via REFINANCING → mechanism: REFINANCING (LOW, NEGATIVE when the company's cost of refinancing debt rises): maturing debt must be refinanced at prevailing yields and spreads; net debt/EBIT 1.13 → implication: RISK → **NO_CHANGE** (LINKED_NO_CHANGE)
+   - `market:EQUITY_MARKET` → relevance CONTEXT → mechanism: none applied: market strength does not justify buying and weakness does not justify selling → implication: NONE → **CONTEXT_ONLY** (BROAD_MARKET_CONTEXT)
+4. **Sector / industry developments** — Communication Services (XLC) 3m +0.5%, vs SPY +0.0%
+   - `sector:SECTOR:XLC` → relevance SECTOR_MEMBER → mechanism: none identified → implication: NONE → **CONTEXT_ONLY** (SECTOR_CONTEXT)
+5. **Company-specific developments** — ZZREV 1m -6.7%: market +0.0%, sector n/a, company-specific -6.7% (association, not causation)
+   - `company:PRICE:2026-W40` → relevance COMPANY → mechanism: none identified (co-movement is not causation) → implication: NONE → **CONTEXT_ONLY** (COMPANY_CONTEXT)
+6. **Evidence** — supporting: none cited · contradicting: none cited
+7. **Valuation assumptions** — no changes proposed
+8. **Position size and next contribution** — No new purchases: long-term action is REVIEW
+9. **Missing data and freshness** — price 2026-09-30 (0 session(s) old); filings checked 0.00 h before; latest period 2026-06-30; market snapshot 2026-09-30T22:00:00.000000Z; missing: valuation assumptions not approved
+10. **What would change the decision** — Resolve: valuation assumptions not approved
+    - Traceability: recommendation `rec_a3bd0bd867aa4eb8ba76`, snapshot `mks_e036b98ff3344fe48396`, exposure profile `exv_f37ee9bf200d46df878a`, thesis `thv_a52e77bacb524511b710`, valuation `val_c5f5615b75794327a208`, policy `pol_a4a6a4e61548455482f0`
 
-### ZZADD: ADD (business INTACT)
+### ZZEXT: EXIT · purchases BLOCKED
 
-- As of 2026-09-30T22:00:00.000000Z · previous action: none · reasons: THESIS_INTACT, VALUATION_ATTRACTIVE, CAPACITY_AVAILABLE
-- Thesis intact; margin of safety 40.0% >= 25%; within limits.
-- Price 22.70 vs values bear/base/bull: 23.19 / 37.83 / 61.34 (scenarios, not forecasts)
-- Bear-case downside from price: 2.2%
-- Concentration: issuer 3.1% (limit 10.0%), sector Technology 3.1% (limit 30.0%)
-- Freshness: price date 2026-09-30, filings checked 0.00 h ago, latest period 2026-06-30
-- Next review: 2026-10-08
-- What would change this: ADD band starts at price <= 28.38 (MoS 25%) if thesis stays intact; TRIM considered at price >= 45.40 (120% of base value); EXIT considered at price >= 61.34 (bull value); EXIT if verified: Operating margin below 10% for 2 consecutive fiscal years; EXIT if verified: Loss of the largest customer contract
+1. **Action and purchase eligibility** — long-term action **EXIT** (business BROKEN); purchases **BLOCKED** (fundamental-only baseline: BLOCKED). Pre-declared invalidation condition met and verified: Operating margin below 10% for 2 consecutive fiscal years
+   - blocked: long-term action is EXIT
+   - blocked: thesis invalidated (BROKEN)
+   - paused: ADVERSE_REFINANCING_HIGH_EXPOSURE — REFINANCING (HIGH, NEGATIVE when the company's cost of refinancing debt rises): maturing debt must be refinanced at prevailing yields and spreads; net debt/EBIT 5.95 · reassess when CREDIT_TIGHTENING clears, or owner re-approves the valuation/exposure with this condition considered (by 2026-10-30)
+2. **Thesis** — original v1 (approved 2026-09-30); current v1 (unchanged); status BROKEN
+3. **Broad-market developments** — CREDIT_TIGHTENING: HY OAS 6.2% (+3.20pp over 3m); SPY 1m -0.6%, 3m +0.5%, 12m +8.1%, -1.1% from 52w high; QQQ 1m +1.8%, 3m +2.8%, 12m +9.5%, -0.2% from 52w high
+   - `market:CREDIT` → relevance LINKED via REFINANCING → mechanism: REFINANCING (HIGH, NEGATIVE when the company's cost of refinancing debt rises): maturing debt must be refinanced at prevailing yields and spreads; net debt/EBIT 5.95 → implication: RISK → **PAUSE_PURCHASES** (ADVERSE_REFINANCING_HIGH_EXPOSURE)
+   - `market:EQUITY_MARKET` → relevance CONTEXT → mechanism: none applied: market strength does not justify buying and weakness does not justify selling → implication: NONE → **CONTEXT_ONLY** (BROAD_MARKET_CONTEXT)
+4. **Sector / industry developments** — Consumer Discretionary (XLY) 3m -0.0%, vs SPY -0.5%
+   - `sector:SECTOR:XLY` → relevance SECTOR_MEMBER → mechanism: none identified → implication: NONE → **CONTEXT_ONLY** (SECTOR_CONTEXT)
+5. **Company-specific developments** — ZZEXT 1m -33.4%: market +0.0%, sector +0.0%, company-specific -33.4% (association, not causation)
+   - `company:PRICE:2026-W40` → relevance COMPANY → mechanism: unclear: may reflect information not yet in filings, hedging, or noise → implication: RESEARCH → **RESEARCH_TASK** (LARGE_COMPANY_SPECIFIC_MOVE)
+6. **Evidence** — supporting: none cited · contradicting: none cited · research tasks: LARGE_COMPANY_SPECIFIC_MOVE (company:PRICE:2026-W40)
+7. **Valuation assumptions** — no changes proposed; stress: bear 3.26 → 2.53 (WACC +0.01, context only)
+8. **Position size and next contribution** — No new purchases: long-term action is EXIT; thesis invalidated (BROKEN). Proposed (not executed): SELL ~3997.48110674
+9. **Missing data and freshness** — price 2026-09-30 (0 session(s) old); filings checked 0.00 h before; latest period 2026-06-30; market snapshot 2026-09-30T22:00:00.000000Z; missing: none
+10. **What would change the decision** — Owner may override with a documented rationale; the original thesis stays on record.; pause lifts when CREDIT_TIGHTENING clears, or owner re-approves the valuation/exposure with this condition considered
+    - Traceability: recommendation `rec_1ccd43d222344729ac71`, snapshot `mks_e036b98ff3344fe48396`, exposure profile `exv_6de54f4f367a40bda473`, thesis `thv_f01c3e0070764bc69239`, valuation `val_2fc4a50485a2428d80f2`, policy `pol_a4a6a4e61548455482f0`
 
-### ZZNEW: ADD (business INTACT)
+### ZZADD: ADD · purchases ELIGIBLE
 
-- As of 2026-09-30T22:00:00.000000Z · previous action: none · reasons: THESIS_INTACT, VALUATION_ATTRACTIVE, CAPACITY_AVAILABLE
-- Thesis intact; margin of safety 35.0% >= 25%; within limits.
-- Price 24.59 vs values bear/base/bull: 23.19 / 37.83 / 61.34 (scenarios, not forecasts)
-- Bear-case downside from price: -5.7%
-- Concentration: issuer n/a (limit 10.0%), sector Technology 3.1% (limit 30.0%)
-- Freshness: price date 2026-09-30, filings checked 0.00 h ago, latest period 2026-06-30
-- Next review: 2026-10-08
-- What would change this: ADD band starts at price <= 28.38 (MoS 25%) if thesis stays intact; TRIM considered at price >= 45.40 (120% of base value); EXIT considered at price >= 61.34 (bull value); EXIT if verified: Operating margin below 10% for 2 consecutive fiscal years; EXIT if verified: Loss of the largest customer contract
+1. **Action and purchase eligibility** — long-term action **ADD** (business INTACT); purchases **ELIGIBLE** (fundamental-only baseline: ELIGIBLE). Thesis intact; margin of safety 40.0% >= 25%; within limits.
+2. **Thesis** — original v1 (approved 2026-09-30); current v1 (unchanged); status INTACT
+3. **Broad-market developments** — CREDIT_TIGHTENING: HY OAS 6.2% (+3.20pp over 3m); SPY 1m -0.6%, 3m +0.5%, 12m +8.1%, -1.1% from 52w high; QQQ 1m +1.8%, 3m +2.8%, 12m +9.5%, -0.2% from 52w high
+   - `market:CREDIT` → relevance LINKED via REFINANCING → mechanism: REFINANCING (LOW, NEGATIVE when the company's cost of refinancing debt rises): maturing debt must be refinanced at prevailing yields and spreads; net debt/EBIT 0.95 → implication: RISK → **NO_CHANGE** (LINKED_NO_CHANGE)
+   - `market:EQUITY_MARKET` → relevance CONTEXT → mechanism: none applied: market strength does not justify buying and weakness does not justify selling → implication: NONE → **CONTEXT_ONLY** (BROAD_MARKET_CONTEXT)
+4. **Sector / industry developments** — Technology (XLK) 3m -0.0%, vs SPY -0.5%
+   - `sector:SECTOR:XLK` → relevance SECTOR_MEMBER → mechanism: none identified → implication: NONE → **CONTEXT_ONLY** (SECTOR_CONTEXT)
+5. **Company-specific developments** — ZZADD 1m -20.0%: market +0.0%, sector +0.0%, company-specific -20.0% (association, not causation)
+   - `company:PRICE:2026-W40` → relevance COMPANY → mechanism: unclear: may reflect information not yet in filings, hedging, or noise → implication: RESEARCH → **RESEARCH_TASK** (LARGE_COMPANY_SPECIFIC_MOVE)
+6. **Evidence** — supporting: none cited · contradicting: none cited · research tasks: LARGE_COMPANY_SPECIFIC_MOVE (company:PRICE:2026-W40)
+7. **Valuation assumptions** — no changes proposed
+8. **Position size and next contribution** — Eligible for the next monthly contribution, up to about 5,040.85 of room to the target weight
+9. **Missing data and freshness** — price 2026-09-30 (0 session(s) old); filings checked 0.00 h before; latest period 2026-06-30; market snapshot 2026-09-30T22:00:00.000000Z; missing: none
+10. **What would change the decision** — ADD band starts at price <= 28.38 (MoS 25%) if thesis stays intact; TRIM considered at price >= 45.40 (120% of base value); EXIT considered at price >= 61.34 (bull value); EXIT if verified: Operating margin below 10% for 2 consecutive fiscal years; EXIT if verified: Loss of the largest customer contract
+    - Traceability: recommendation `rec_0c25dbd15edf4bcdbb2c`, snapshot `mks_e036b98ff3344fe48396`, exposure profile `exv_118eff1d432d4064b213`, thesis `thv_e7d7b239855e4031b54d`, valuation `val_530b85bcfdc94917935f`, policy `pol_a4a6a4e61548455482f0`
+
+### ZZNEW: ADD · purchases PAUSED
+
+1. **Action and purchase eligibility** — long-term action **ADD** (business INTACT); purchases **PAUSED** (fundamental-only baseline: ELIGIBLE). Thesis intact; margin of safety 35.0% >= 25%; within limits.
+   - paused: ADVERSE_REFINANCING_HIGH_EXPOSURE — REFINANCING (HIGH, NEGATIVE when the company's cost of refinancing debt rises): ILLUSTRATIVE: large bond maturity next year must be refinanced · reassess when CREDIT_TIGHTENING clears, or owner re-approves the valuation/exposure with this condition considered (by 2026-10-30)
+2. **Thesis** — original v1 (approved 2026-09-30); current v1 (unchanged); status INTACT
+3. **Broad-market developments** — CREDIT_TIGHTENING: HY OAS 6.2% (+3.20pp over 3m); SPY 1m -0.6%, 3m +0.5%, 12m +8.1%, -1.1% from 52w high; QQQ 1m +1.8%, 3m +2.8%, 12m +9.5%, -0.2% from 52w high
+   - `market:CREDIT` → relevance LINKED via REFINANCING → mechanism: REFINANCING (HIGH, NEGATIVE when the company's cost of refinancing debt rises): ILLUSTRATIVE: large bond maturity next year must be refinanced → implication: RISK → **PAUSE_PURCHASES** (ADVERSE_REFINANCING_HIGH_EXPOSURE)
+   - `market:EQUITY_MARKET` → relevance CONTEXT → mechanism: none applied: market strength does not justify buying and weakness does not justify selling → implication: NONE → **CONTEXT_ONLY** (BROAD_MARKET_CONTEXT)
+4. **Sector / industry developments** — Technology (XLK) 3m -0.0%, vs SPY -0.5%
+   - `sector:SECTOR:XLK` → relevance SECTOR_MEMBER → mechanism: none identified → implication: NONE → **CONTEXT_ONLY** (SECTOR_CONTEXT)
+5. **Company-specific developments** — ZZNEW 1m -13.4%: market +0.0%, sector +0.0%, company-specific -13.4% (association, not causation)
+   - `company:PRICE:2026-W40` → relevance COMPANY → mechanism: none identified (co-movement is not causation) → implication: NONE → **CONTEXT_ONLY** (COMPANY_CONTEXT)
+6. **Evidence** — supporting: none cited · contradicting: none cited
+7. **Valuation assumptions** — no changes proposed; stress: bear 23.19 → 20.13 (WACC +0.01, context only)
+8. **Position size and next contribution** — Long-term case supports adding, but purchases are PAUSED (ADVERSE_REFINANCING_HIGH_EXPOSURE); the next contribution skips it until the pause is reassessed
+9. **Missing data and freshness** — price 2026-09-30 (0 session(s) old); filings checked 0.00 h before; latest period 2026-06-30; market snapshot 2026-09-30T22:00:00.000000Z; missing: none
+10. **What would change the decision** — ADD band starts at price <= 28.38 (MoS 25%) if thesis stays intact; TRIM considered at price >= 45.40 (120% of base value); EXIT considered at price >= 61.34 (bull value); EXIT if verified: Operating margin below 10% for 2 consecutive fiscal years; EXIT if verified: Loss of the largest customer contract; pause lifts when CREDIT_TIGHTENING clears, or owner re-approves the valuation/exposure with this condition considered
+    - Traceability: recommendation `rec_9d3a6a5321834c2fbfa6`, snapshot `mks_e036b98ff3344fe48396`, exposure profile `exv_5c220538ef7a4c7da68d`, thesis `thv_8a047973215a438ab687`, valuation `val_0fd8d48da03f4e9eb3a6`, policy `pol_a4a6a4e61548455482f0`
 

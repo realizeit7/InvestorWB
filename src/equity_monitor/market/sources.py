@@ -44,7 +44,7 @@ SOURCES: dict[str, SourceSpec] = {s.id: s for s in [
                "decades for large ETFs; continuous futures roll without adjustment",
                "volume is trading activity, not investor flows; continuous futures series have roll jumps"),
     SourceSpec("fred", "FRED graph CSV (St. Louis Fed)", ("rates", "inflation", "growth", "employment", "credit", "fx", "commodities"),
-               "DECISION", "public CSV download, no key", "free",
+               "DECISION", "public CSV download, no key; User-Agent must include a contact email (requests without one stall; verified 2026-09-30)", "free",
                "public; some series (ICE BofA spreads) carry third-party terms and limited history",
                "US macro and market series", "daily market series ~1 business day; CPI/payrolls ~2-6 weeks after period",
                "CURRENT VINTAGE ONLY without an API key: backfilled history may include later revisions (flagged); "

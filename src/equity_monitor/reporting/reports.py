@@ -22,6 +22,8 @@ from ..ledger.views import portfolio_view
 from ..research.thesis import history, original_version, current_version
 from ..util import fmt_money, fmt_pct, from_json, iso_utc, to_json
 from ..valuation.store import latest_valuation
+from ..market.lookthrough import portfolio_market_exposure
+from ..market.snapshot import snapshot_as_of
 from .markdown import md_to_html
 
 
@@ -72,8 +74,8 @@ def portfolio_review_md(app: App, portfolio_id: str, as_of: datetime | None = No
            f"- Dividends: {_num(view.dividends, money=True)} · Fees: {_num(view.fees, money=True)}",
            f"- Open reconciliation issues: {len(view.open_issues)}", ""]
     md += ["## Holdings and current recommendation", "",
-           "| Symbol | Shares | Price (date) | Value | Weight | Cost basis | Unrealized | Business | Action | MoS | Freshness |",
-           "|---|---|---|---|---|---|---|---|---|---|---|"]
+           "| Symbol | Shares | Price (date) | Value | Weight | Cost basis | Unrealized | Business | Action | Purchases | MoS | Freshness |",
+           "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for h in view.holdings:
         r = rec_mod.latest_for(app, portfolio_id, h.security_id) if h.security_type not in ("ETF", "FUND") else None
         act = r["action"] if r else ("ETF (tracked, no company valuation)" if h.security_type in ("ETF", "FUND") else "not reviewed")
@@ -82,51 +84,134 @@ def portfolio_review_md(app: App, portfolio_id: str, as_of: datetime | None = No
         fresh = f"price {h.price_stale_sessions} session(s) old" if h.price_stale_sessions is not None else "no price"
         md.append(f"| {h.symbol} | {h.shares:,.4f} | {_num(h.price)} ({h.price_date or '—'}) | {_num(h.market_value, money=True)} | "
                   f"{_num(h.weight, pct=True)} | {_num(h.cost_basis, money=True) if h.cost_basis is not None else 'unknown'} | "
-                  f"{_num(h.unrealized_gain, money=True) if h.unrealized_gain is not None else 'unknown'} | {bus} | **{act}** | {mos} | {fresh} |")
+                  f"{_num(h.unrealized_gain, money=True) if h.unrealized_gain is not None else 'unknown'} | {bus} | **{act}** | "
+                  f"{(r.get('purchase_eligibility') or 'UNKNOWN') if r else '—'} | {mos} | {fresh} |")
     wl = all_rows(app.conn, "SELECT w.security_id, s.symbol, w.status FROM watchlist_entry w JOIN security s ON s.id=w.security_id "
                             "WHERE w.status IN ('APPROVED','RESEARCH') ORDER BY s.symbol")
     if wl:
-        md += ["", "## Watchlist", "", "| Symbol | Status | Action | MoS | Explanation |", "|---|---|---|---|---|"]
+        md += ["", "## Watchlist", "", "| Symbol | Status | Action | Purchases | MoS | Explanation |", "|---|---|---|---|---|---|"]
         for w in wl:
             r = rec_mod.latest_for(app, portfolio_id, w["security_id"])
-            md.append(f"| {w['symbol']} | {w['status']} | {r['action'] if r else '—'} | "
+            md.append(f"| {w['symbol']} | {w['status']} | {r['action'] if r else '—'} | {(r.get('purchase_eligibility') or 'UNKNOWN') if r else '—'} | "
                       f"{_num(r['payload'].get('margin_of_safety'), pct=True) if r else '—'} | {r['explanation'][:120] if r else ''} |")
-    md += ["", "## Recommendation details", ""]
+    snap = snapshot_as_of(app, as_of)
+    md += ["", "## Market context used by these reviews", ""]
+    if snap:
+        md += [f"- Shared snapshot `{snap['id']}` as of {snap['as_of']} (session {snap['session']}); full detail: `eqm market show`",
+               "- Flags (conditions, not forecasts): " + (", ".join(sorted({f['flag'] for f in snap['flags']})) or "none"),
+               "- Missing inputs (UNKNOWN, not neutral): " + (", ".join(snap["missing"]) or "none"),
+               "- Not available: " + "; ".join(snap["unavailable"])]
+        try:
+            lt = portfolio_market_exposure(app, portfolio_id, view.as_of)
+            md.append(f"- Portfolio market exposure counted once: beta to SPY {_num(lt['portfolio_beta_spy'])}, to QQQ "
+                      f"{_num(lt['portfolio_beta_qqq'])} (cash weight {_num(lt['cash_weight'], pct=True)}; beta unknown for "
+                      f"{', '.join(lt['beta_unknown_for']) or 'none'}). Company reviews add no separate market-move penalty.")
+        except Exception as exc:  # noqa: BLE001 - reporting must not hide the rest of the review
+            md.append(f"- Portfolio market exposure: unavailable ({exc})")
+    else:
+        md.append("- **No market snapshot**: broad-market, sector and economic conditions are UNKNOWN for these reviews.")
+    md += ["", "## Per-holding review", ""]
     for h in [x for x in view.holdings if x.security_type not in ("ETF", "FUND")] + [
             type("W", (), {"security_id": w["security_id"], "symbol": w["symbol"]}) for w in wl]:
         r = rec_mod.latest_for(app, portfolio_id, h.security_id)
         if not r:
             continue
-        p = r["payload"]
-        md += [f"### {h.symbol}: {r['action']} (business {r['business_assessment']})", "",
-               f"- As of {r['as_of']} · previous action: {r['previous_action'] or 'none'} · reasons: {', '.join(r['reason_codes'])}",
-               f"- {r['explanation']}",
-               f"- Price {_num(p.get('price'))} vs values bear/base/bull: {_num(p['downside'].get('bear_value'))} / "
-               f"{_num(p['downside'].get('base_value'))} / {_num(p['downside'].get('bull_value'))} (scenarios, not forecasts)",
-               f"- Bear-case downside from price: {_num(p['downside'].get('bear_downside'), pct=True)}",
-               f"- Concentration: issuer {_num(p['concentration'].get('issuer_weight'), pct=True)} (limit {_num(p['concentration'].get('issuer_limit'), pct=True)}), "
-               f"sector {p['concentration'].get('sector')} {_num(p['concentration'].get('sector_weight'), pct=True)} (limit {_num(p['concentration'].get('sector_limit'), pct=True)})",
-               f"- Freshness: price date {p['freshness'].get('price_date')}, filings checked {_num(p['freshness'].get('filings_checked_hours_ago'))} h ago, "
-               f"latest period {p['freshness'].get('latest_period_end')}",
-               f"- Next review: {p.get('next_review')}"]
-        if p.get("missing"):
-            md.append("- Missing / to resolve: " + "; ".join(p["missing"]))
-        if p.get("urgent"):
-            md.append("- **Urgent:** " + "; ".join(p["urgent"]))
-        if p.get("proposed_trade"):
-            t = p["proposed_trade"]
-            md.append(f"- Proposed (not executed): {t.get('side')} about {_num(t.get('amount'), money=True)}"
-                      f"{' — ' + t['note'] if t.get('note') else ''}")
-        md.append("- What would change this: " + "; ".join(p.get("change_conditions") or []))
-        ch = p.get("changes", {})
-        if not ch.get("first_review"):
-            md.append(f"- Since {ch.get('since')}: action {ch.get('previous_action')} → {r['action']}; "
-                      f"{len(ch.get('new_documents', []))} new filing(s); price {_num(ch['price'].get('before'))} → {_num(ch['price'].get('now'))}")
-        md.append("")
+        md += holding_section_md(r) + [""]
     if view.open_issues:
         md += ["## Reconciliation issues", "", "| Type | Severity | Security | Detail |", "|---|---|---|---|"]
         for i in view.open_issues:
             md.append(f"| {i['issue_type']} | {i['severity']} | {i['security_id'] or ''} | {i['detail_json'][:140]} |")
+    return "\n".join(md) + "\n"
+
+
+def holding_section_md(r: dict) -> list[str]:
+    """The ten required items for one holding (works for older recommendations without market context)."""
+    p = r["payload"]
+    cc = p.get("current_conditions") or {}
+    lt = p.get("long_term_case") or {}
+    chains = p.get("chains") or []
+    ctx = (p.get("market_context") or {})
+    md = [f"### {p['symbol']}: {r['action']} · purchases {r.get('purchase_eligibility') or 'UNKNOWN'}", ""]
+    md.append(f"1. **Action and purchase eligibility** — long-term action **{r['action']}** (business {r['business_assessment']}); "
+              f"purchases **{r.get('purchase_eligibility') or 'UNKNOWN'}** (fundamental-only baseline: {r.get('baseline_eligibility') or 'n/a'}). "
+              f"{r['explanation']}")
+    for b in cc.get("blocks", []):
+        md.append(f"   - blocked: {b}")
+    for pz in cc.get("pauses", []):
+        md.append(f"   - paused: {pz['code']} — {pz['detail']} · reassess when {pz['reassess_condition']}"
+                  + (f" (by {pz['reassess_on']})" if pz.get("reassess_on") else ""))
+    o, c = lt.get("original_thesis"), lt.get("current_thesis")
+    md.append("2. **Thesis** — " + (f"original v{o['version_no']} (approved {str(o['approved_at'])[:10]}); current v{c['version_no']}"
+                                     f"{' — changed: ' + c['change_reason'] if lt.get('thesis_changed_since_original') else ' (unchanged)'}; "
+                                     f"status {lt.get('business_assessment')}" if o and c else "no approved thesis"))
+    def level(lv, title, n):
+        rel = [ch for ch in chains if ch["level"] == lv]
+        lines = [f"{n}. **{title}** — " + ("; ".join((ctx.get("developments") or {}).get(lv.lower(), [])[:6]) or "none recorded")]
+        for ch in rel:
+            lines.append(f"   - `{ch['cluster_key']}` → relevance {ch['relevance'].get('status')}"
+                         f"{' via ' + ', '.join(ch['relevance'].get('exposures') or []) if ch['relevance'].get('exposures') else ''}"
+                         f" → mechanism: {ch['mechanism']} → implication: {ch['implication'].get('type')} → **{ch['effect']}** ({ch['reason']})")
+        return lines
+    md += level("MARKET", "Broad-market developments", 3)
+    md += level("SECTOR", "Sector / industry developments", 4)
+    md += level("COMPANY", "Company-specific developments", 5)
+    sup = [e for e in p.get("evidence", []) if e.get("supports", True)]
+    con = [e for e in p.get("evidence", []) if not e.get("supports", True)]
+    md.append(f"6. **Evidence** — supporting: " + ("; ".join(f"[{e['verification']}] {e['text']}" for e in sup) or "none cited")
+              + " · contradicting: " + ("; ".join(f"[{e['verification']}] {e['text']}" for e in con) or "none cited")
+              + (" · research tasks: " + "; ".join(f"{x['reason']} ({x['cluster']})" for x in cc.get("research", [])) if cc.get("research") else ""))
+    vc = p.get("valuation_changes") or {}
+    props = vc.get("proposals") or []
+    md.append("7. **Valuation assumptions** — " + ("; ".join(f"proposed {x['assumption']} {_num(x['current'], pct=True)} → "
+                                                          f"{_num(x['proposed'], pct=True)} ({x['status']})" for x in props)
+                                                 or "no changes proposed")
+              + (f"; stress: bear {_num(vc['stress_downside']['bear_value'])} → {_num(vc['stress_downside']['stressed_bear_value'])} "
+                 f"({vc['stress_downside']['shift']}, context only)" if vc.get("stress_downside") else ""))
+    pi = p.get("position_implications") or {}
+    md.append(f"8. **Position size and next contribution** — {pi.get('summary', 'n/a')}")
+    fr = p.get("freshness", {})
+    md.append(f"9. **Missing data and freshness** — price {fr.get('price_date')} ({fr.get('price_stale_sessions')} session(s) old); "
+              f"filings checked {_num(fr.get('filings_checked_hours_ago'))} h before; latest period {fr.get('latest_period_end')}; "
+              f"market snapshot {ctx.get('snapshot_as_of') or 'NONE'}; missing: " + ("; ".join(p.get("missing") or []) or "none"))
+    changes = list(p.get("change_conditions") or []) + [f"pause lifts when {pz['reassess_condition']}" for pz in cc.get("pauses", [])]
+    md.append("10. **What would change the decision** — " + ("; ".join(changes) or "n/a"))
+    if p.get("urgent"):
+        md.append("    - **Urgent:** " + "; ".join(p["urgent"]))
+    ch = p.get("changes", {})
+    if not ch.get("first_review"):
+        el = ch.get("eligibility") or {}
+        md.append(f"    - Since {ch.get('since')}: action {ch.get('previous_action')} → {r['action']}; purchases "
+                  f"{el.get('before')} → {el.get('now')}; {len(ch.get('new_documents', []))} new filing(s)")
+    md.append(f"    - Traceability: recommendation `{r['id']}`, snapshot `{r.get('market_snapshot_id')}`, exposure profile "
+              f"`{r.get('exposure_version_id')}`, thesis `{r['thesis_version_id']}`, valuation `{r['valuation_version_id']}`, "
+              f"policy `{r['policy_version_id']}`")
+    return md
+
+
+def market_context_md(app: App, snapshot: dict) -> str:
+    md = [f"# Market context — {snapshot['session']}", "",
+          f"Snapshot `{snapshot['id']}` as of {snapshot['as_of']}. Deterministic, point-in-time; referenced by company reviews.", "",
+          "## Broad market (reference ETFs and indices)", "", "| Instrument | Status | 1m | 3m | 12m | From 52w high | Realized vol 3m |",
+          "|---|---|---|---|---|---|---|"]
+    for sym, m in snapshot["instruments"].items():
+        md.append(f"| {sym} | {m.get('status')} | {_num(m.get('ret_1m'), pct=True)} | {_num(m.get('ret_3m'), pct=True)} | "
+                  f"{_num(m.get('ret_12m'), pct=True)} | {_num(m.get('drawdown_from_52w_high'), pct=True)} | {_num(m.get('realized_vol_3m'), pct=True)} |")
+    md += ["", f"VIX / VIX3M ratio: {_num(snapshot.get('implied_vol_term_ratio'))} (implied volatility term structure; not a probability).", "",
+           "## Economy and financial markets", "", "| Series | Status | Value | Period | Public at | Δ1m | Δ3m | y/y | Vintage |",
+           "|---|---|---|---|---|---|---|---|---|"]
+    for k, v in snapshot["indicators"].items():
+        md.append(f"| {v.get('name')} (`{k}`) | {v['status']} | {v.get('value', '—')} | {v.get('period', '—')} | {v.get('public_at', '—')} | "
+                  f"{_num(v.get('chg_1m'))} | {_num(v.get('chg_3m'))} | {_num(v.get('pct_12m'), pct=True)} | {v.get('vintage_basis', '—')} |")
+    md += ["", "## Sectors (SPDR sector ETFs)", "", "| Sector | ETF | Status | 1m | 3m | vs SPY 3m |", "|---|---|---|---|---|---|"]
+    for sname, v in snapshot["sectors"].items():
+        md.append(f"| {sname} | {v['etf']} | {v.get('status')} | {_num(v.get('ret_1m'), pct=True)} | {_num(v.get('ret_3m'), pct=True)} | "
+                  f"{_num(v.get('relative_to_spy_3m'), pct=True)} |")
+    md += ["", "## Flags (conditions, not forecasts)", ""]
+    md += [f"- **{f['flag']}** ({f['factor'] or 'broad market'}): {f['observed']} — threshold {f['threshold']}" for f in snapshot["flags"]] or ["- none"]
+    md += ["", "## Missing, stale and unavailable", "", "- Missing (UNKNOWN): " + (", ".join(snapshot["missing"]) or "none"),
+           "- Stale: " + (", ".join(snapshot["stale"]) or "none"),
+           "- Backfilled current-vintage history (may include later revisions): " + (", ".join(snapshot["revision_caveat"]) or "none"),
+           "- Not available: " + "; ".join(snapshot["unavailable"])] + [f"- {n}" for n in snapshot["notes"]]
     return "\n".join(md) + "\n"
 
 

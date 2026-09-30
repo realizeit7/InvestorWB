@@ -133,3 +133,73 @@ Default schedules (America/New_York, DST handled by zoneinfo): `daily_refresh` 1
 Saturday 09:00; `monthly_allocation` 09:00 on the first session of each month. Alert cooldown 24 h for non-critical
 alerts of the same kind and security; CRITICAL events are never suppressed. The first filings sync of an issuer is a
 baseline: only filings public in the last 7 days raise events.
+
+## 9. Current conditions and purchase eligibility (market / sector / company context)
+
+Every review produces two linked assessments:
+
+| assessment | contents | outputs |
+|---|---|---|
+| **Long-term investment case** (§§2–3) | business quality, financial resilience, cash generation, valuation, thesis durability | business assessment + ADD / HOLD / TRIM / EXIT / REVIEW |
+| **Current conditions** (`decisions/conditions.py`) | new developments, market context, event uncertainty, financing conditions | purchase eligibility **ELIGIBLE / PAUSED / BLOCKED** |
+
+- **BLOCKED** — hard constraints: action REVIEW/TRIM/EXIT, business BROKEN, unsupported valuation, issuer or sector weight at/above
+  its limit, unreconciled cash. Market context can never lift a block or relax a limit.
+- **PAUSED** — no block, but wait. Each pause records a reason code, its source observations, a reassessment condition and a
+  reassessment date (default +`market.pause_reassess_days` = 30):
+  - `UNREVIEWED_MATERIAL_EVENT` — a MATERIAL/CRITICAL filing (e.g. 8-K 2.02 results, 5.02 officer change) published after your
+    last approval/decision for the company and within `unreviewed_event_pause_days` (30).
+  - `ADVERSE_<FACTOR>_HIGH_EXPOSURE` — a snapshot flag moves a factor against a **HIGH** approved exposure.
+  - `UNKNOWN_CONDITION_HIGH_EXPOSURE` — every indicator linked to a HIGH exposure is missing (missing ≠ safe).
+  - `NO_APPROVED_EXPOSURE_PROFILE` — sensitivities unknown (`require_exposure_profile_for_purchase`).
+  - `MARKET_STRESS_POLICY` — only if you opt in (`pause_on_market_stress: true`, default **false**).
+- **ELIGIBLE** — nothing blocks or pauses. The allocator buys only names with action **ADD and ELIGIBLE**. A HOLD can be ELIGIBLE
+  (no condition prevents buying) yet receive no money, and a HOLD can be PAUSED.
+
+### Observation → relevance → mechanism → implication → proposed decision
+
+Relevance runs only through the company's **approved exposure profile** (versioned; each exposure has cited evidence or an
+explicit ANALYST_ASSUMPTION label; direction is defined relative to the factor "rising", see SOURCES.md):
+
+| situation | effect |
+|---|---|
+| development with no exposure path (e.g. oil shock for a software company) | CONTEXT_ONLY — cannot change eligibility or create a new recommendation row |
+| broad-market moves (SPY/QQQ, VIX) | CONTEXT_ONLY (market risk is summarised once at portfolio level); pause only if opted in |
+| favorable move on a linked exposure | NO_CHANGE (strength is not a reason to buy) |
+| adverse move, MEDIUM/LOW exposure | NO_CHANGE with RISK implication (monitor) |
+| adverse move, HIGH exposure | PAUSE_PURCHASES |
+| MIXED/UNKNOWN direction or magnitude | RESEARCH_TASK (flag for review, no pause) |
+| sector ETF ±`sector_relative_research` (15%) vs SPY over 3m | RESEARCH_TASK |
+| company-specific price component ≥ 15% (statistical, not causal) | RESEARCH_TASK |
+| short interest days-to-cover ≥ 8 or +50% | RESEARCH_TASK — never a sell signal |
+| short-sale volume, VIX, futures prices/positioning | CONTEXT only |
+| external claim | FACT only if verified against an ingested primary passage/fact; otherwise context |
+
+Market information never creates ADD, TRIM or EXIT. Price co-movement is reported as a statistical attribution (market / sector /
+company-specific components with prior-year betas), never as a cause.
+
+### Clustering and double counting
+
+- Observations are grouped into **clusters** (one development/hypothesis): market flags by family (RATES, CREDIT, FX, OIL, …,
+  EQUITY_MARKET), sector moves by sector, and company observations around a filing anchor (window −3/+10 days). An earnings 8-K, the
+  price drop, a short-interest rise, a short-volume spike and a headline in that window are **one** development with **one** effect.
+- One flag can touch several factors (e.g. RATES_UP → RATES and REFINANCING) but yields one chain and at most one pause per cluster.
+- Valuation changes from market data are **proposals** (e.g. WACC from the 10-year move since the valuation cutoff when
+  |Δ| ≥ `valuation_rate_change_proposal_pp` 0.50pp), deduplicated per assumption, and must go through a new valuation version +
+  approval. A bear-case stress (WACC +1pp) is shown for HIGH rate/refinancing exposures as context only.
+- Broad market exposure is measured once for the whole portfolio (weight × beta to SPY/QQQ, cash = 0); company valuations carry
+  no separate market-move penalty.
+
+### Traceability
+
+Each recommendation stores the snapshot id, exposure-profile version, thesis/valuation/policy versions, the chains with
+observation ids, source ids and publication times, the fundamental-only **baseline eligibility**, and the change in eligibility
+since the previous review. A new row is written only when a decision-relevant input changes.
+
+### Evaluation (prospective)
+
+`eqm evaluate` compares the augmented system with the fundamental-only baseline: diverging eligibility, pause codes, cash
+withheld vs the baseline allocation (cash drag), later returns of paused names vs SPY and the sector ETF (association only),
+source success rates, alert usefulness ratings (`eqm alerts useful|not-useful`), and costs. Drawdown and benchmark-relative
+outcomes of the two variants need two PAPER portfolios fed by `eqm paper --variant augmented|baseline` under a FROZEN policy.
+Fewer than 20 matured pauses ⇒ "insufficient evidence"; no edge is claimed from a short record.

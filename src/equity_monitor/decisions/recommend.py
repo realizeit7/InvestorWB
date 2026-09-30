@@ -110,9 +110,7 @@ def gather_inputs(app: App, portfolio_id: str, security_id: str, as_of: datetime
 
     # critical events not yet reviewed (after the latest approval/decision touching this security)
     last_review = max(filter(None, [
-        thesis.approved_at if thesis else None,
-        one(app.conn, "SELECT MAX(a.approved_at) AS t FROM exposure_approval a JOIN exposure_profile_version v "
-                      "ON v.id=a.exposure_version_id WHERE v.security_id=?", (security_id,))["t"],
+        thesis.approved_at if thesis else None,   # (approving an exposure profile is not a review of company events)
         one(app.conn, "SELECT MAX(a.approved_at) AS t FROM valuation_approval a JOIN valuation_version v "
                       "ON v.id=a.valuation_version_id WHERE v.security_id=?", (security_id,))["t"],
         one(app.conn, "SELECT MAX(d.decided_at) AS t FROM user_decision d JOIN recommendation r ON r.id=d.subject_id "

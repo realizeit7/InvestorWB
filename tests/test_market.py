@@ -46,7 +46,8 @@ def sec(d, sym):
 def add_exposure(app, sid, *exps, reason="add exposure"):
     cur = current_profile(app, sid)
     prof = cur[1] if cur else draft_default_profile(app, sid)
-    prof = prof.model_copy(update={"exposures": list(prof.exposures) + list(exps)})
+    for e in exps:
+        prof = prof.with_exposure(e)
     v = create_profile(app, sid, prof, change_reason=reason, label="FIXTURE")
     approve_profile(app, v)
     return v
@@ -268,6 +269,8 @@ def test_market_context_never_bypasses_limits(app, demo):
 
 # ------------------------------------------------------------------ exposure profiles
 def test_exposure_needs_evidence_or_assumption_label(app, demo):
+    with pytest.raises(ValueError, match="duplicate"):
+        ExposureProfile(sector=None, sector_benchmark=None, exposures=[HIGH_REFI, HIGH_REFI])
     with pytest.raises(ValueError, match="ANALYST_ASSUMPTION"):
         Exposure(factor="RATES", direction="NEGATIVE", magnitude="HIGH", mechanism="x", basis="EVIDENCED")
     with pytest.raises(ValueError):

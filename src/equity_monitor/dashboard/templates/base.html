@@ -10,13 +10,13 @@ main{max-width:1200px;margin:0 auto;padding:16px}.card{background:var(--card);bo
 .banner{border-left:4px solid var(--trim);background:var(--card);padding:8px 12px;margin:12px 0;border-radius:6px}.banner div{margin:2px 0}
 table{border-collapse:collapse;width:100%}th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase}
 .scroll{overflow-x:auto}.muted{color:var(--muted)}.a{font-weight:700;padding:1px 8px;border-radius:10px;border:1px solid currentColor}
-.ADD{color:var(--add)}.HOLD{color:var(--hold)}.TRIM{color:var(--trim)}.EXIT{color:var(--exit)}.REVIEW{color:var(--review)}
+.ELIGIBLE{color:var(--add)}.PAUSED{color:var(--trim)}.BLOCKED{color:var(--exit)}.ADD{color:var(--add)}.HOLD{color:var(--hold)}.TRIM{color:var(--trim)}.EXIT{color:var(--exit)}.REVIEW{color:var(--review)}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}.kpi .v{font-size:20px;font-weight:650}
 button,select,input{font:inherit;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg)}
-a{color:var(--accent)} ul{margin:4px 0;padding-left:20px}
+a{color:var(--accent)} ul,ol{margin:4px 0;padding-left:20px} li{margin:3px 0} .md table{display:block;overflow-x:auto} .md td,.md th{white-space:nowrap}
 </style></head><body>
 <header><strong>Equity monitor</strong>
-{% for (href,label) in [('/','Portfolio'),('/allocation','Allocation'),('/inbox','Inbox'),('/health','Health')] %}
+{% for (href,label) in [('/','Portfolio'),('/market','Market'),('/allocation','Allocation'),('/inbox','Inbox'),('/health','Health')] %}
 <a href="{{ href }}?portfolio={{ pf.name }}" class="{{ 'on' if path==href else '' }}">{{ label }}</a>{% endfor %}
 <form method="get" action="{{ path }}" style="margin-left:auto"><select name="portfolio" onchange="this.form.submit()">
 {% for p in portfolios %}<option value="{{ p.name }}" {{ 'selected' if p.id==pf.id else '' }}>{{ p.name }} [{{ p.kind }}]</option>{% endfor %}</select></form>

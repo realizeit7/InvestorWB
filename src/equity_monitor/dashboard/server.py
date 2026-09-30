@@ -97,14 +97,34 @@ def make_wsgi(args):
                 recs = rec_mod.history_for(app, pf["id"], sid)
                 for r in recs:
                     r["decisions"] = rec_mod.decisions_for(app, r["id"])
+                from ..reporting.reports import holding_section_md
+                from ..reporting.markdown import md_fragment
+                from ..market.exposures import profile_history
+                review_html = md_fragment("\n".join(holding_section_md(recs[-1]))) if recs else ""
+                exposures = [dict(v) | {"content": from_json(v["content_json"]), "verification": from_json(v["verification_json"])}
+                             for v in profile_history(app, sid)]
                 return respond(start, env.get_template("company.html").render(
                     title=sec["symbol"], sec=sec, original=original_version(app, sid), current=current_version(app, sid),
-                    history=history(app, sid), vals=vals, recs=recs, **ctx))
+                    history=history(app, sid), vals=vals, recs=recs, review_html=review_html, exposures=exposures, **ctx))
             if path == "/allocation":
                 a = latest_alloc(app, pf["id"])
                 decs = rec_mod.decisions_for(app, a["id"]) if a else []
                 return respond(start, env.get_template("allocation.html").render(title="Allocation", a=a, p=a["payload"] if a else None,
                                                                                  decisions=decs, **ctx))
+            if path == "/market":
+                from ..market.snapshot import snapshot_as_of
+                from ..reporting.reports import market_context_md
+                from ..reporting.markdown import md_fragment
+                from ..market.lookthrough import portfolio_market_exposure
+                from ..market.snapshot import load_snapshot
+                latest = app.conn.execute("SELECT id FROM market_snapshot ORDER BY as_of DESC, rowid DESC LIMIT 1").fetchone()
+                snap = load_snapshot(app, latest["id"]) if latest else None   # display: latest snapshot, with its own timestamp
+                body = md_fragment(market_context_md(app, snap)) if snap else "<p>No market snapshot yet: run <code>eqm market refresh</code>.</p>"
+                try:
+                    lt = portfolio_market_exposure(app, pf["id"], cal.latest_completed_session(app.now()))
+                except Exception:  # noqa: BLE001
+                    lt = None
+                return respond(start, env.get_template("market.html").render(title="Market context", body=body, lt=lt, **ctx))
             if path == "/health":
                 return respond(start, env.get_template("health.html").render(title="System health", h=system_health(app), **ctx))
             if path == "/inbox":

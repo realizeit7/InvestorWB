@@ -11,21 +11,21 @@
 | Rank | Symbol | MoS | Current weight | Proposed $ | Est. shares | Fee | Proposed weight | Binding constraint |
 |---|---|---|---|---|---|---|---|---|
 | 1 | ZZADD | 40.0% | 3.1% | $5,040.84 | 222.06 | $0.00 | 8.0% | TARGET_WEIGHT  |
-| 2 | ZZNEW | 35.0% | 0.0% | $8,240.28 | 335.11 | $0.00 | 8.0% | TARGET_WEIGHT  |
 
-**Remaining unallocated cash: $38,478.88**
+**Remaining unallocated cash: $46,719.16**
 
 Excluded candidates:
 
-- ZZTRM: latest action TRIM
-- ZZEXT: latest action EXIT
-- ZZHLD: latest action HOLD
 - ZZREV: latest action REVIEW
+- ZZEXT: latest action EXIT
+- ZZTRM: latest action TRIM
+- ZZHLD: latest action HOLD
+- ZZNEW: ADD but purchases PAUSED: ADVERSE_REFINANCING_HIGH_EXPOSURE (reassess 2026-10-30)
 
 Notes:
 
 - Household-level concentration is UNKNOWN: retirement/outside holdings are not recorded.
 - Whether this contribution replaces or supplements SCHG purchases is undecided (setting).
-- 38478.88 left unallocated because constraints bound (TARGET_WEIGHT).
+- 46719.16 left unallocated because constraints bound (TARGET_WEIGHT).
 
 Record your decision with `eqm decide --allocation <id> ACCEPT|REJECT|OVERRIDE`. After trading, record the actual fills with `eqm ledger add` or a CSV import.

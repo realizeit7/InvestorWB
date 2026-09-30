@@ -98,6 +98,19 @@ class ExposureProfile(BaseModel):
     exposures: list[Exposure] = Field(default_factory=list, max_length=30)
     notes: str = ""
 
+    @model_validator(mode="after")
+    def _unique(self):
+        keys = [(e.factor, e.detail or "") for e in self.exposures]
+        dup = {k for k in keys if keys.count(k) > 1}
+        if dup:
+            raise ValueError(f"duplicate exposures {sorted(dup)}: one entry per factor/detail (edit it instead)")
+        return self
+
+    def with_exposure(self, e: Exposure) -> "ExposureProfile":
+        """Return a copy where ``e`` replaces any exposure with the same factor/detail."""
+        rest = [x for x in self.exposures if (x.factor, x.detail or "") != (e.factor, e.detail or "")]
+        return self.model_copy(update={"exposures": rest + [e]})
+
 
 def industry_etf(sic: str | None) -> str | None:
     if not sic:

@@ -4,10 +4,10 @@
    "as_of": "2026-09-30T22:00:00.000000Z",
    "budget": "51759.99999878",
    "contribution_kind": "CONFIRMED",
-   "id": "alloc_1178c38d2ae24671917b",
+   "id": "alloc_da29b2ea601741d4aa86",
    "is_preview": 1,
    "label": "FIXTURE",
-   "remaining_cash": "38478.87999878"
+   "remaining_cash": "46719.15999878"
   }
  ],
  "decisions": [],
@@ -15,25 +15,162 @@
  "kind": "FIXTURE",
  "policy_versions": [
   {
-   "content_hash": "0594e42577e61fe16aef6229d4808d02e0aedd2ea5e2c14b57033309b2065550",
-   "id": "pol_2c06a95c62474d99be78",
+   "content_hash": "a6f454a59dd106bd46ba847681e6465ce5eda37b92a631b744365d6b3fd8b310",
+   "id": "pol_a4a6a4e61548455482f0",
    "name": "provisional-preview@0.1.0",
    "status": "PREVIEW"
   }
  ],
- "portfolio_id": "pf_341f7f0421374a6095f6",
+ "portfolio_id": "pf_a485f90af2b846428527",
  "recommendations": [
   {
    "action": "HOLD",
    "as_of": "2026-09-30T22:00:00.000000Z",
+   "baseline_eligibility": "ELIGIBLE",
    "business_assessment": "INTACT",
    "created_at": "2026-09-30T22:00:00.000000Z",
    "explanation": "Ownership remains reasonable but new money is not preferred: margin of safety 10.0% < 25%; position at/above target weight 8%",
-   "id": "rec_ee39e77845f3452faf92",
-   "input_hash": "3f004d265d1f6d456e59b552e17f9990a6f9396ce72fa1b02613be4f7cf9a9d7",
+   "exposure_version_id": "exv_2f8634354da94d6fbd37",
+   "id": "rec_9c975d7847444f2a8f40",
+   "input_hash": "acea0d861b8c956b3ace560d8a87770e4cdad48d965a0f3d19dca8cd50352b2c",
    "is_preview": 1,
    "label": "FIXTURE",
+   "market_snapshot_id": "mks_e036b98ff3344fe48396",
    "payload": {
+    "baseline_eligibility": "ELIGIBLE",
+    "chains": [
+     {
+      "cluster_key": "company:PRICE:2026-W40",
+      "effect": "RESEARCH_TASK",
+      "implication": {
+       "detail": "ZZHLD 1m +20.0%: market +0.0%, sector +0.0%, company-specific +20.0% (association, not causation)",
+       "type": "RESEARCH"
+      },
+      "level": "COMPANY",
+      "mechanism": "unclear: may reflect information not yet in filings, hedging, or noise",
+      "observations": [
+       "attr:sec_b2e95321ed7f4737a61c:2026-09-30"
+      ],
+      "reason": "LARGE_COMPANY_SPECIFIC_MOVE",
+      "reassess_condition": "owner looks for a primary-source explanation (filings, IR releases)",
+      "reassess_on": null,
+      "relevance": {
+       "status": "COMPANY",
+       "why": "company-level market information"
+      },
+      "sources": [
+       {
+        "data_class": "PRICE_RETURN",
+        "observation": "attr:sec_b2e95321ed7f4737a61c:2026-09-30",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "yahoo_chart"
+       }
+      ]
+     },
+     {
+      "cluster_key": "market:CREDIT",
+      "effect": "NO_CHANGE",
+      "implication": {
+       "detail": [
+        "REFINANCING: adverse; monitor"
+       ],
+       "type": "RISK"
+      },
+      "level": "MARKET",
+      "mechanism": "REFINANCING (LOW, NEGATIVE when the company's cost of refinancing debt rises): maturing debt must be refinanced at prevailing yields and spreads; net debt/EBIT 1.32",
+      "observations": [
+       "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
+       "flag:CREDIT_TIGHTENING:REFINANCING"
+      ],
+      "reason": "LINKED_NO_CHANGE",
+      "reassess_condition": null,
+      "reassess_on": null,
+      "relevance": {
+       "exposures": [
+        "REFINANCING"
+       ],
+       "status": "LINKED"
+      },
+      "sources": [
+       {
+        "data_class": "CREDIT_SPREAD",
+        "observation": "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "snapshot"
+       },
+       {
+        "data_class": "CREDIT_SPREAD",
+        "observation": "flag:CREDIT_TIGHTENING:REFINANCING",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "snapshot"
+       }
+      ]
+     },
+     {
+      "cluster_key": "market:EQUITY_MARKET",
+      "effect": "CONTEXT_ONLY",
+      "implication": {
+       "detail": "SPY 1m -0.6%, 3m +0.5%, 12m +8.1%, -1.1% from 52w high; QQQ 1m +1.8%, 3m +2.8%, 12m +9.5%, -0.2% from 52w high",
+       "type": "NONE"
+      },
+      "level": "MARKET",
+      "mechanism": "none applied: market strength does not justify buying and weakness does not justify selling",
+      "observations": [
+       "px:SPY",
+       "px:QQQ"
+      ],
+      "reason": "BROAD_MARKET_CONTEXT",
+      "reassess_condition": null,
+      "reassess_on": null,
+      "relevance": {
+       "exposures": [],
+       "status": "CONTEXT",
+       "why": "broad market moves are shared by all holdings; market risk is counted once at portfolio level, not per company"
+      },
+      "sources": [
+       {
+        "data_class": "PRICE_RETURN",
+        "observation": "px:SPY",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "yahoo_chart"
+       },
+       {
+        "data_class": "PRICE_RETURN",
+        "observation": "px:QQQ",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "yahoo_chart"
+       }
+      ]
+     },
+     {
+      "cluster_key": "sector:SECTOR:XLP",
+      "effect": "CONTEXT_ONLY",
+      "implication": {
+       "detail": "Consumer Staples (XLP) 3m +0.9%, vs SPY +0.4%",
+       "type": "NONE"
+      },
+      "level": "SECTOR",
+      "mechanism": "none identified",
+      "observations": [
+       "sector:XLP"
+      ],
+      "reason": "SECTOR_CONTEXT",
+      "reassess_condition": null,
+      "reassess_on": null,
+      "relevance": {
+       "status": "SECTOR_MEMBER",
+       "why": "company belongs to this sector/industry"
+      },
+      "sources": [
+       {
+        "data_class": "PRICE_RETURN",
+        "observation": "sector:XLP",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "yahoo_chart"
+       }
+      ]
+     }
+    ],
     "change_conditions": [
      "ADD band starts at price <= 20.20 (MoS 25%) if thesis stays intact",
      "TRIM considered at price >= 32.32 (120% of base value)",
@@ -42,7 +179,28 @@
      "EXIT if verified: Loss of the largest customer contract"
     ],
     "changes": {
+     "eligibility": {
+      "before": null,
+      "now": "ELIGIBLE",
+      "pauses_now": []
+     },
      "first_review": true
+    },
+    "clusters": {
+     "company:PRICE:2026-W40": [
+      "attr:sec_b2e95321ed7f4737a61c:2026-09-30"
+     ],
+     "market:CREDIT": [
+      "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
+      "flag:CREDIT_TIGHTENING:REFINANCING"
+     ],
+     "market:EQUITY_MARKET": [
+      "px:SPY",
+      "px:QQQ"
+     ],
+     "sector:SECTOR:XLP": [
+      "sector:XLP"
+     ]
     },
     "concentration": {
      "issuer_limit": "0.1",
@@ -56,7 +214,7 @@
      {
       "assessor": "ENGINE",
       "description": "Operating margin below 10% for 2 consecutive fiscal years",
-      "id": "ic_25270874be3747219434",
+      "id": "ic_4bcdfef16fa74ae3a03e",
       "kind": "METRIC",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -65,13 +223,30 @@
      {
       "assessor": "NONE",
       "description": "Loss of the largest customer contract",
-      "id": "ic_686afd259c3c4e918c77",
+      "id": "ic_bdec01d343b84c3fb25c",
       "kind": "EVENT",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
       "verified": false
      }
     ],
+    "current_conditions": {
+     "blocks": [],
+     "context_count": 3,
+     "eligibility": "ELIGIBLE",
+     "independent_developments": 4,
+     "observations": 6,
+     "pauses": [],
+     "research": [
+      {
+       "cluster": "company:PRICE:2026-W40",
+       "detail": "unclear: may reflect information not yet in filings, hedging, or noise",
+       "next_step": "owner looks for a primary-source explanation (filings, IR releases)",
+       "reason": "LARGE_COMPANY_SPECIFIC_MOVE"
+      }
+     ],
+     "unknowns": []
+    },
     "disclaimer": "Decision support only. No order has been placed; holdings are unchanged.",
     "downside": {
      "base_value": "26.93580742147896961929701246012247",
@@ -82,6 +257,7 @@
      "price": "24.24"
     },
     "evidence": [],
+    "exposure_version_id": "exv_2f8634354da94d6fbd37",
     "freshness": {
      "filings_check_failed": false,
      "filings_checked_hours_ago": 0.0,
@@ -93,45 +269,236 @@
      "price_stale_sessions": 0
     },
     "held": true,
+    "long_term_case": {
+     "action": "HOLD",
+     "business_assessment": "INTACT",
+     "current_thesis": {
+      "approved_at": "2026-09-30T22:00:00.000000Z",
+      "change_reason": "initial thesis",
+      "version_id": "thv_24071a9ed98c41758a67",
+      "version_no": 1
+     },
+     "margin_of_safety": "0.1000826661438519594469245626043998",
+     "original_thesis": {
+      "approved_at": "2026-09-30T22:00:00.000000Z",
+      "version_id": "thv_24071a9ed98c41758a67",
+      "version_no": 1
+     },
+     "thesis_changed_since_original": false,
+     "valuation": {
+      "approved": true,
+      "base": "26.93580742147896961929701246012247",
+      "bear": "15.21856372415922648482069749266079",
+      "bull": "46.05921352666614187208802857812076",
+      "version_id": "val_b24d41eecc2d44e98b35"
+     }
+    },
     "margin_of_safety": "0.1000826661438519594469245626043998",
+    "market_context": {
+     "developments": {
+      "company": [
+       "ZZHLD 1m +20.0%: market +0.0%, sector +0.0%, company-specific +20.0% (association, not causation)"
+      ],
+      "market": [
+       "CREDIT_TIGHTENING: HY OAS 6.2% (+3.20pp over 3m)",
+       "SPY 1m -0.6%, 3m +0.5%, 12m +8.1%, -1.1% from 52w high",
+       "QQQ 1m +1.8%, 3m +2.8%, 12m +9.5%, -0.2% from 52w high"
+      ],
+      "sector": [
+       "Consumer Staples (XLP) 3m +0.9%, vs SPY +0.4%"
+      ]
+     },
+     "snapshot_as_of": "2026-09-30T22:00:00.000000Z",
+     "snapshot_id": "mks_e036b98ff3344fe48396",
+     "snapshot_missing": []
+    },
     "milestones": [
      {
       "description": "Revenue above $1.3bn by FY2027",
-      "id": "ms_26a7f8f3c02a4f8ca63e",
+      "id": "ms_41dd8979bbb94e389f3d",
       "state": "PENDING"
      }
     ],
     "missing": [],
     "next_review": "2026-10-08",
+    "position_implications": {
+     "limits_unchanged": "market context never relaxes cash, issuer or sector limits",
+     "room_to_target": "0",
+     "summary": "HOLD: keep the position; no new money preferred"
+    },
     "price": "24.24",
     "price_date": "2026-09-30",
     "price_to_base": "0.8999173338561480405530754373956002",
     "proposed_trade": null,
+    "purchase_eligibility": "ELIGIBLE",
     "symbol": "ZZHLD",
-    "urgent": []
+    "urgent": [],
+    "valuation_changes": {
+     "note": "proposals are not applied; material changes need a new valuation version + approval",
+     "proposals": [],
+     "stress_downside": null
+    }
    },
-   "policy_version_id": "pol_2c06a95c62474d99be78",
-   "portfolio_id": "pf_341f7f0421374a6095f6",
+   "policy_version_id": "pol_a4a6a4e61548455482f0",
+   "portfolio_id": "pf_a485f90af2b846428527",
    "previous_action": null,
    "previous_recommendation_id": null,
+   "purchase_eligibility": "ELIGIBLE",
    "reason_codes": [
     "NO_ADD"
    ],
-   "security_id": "sec_5daafb00f5bf4a33877b",
-   "thesis_version_id": "thv_b90a54fa15da4638af54",
-   "valuation_version_id": "val_a01d683bde284ffcbe3a"
+   "security_id": "sec_b2e95321ed7f4737a61c",
+   "thesis_version_id": "thv_24071a9ed98c41758a67",
+   "valuation_version_id": "val_b24d41eecc2d44e98b35"
   },
   {
    "action": "TRIM",
    "as_of": "2026-09-30T22:00:00.000000Z",
+   "baseline_eligibility": "BLOCKED",
    "business_assessment": "INTACT",
    "created_at": "2026-09-30T22:00:00.000000Z",
    "explanation": "Price is 130% of base value (> 120%).",
-   "id": "rec_1a0cd5b6c32a4a089c93",
-   "input_hash": "7a0f8880feb0d2052bed70b93f49cb0da8ba4834b173f37eb510a83ae0d7a14d",
+   "exposure_version_id": "exv_fb0200ccf5eb4c71b1c0",
+   "id": "rec_a343cf2e5b584d158ec8",
+   "input_hash": "402be522a742e04d51545252b55db457a1f1c72a20a03c9591da593162405e59",
    "is_preview": 1,
    "label": "FIXTURE",
+   "market_snapshot_id": "mks_e036b98ff3344fe48396",
    "payload": {
+    "baseline_eligibility": "BLOCKED",
+    "chains": [
+     {
+      "cluster_key": "company:PRICE:2026-W40",
+      "effect": "RESEARCH_TASK",
+      "implication": {
+       "detail": "ZZTRM 1m +73.3%: market +0.0%, sector +0.0%, company-specific +73.3% (association, not causation)",
+       "type": "RESEARCH"
+      },
+      "level": "COMPANY",
+      "mechanism": "unclear: may reflect information not yet in filings, hedging, or noise",
+      "observations": [
+       "attr:sec_b150ed5afe7140a6bfd1:2026-09-30"
+      ],
+      "reason": "LARGE_COMPANY_SPECIFIC_MOVE",
+      "reassess_condition": "owner looks for a primary-source explanation (filings, IR releases)",
+      "reassess_on": null,
+      "relevance": {
+       "status": "COMPANY",
+       "why": "company-level market information"
+      },
+      "sources": [
+       {
+        "data_class": "PRICE_RETURN",
+        "observation": "attr:sec_b150ed5afe7140a6bfd1:2026-09-30",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "yahoo_chart"
+       }
+      ]
+     },
+     {
+      "cluster_key": "market:CREDIT",
+      "effect": "NO_CHANGE",
+      "implication": {
+       "detail": [
+        "REFINANCING: adverse; monitor"
+       ],
+       "type": "RISK"
+      },
+      "level": "MARKET",
+      "mechanism": "REFINANCING (LOW, NEGATIVE when the company's cost of refinancing debt rises): maturing debt must be refinanced at prevailing yields and spreads; net debt/EBIT 1.19",
+      "observations": [
+       "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
+       "flag:CREDIT_TIGHTENING:REFINANCING"
+      ],
+      "reason": "LINKED_NO_CHANGE",
+      "reassess_condition": null,
+      "reassess_on": null,
+      "relevance": {
+       "exposures": [
+        "REFINANCING"
+       ],
+       "status": "LINKED"
+      },
+      "sources": [
+       {
+        "data_class": "CREDIT_SPREAD",
+        "observation": "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "snapshot"
+       },
+       {
+        "data_class": "CREDIT_SPREAD",
+        "observation": "flag:CREDIT_TIGHTENING:REFINANCING",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "snapshot"
+       }
+      ]
+     },
+     {
+      "cluster_key": "market:EQUITY_MARKET",
+      "effect": "CONTEXT_ONLY",
+      "implication": {
+       "detail": "SPY 1m -0.6%, 3m +0.5%, 12m +8.1%, -1.1% from 52w high; QQQ 1m +1.8%, 3m +2.8%, 12m +9.5%, -0.2% from 52w high",
+       "type": "NONE"
+      },
+      "level": "MARKET",
+      "mechanism": "none applied: market strength does not justify buying and weakness does not justify selling",
+      "observations": [
+       "px:SPY",
+       "px:QQQ"
+      ],
+      "reason": "BROAD_MARKET_CONTEXT",
+      "reassess_condition": null,
+      "reassess_on": null,
+      "relevance": {
+       "exposures": [],
+       "status": "CONTEXT",
+       "why": "broad market moves are shared by all holdings; market risk is counted once at portfolio level, not per company"
+      },
+      "sources": [
+       {
+        "data_class": "PRICE_RETURN",
+        "observation": "px:SPY",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "yahoo_chart"
+       },
+       {
+        "data_class": "PRICE_RETURN",
+        "observation": "px:QQQ",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "yahoo_chart"
+       }
+      ]
+     },
+     {
+      "cluster_key": "sector:SECTOR:XLI",
+      "effect": "CONTEXT_ONLY",
+      "implication": {
+       "detail": "Industrials (XLI) 3m +0.9%, vs SPY +0.4%",
+       "type": "NONE"
+      },
+      "level": "SECTOR",
+      "mechanism": "none identified",
+      "observations": [
+       "sector:XLI"
+      ],
+      "reason": "SECTOR_CONTEXT",
+      "reassess_condition": null,
+      "reassess_on": null,
+      "relevance": {
+       "status": "SECTOR_MEMBER",
+       "why": "company belongs to this sector/industry"
+      },
+      "sources": [
+       {
+        "data_class": "PRICE_RETURN",
+        "observation": "sector:XLI",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "yahoo_chart"
+       }
+      ]
+     }
+    ],
     "change_conditions": [
      "ADD band starts at price <= 22.93 (MoS 25%) if thesis stays intact",
      "TRIM considered at price >= 36.68 (120% of base value)",
@@ -140,7 +507,28 @@
      "EXIT if verified: Loss of the largest customer contract"
     ],
     "changes": {
+     "eligibility": {
+      "before": null,
+      "now": "BLOCKED",
+      "pauses_now": []
+     },
      "first_review": true
+    },
+    "clusters": {
+     "company:PRICE:2026-W40": [
+      "attr:sec_b150ed5afe7140a6bfd1:2026-09-30"
+     ],
+     "market:CREDIT": [
+      "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
+      "flag:CREDIT_TIGHTENING:REFINANCING"
+     ],
+     "market:EQUITY_MARKET": [
+      "px:SPY",
+      "px:QQQ"
+     ],
+     "sector:SECTOR:XLI": [
+      "sector:XLI"
+     ]
     },
     "concentration": {
      "issuer_limit": "0.1",
@@ -154,7 +542,7 @@
      {
       "assessor": "ENGINE",
       "description": "Operating margin below 10% for 2 consecutive fiscal years",
-      "id": "ic_8889be2118d24066ad58",
+      "id": "ic_f5df1906d0894fc2979c",
       "kind": "METRIC",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -163,13 +551,32 @@
      {
       "assessor": "NONE",
       "description": "Loss of the largest customer contract",
-      "id": "ic_6bcbc0c7422a45c3abfb",
+      "id": "ic_d915a400662c43a7b365",
       "kind": "EVENT",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
       "verified": false
      }
     ],
+    "current_conditions": {
+     "blocks": [
+      "long-term action is TRIM"
+     ],
+     "context_count": 3,
+     "eligibility": "BLOCKED",
+     "independent_developments": 4,
+     "observations": 6,
+     "pauses": [],
+     "research": [
+      {
+       "cluster": "company:PRICE:2026-W40",
+       "detail": "unclear: may reflect information not yet in filings, hedging, or noise",
+       "next_step": "owner looks for a primary-source explanation (filings, IR releases)",
+       "reason": "LARGE_COMPANY_SPECIFIC_MOVE"
+      }
+     ],
+     "unknowns": []
+    },
     "disclaimer": "Decision support only. No order has been placed; holdings are unchanged.",
     "downside": {
      "base_value": "30.56858567293597175668589572190164",
@@ -180,6 +587,7 @@
      "price": "39.74"
     },
     "evidence": [],
+    "exposure_version_id": "exv_fb0200ccf5eb4c71b1c0",
     "freshness": {
      "filings_check_failed": false,
      "filings_checked_hours_ago": 0.0,
@@ -191,16 +599,63 @@
      "price_stale_sessions": 0
     },
     "held": true,
+    "long_term_case": {
+     "action": "TRIM",
+     "business_assessment": "INTACT",
+     "current_thesis": {
+      "approved_at": "2026-09-30T22:00:00.000000Z",
+      "change_reason": "initial thesis",
+      "version_id": "thv_5197bd6aac6b4b8a9f98",
+      "version_no": 1
+     },
+     "margin_of_safety": "-0.300027434216035032222833287779116",
+     "original_thesis": {
+      "approved_at": "2026-09-30T22:00:00.000000Z",
+      "version_id": "thv_5197bd6aac6b4b8a9f98",
+      "version_no": 1
+     },
+     "thesis_changed_since_original": false,
+     "valuation": {
+      "approved": true,
+      "base": "30.56858567293597175668589572190164",
+      "bear": "17.875350864728272539127486081767",
+      "bull": "51.15284219206337914978159756753292",
+      "version_id": "val_b048138bae644a63ade2"
+     }
+    },
     "margin_of_safety": "-0.300027434216035032222833287779116",
+    "market_context": {
+     "developments": {
+      "company": [
+       "ZZTRM 1m +73.3%: market +0.0%, sector +0.0%, company-specific +73.3% (association, not causation)"
+      ],
+      "market": [
+       "CREDIT_TIGHTENING: HY OAS 6.2% (+3.20pp over 3m)",
+       "SPY 1m -0.6%, 3m +0.5%, 12m +8.1%, -1.1% from 52w high",
+       "QQQ 1m +1.8%, 3m +2.8%, 12m +9.5%, -0.2% from 52w high"
+      ],
+      "sector": [
+       "Industrials (XLI) 3m +0.9%, vs SPY +0.4%"
+      ]
+     },
+     "snapshot_as_of": "2026-09-30T22:00:00.000000Z",
+     "snapshot_id": "mks_e036b98ff3344fe48396",
+     "snapshot_missing": []
+    },
     "milestones": [
      {
       "description": "Revenue above $1.3bn by FY2027",
-      "id": "ms_5d1d9cffdb8e4cef80b4",
+      "id": "ms_d22bec721b4b4b7c9b0d",
       "state": "PENDING"
      }
     ],
     "missing": [],
     "next_review": "2026-10-08",
+    "position_implications": {
+     "limits_unchanged": "market context never relaxes cash, issuer or sector limits",
+     "room_to_target": "0",
+     "summary": "No new purchases: long-term action is TRIM. Proposed (not executed): SELL ~4545.361222926400000000000000000000"
+    },
     "price": "39.74",
     "price_date": "2026-09-30",
     "price_to_base": "1.300027434216035032222833287779116",
@@ -210,36 +665,201 @@
      "side": "SELL",
      "target_weight": "0.04"
     },
+    "purchase_eligibility": "BLOCKED",
     "symbol": "ZZTRM",
-    "urgent": []
+    "urgent": [],
+    "valuation_changes": {
+     "note": "proposals are not applied; material changes need a new valuation version + approval",
+     "proposals": [],
+     "stress_downside": null
+    }
    },
-   "policy_version_id": "pol_2c06a95c62474d99be78",
-   "portfolio_id": "pf_341f7f0421374a6095f6",
+   "policy_version_id": "pol_a4a6a4e61548455482f0",
+   "portfolio_id": "pf_a485f90af2b846428527",
    "previous_action": null,
    "previous_recommendation_id": null,
+   "purchase_eligibility": "BLOCKED",
    "reason_codes": [
     "VALUATION_ABOVE_TRIM_BAND"
    ],
-   "security_id": "sec_2da849e96c49418a8bad",
-   "thesis_version_id": "thv_2b4e0b053dc04964bebd",
-   "valuation_version_id": "val_d2c28ed09af44f23b598"
+   "security_id": "sec_b150ed5afe7140a6bfd1",
+   "thesis_version_id": "thv_5197bd6aac6b4b8a9f98",
+   "valuation_version_id": "val_b048138bae644a63ade2"
   },
   {
    "action": "REVIEW",
    "as_of": "2026-09-30T22:00:00.000000Z",
+   "baseline_eligibility": "BLOCKED",
    "business_assessment": "INTACT",
    "created_at": "2026-09-30T22:00:00.000000Z",
    "explanation": "Review required before any action: valuation assumptions not approved",
-   "id": "rec_0e8dbd5747b44fa3a97c",
-   "input_hash": "cd6ffc44e8bb093a7d8c6dd9e18d6fe8505856307d458c32aa92785be0661470",
+   "exposure_version_id": "exv_f37ee9bf200d46df878a",
+   "id": "rec_a3bd0bd867aa4eb8ba76",
+   "input_hash": "4a7657eb6ac9e17cdfd375e8eaf2b978350455ab553137c4fbff23e20936e3ec",
    "is_preview": 1,
    "label": "FIXTURE",
+   "market_snapshot_id": "mks_e036b98ff3344fe48396",
    "payload": {
+    "baseline_eligibility": "BLOCKED",
+    "chains": [
+     {
+      "cluster_key": "market:CREDIT",
+      "effect": "NO_CHANGE",
+      "implication": {
+       "detail": [
+        "REFINANCING: adverse; monitor"
+       ],
+       "type": "RISK"
+      },
+      "level": "MARKET",
+      "mechanism": "REFINANCING (LOW, NEGATIVE when the company's cost of refinancing debt rises): maturing debt must be refinanced at prevailing yields and spreads; net debt/EBIT 1.13",
+      "observations": [
+       "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
+       "flag:CREDIT_TIGHTENING:REFINANCING"
+      ],
+      "reason": "LINKED_NO_CHANGE",
+      "reassess_condition": null,
+      "reassess_on": null,
+      "relevance": {
+       "exposures": [
+        "REFINANCING"
+       ],
+       "status": "LINKED"
+      },
+      "sources": [
+       {
+        "data_class": "CREDIT_SPREAD",
+        "observation": "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "snapshot"
+       },
+       {
+        "data_class": "CREDIT_SPREAD",
+        "observation": "flag:CREDIT_TIGHTENING:REFINANCING",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "snapshot"
+       }
+      ]
+     },
+     {
+      "cluster_key": "company:PRICE:2026-W40",
+      "effect": "CONTEXT_ONLY",
+      "implication": {
+       "detail": "ZZREV 1m -6.7%: market +0.0%, sector n/a, company-specific -6.7% (association, not causation)",
+       "type": "NONE"
+      },
+      "level": "COMPANY",
+      "mechanism": "none identified (co-movement is not causation)",
+      "observations": [
+       "attr:sec_48a596baef6d48a7a37c:2026-09-30"
+      ],
+      "reason": "COMPANY_CONTEXT",
+      "reassess_condition": null,
+      "reassess_on": null,
+      "relevance": {
+       "status": "COMPANY",
+       "why": "company-level market information"
+      },
+      "sources": [
+       {
+        "data_class": "PRICE_RETURN",
+        "observation": "attr:sec_48a596baef6d48a7a37c:2026-09-30",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "yahoo_chart"
+       }
+      ]
+     },
+     {
+      "cluster_key": "market:EQUITY_MARKET",
+      "effect": "CONTEXT_ONLY",
+      "implication": {
+       "detail": "SPY 1m -0.6%, 3m +0.5%, 12m +8.1%, -1.1% from 52w high; QQQ 1m +1.8%, 3m +2.8%, 12m +9.5%, -0.2% from 52w high",
+       "type": "NONE"
+      },
+      "level": "MARKET",
+      "mechanism": "none applied: market strength does not justify buying and weakness does not justify selling",
+      "observations": [
+       "px:SPY",
+       "px:QQQ"
+      ],
+      "reason": "BROAD_MARKET_CONTEXT",
+      "reassess_condition": null,
+      "reassess_on": null,
+      "relevance": {
+       "exposures": [],
+       "status": "CONTEXT",
+       "why": "broad market moves are shared by all holdings; market risk is counted once at portfolio level, not per company"
+      },
+      "sources": [
+       {
+        "data_class": "PRICE_RETURN",
+        "observation": "px:SPY",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "yahoo_chart"
+       },
+       {
+        "data_class": "PRICE_RETURN",
+        "observation": "px:QQQ",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "yahoo_chart"
+       }
+      ]
+     },
+     {
+      "cluster_key": "sector:SECTOR:XLC",
+      "effect": "CONTEXT_ONLY",
+      "implication": {
+       "detail": "Communication Services (XLC) 3m +0.5%, vs SPY +0.0%",
+       "type": "NONE"
+      },
+      "level": "SECTOR",
+      "mechanism": "none identified",
+      "observations": [
+       "sector:XLC"
+      ],
+      "reason": "SECTOR_CONTEXT",
+      "reassess_condition": null,
+      "reassess_on": null,
+      "relevance": {
+       "status": "SECTOR_MEMBER",
+       "why": "company belongs to this sector/industry"
+      },
+      "sources": [
+       {
+        "data_class": "PRICE_RETURN",
+        "observation": "sector:XLC",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "yahoo_chart"
+       }
+      ]
+     }
+    ],
     "change_conditions": [
      "Resolve: valuation assumptions not approved"
     ],
     "changes": {
+     "eligibility": {
+      "before": null,
+      "now": "BLOCKED",
+      "pauses_now": []
+     },
      "first_review": true
+    },
+    "clusters": {
+     "company:PRICE:2026-W40": [
+      "attr:sec_48a596baef6d48a7a37c:2026-09-30"
+     ],
+     "market:CREDIT": [
+      "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
+      "flag:CREDIT_TIGHTENING:REFINANCING"
+     ],
+     "market:EQUITY_MARKET": [
+      "px:SPY",
+      "px:QQQ"
+     ],
+     "sector:SECTOR:XLC": [
+      "sector:XLC"
+     ]
     },
     "concentration": {
      "issuer_limit": "0.1",
@@ -253,7 +873,7 @@
      {
       "assessor": "ENGINE",
       "description": "Operating margin below 10% for 2 consecutive fiscal years",
-      "id": "ic_c43c9fe109ee4450a6b2",
+      "id": "ic_3559f3508b8f427dab8e",
       "kind": "METRIC",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -262,13 +882,25 @@
      {
       "assessor": "NONE",
       "description": "Loss of the largest customer contract",
-      "id": "ic_2234ca46827f489991c9",
+      "id": "ic_8a5bd9bbc5d141a99940",
       "kind": "EVENT",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
       "verified": false
      }
     ],
+    "current_conditions": {
+     "blocks": [
+      "long-term action is REVIEW"
+     ],
+     "context_count": 4,
+     "eligibility": "BLOCKED",
+     "independent_developments": 4,
+     "observations": 6,
+     "pauses": [],
+     "research": [],
+     "unknowns": []
+    },
     "disclaimer": "Decision support only. No order has been placed; holdings are unchanged.",
     "downside": {
      "base_value": "32.38497479866447282538033735279123",
@@ -279,6 +911,7 @@
      "price": "22.67"
     },
     "evidence": [],
+    "exposure_version_id": "exv_f37ee9bf200d46df878a",
     "freshness": {
      "filings_check_failed": false,
      "filings_checked_hours_ago": 0.0,
@@ -290,11 +923,53 @@
      "price_stale_sessions": 0
     },
     "held": true,
+    "long_term_case": {
+     "action": "REVIEW",
+     "business_assessment": "INTACT",
+     "current_thesis": {
+      "approved_at": "2026-09-30T22:00:00.000000Z",
+      "change_reason": "initial thesis",
+      "version_id": "thv_a52e77bacb524511b710",
+      "version_no": 1
+     },
+     "margin_of_safety": "0.2999840160155106753617295374492125",
+     "original_thesis": {
+      "approved_at": "2026-09-30T22:00:00.000000Z",
+      "version_id": "thv_a52e77bacb524511b710",
+      "version_no": 1
+     },
+     "thesis_changed_since_original": false,
+     "valuation": {
+      "approved": false,
+      "base": "32.38497479866447282538033735279123",
+      "bear": "19.20374443501279556628088037632011",
+      "bull": "53.69965652476199778862838206223903",
+      "version_id": "val_c5f5615b75794327a208"
+     }
+    },
     "margin_of_safety": "0.2999840160155106753617295374492125",
+    "market_context": {
+     "developments": {
+      "company": [
+       "ZZREV 1m -6.7%: market +0.0%, sector n/a, company-specific -6.7% (association, not causation)"
+      ],
+      "market": [
+       "CREDIT_TIGHTENING: HY OAS 6.2% (+3.20pp over 3m)",
+       "SPY 1m -0.6%, 3m +0.5%, 12m +8.1%, -1.1% from 52w high",
+       "QQQ 1m +1.8%, 3m +2.8%, 12m +9.5%, -0.2% from 52w high"
+      ],
+      "sector": [
+       "Communication Services (XLC) 3m +0.5%, vs SPY +0.0%"
+      ]
+     },
+     "snapshot_as_of": "2026-09-30T22:00:00.000000Z",
+     "snapshot_id": "mks_e036b98ff3344fe48396",
+     "snapshot_missing": []
+    },
     "milestones": [
      {
       "description": "Revenue above $1.3bn by FY2027",
-      "id": "ms_b255bb4c32a5415796d9",
+      "id": "ms_0240a20d24204b13a517",
       "state": "PENDING"
      }
     ],
@@ -302,40 +977,212 @@
      "valuation assumptions not approved"
     ],
     "next_review": "2026-10-08",
+    "position_implications": {
+     "limits_unchanged": "market context never relaxes cash, issuer or sector limits",
+     "room_to_target": "1707.1437706872",
+     "summary": "No new purchases: long-term action is REVIEW"
+    },
     "price": "22.67",
     "price_date": "2026-09-30",
     "price_to_base": "0.7000159839844893246382704625507875",
     "proposed_trade": null,
+    "purchase_eligibility": "BLOCKED",
     "symbol": "ZZREV",
-    "urgent": []
+    "urgent": [],
+    "valuation_changes": {
+     "note": "proposals are not applied; material changes need a new valuation version + approval",
+     "proposals": [],
+     "stress_downside": null
+    }
    },
-   "policy_version_id": "pol_2c06a95c62474d99be78",
-   "portfolio_id": "pf_341f7f0421374a6095f6",
+   "policy_version_id": "pol_a4a6a4e61548455482f0",
+   "portfolio_id": "pf_a485f90af2b846428527",
    "previous_action": null,
    "previous_recommendation_id": null,
+   "purchase_eligibility": "BLOCKED",
    "reason_codes": [
     "VALUATION_NOT_APPROVED"
    ],
-   "security_id": "sec_c39a92f0f0854a57a79d",
-   "thesis_version_id": "thv_6e61ccdf1dd54ee19738",
-   "valuation_version_id": "val_4e303ee77f484a36a6ae"
+   "security_id": "sec_48a596baef6d48a7a37c",
+   "thesis_version_id": "thv_a52e77bacb524511b710",
+   "valuation_version_id": "val_c5f5615b75794327a208"
   },
   {
    "action": "EXIT",
    "as_of": "2026-09-30T22:00:00.000000Z",
+   "baseline_eligibility": "BLOCKED",
    "business_assessment": "BROKEN",
    "created_at": "2026-09-30T22:00:00.000000Z",
    "explanation": "Pre-declared invalidation condition met and verified: Operating margin below 10% for 2 consecutive fiscal years",
-   "id": "rec_f5f8516233264dc79d43",
-   "input_hash": "643391fd0bdc62f050ee648ef19cc1a77240e72f6099c1fa63bdfc4c5fe05dbd",
+   "exposure_version_id": "exv_6de54f4f367a40bda473",
+   "id": "rec_1ccd43d222344729ac71",
+   "input_hash": "6122e9a347b30c1e6c9c4245d8920c88583486a6d356a590a49cd3f3cd0c0baa",
    "is_preview": 1,
    "label": "FIXTURE",
+   "market_snapshot_id": "mks_e036b98ff3344fe48396",
    "payload": {
+    "baseline_eligibility": "BLOCKED",
+    "chains": [
+     {
+      "cluster_key": "market:CREDIT",
+      "effect": "PAUSE_PURCHASES",
+      "implication": {
+       "detail": [
+        "REFINANCING: adverse; downside scenario may be understated"
+       ],
+       "type": "RISK"
+      },
+      "level": "MARKET",
+      "mechanism": "REFINANCING (HIGH, NEGATIVE when the company's cost of refinancing debt rises): maturing debt must be refinanced at prevailing yields and spreads; net debt/EBIT 5.95",
+      "observations": [
+       "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
+       "flag:CREDIT_TIGHTENING:REFINANCING"
+      ],
+      "reason": "ADVERSE_REFINANCING_HIGH_EXPOSURE",
+      "reassess_condition": "CREDIT_TIGHTENING clears, or owner re-approves the valuation/exposure with this condition considered",
+      "reassess_on": "2026-10-30",
+      "relevance": {
+       "exposures": [
+        "REFINANCING"
+       ],
+       "status": "LINKED"
+      },
+      "sources": [
+       {
+        "data_class": "CREDIT_SPREAD",
+        "observation": "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "snapshot"
+       },
+       {
+        "data_class": "CREDIT_SPREAD",
+        "observation": "flag:CREDIT_TIGHTENING:REFINANCING",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "snapshot"
+       }
+      ]
+     },
+     {
+      "cluster_key": "company:PRICE:2026-W40",
+      "effect": "RESEARCH_TASK",
+      "implication": {
+       "detail": "ZZEXT 1m -33.4%: market +0.0%, sector +0.0%, company-specific -33.4% (association, not causation)",
+       "type": "RESEARCH"
+      },
+      "level": "COMPANY",
+      "mechanism": "unclear: may reflect information not yet in filings, hedging, or noise",
+      "observations": [
+       "attr:sec_a8f8c193210042b083b3:2026-09-30"
+      ],
+      "reason": "LARGE_COMPANY_SPECIFIC_MOVE",
+      "reassess_condition": "owner looks for a primary-source explanation (filings, IR releases)",
+      "reassess_on": null,
+      "relevance": {
+       "status": "COMPANY",
+       "why": "company-level market information"
+      },
+      "sources": [
+       {
+        "data_class": "PRICE_RETURN",
+        "observation": "attr:sec_a8f8c193210042b083b3:2026-09-30",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "yahoo_chart"
+       }
+      ]
+     },
+     {
+      "cluster_key": "market:EQUITY_MARKET",
+      "effect": "CONTEXT_ONLY",
+      "implication": {
+       "detail": "SPY 1m -0.6%, 3m +0.5%, 12m +8.1%, -1.1% from 52w high; QQQ 1m +1.8%, 3m +2.8%, 12m +9.5%, -0.2% from 52w high",
+       "type": "NONE"
+      },
+      "level": "MARKET",
+      "mechanism": "none applied: market strength does not justify buying and weakness does not justify selling",
+      "observations": [
+       "px:SPY",
+       "px:QQQ"
+      ],
+      "reason": "BROAD_MARKET_CONTEXT",
+      "reassess_condition": null,
+      "reassess_on": null,
+      "relevance": {
+       "exposures": [],
+       "status": "CONTEXT",
+       "why": "broad market moves are shared by all holdings; market risk is counted once at portfolio level, not per company"
+      },
+      "sources": [
+       {
+        "data_class": "PRICE_RETURN",
+        "observation": "px:SPY",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "yahoo_chart"
+       },
+       {
+        "data_class": "PRICE_RETURN",
+        "observation": "px:QQQ",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "yahoo_chart"
+       }
+      ]
+     },
+     {
+      "cluster_key": "sector:SECTOR:XLY",
+      "effect": "CONTEXT_ONLY",
+      "implication": {
+       "detail": "Consumer Discretionary (XLY) 3m -0.0%, vs SPY -0.5%",
+       "type": "NONE"
+      },
+      "level": "SECTOR",
+      "mechanism": "none identified",
+      "observations": [
+       "sector:XLY"
+      ],
+      "reason": "SECTOR_CONTEXT",
+      "reassess_condition": null,
+      "reassess_on": null,
+      "relevance": {
+       "status": "SECTOR_MEMBER",
+       "why": "company belongs to this sector/industry"
+      },
+      "sources": [
+       {
+        "data_class": "PRICE_RETURN",
+        "observation": "sector:XLY",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "yahoo_chart"
+       }
+      ]
+     }
+    ],
     "change_conditions": [
      "Owner may override with a documented rationale; the original thesis stays on record."
     ],
     "changes": {
+     "eligibility": {
+      "before": null,
+      "now": "BLOCKED",
+      "pauses_now": [
+       "ADVERSE_REFINANCING_HIGH_EXPOSURE"
+      ]
+     },
      "first_review": true
+    },
+    "clusters": {
+     "company:PRICE:2026-W40": [
+      "attr:sec_a8f8c193210042b083b3:2026-09-30"
+     ],
+     "market:CREDIT": [
+      "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
+      "flag:CREDIT_TIGHTENING:REFINANCING"
+     ],
+     "market:EQUITY_MARKET": [
+      "px:SPY",
+      "px:QQQ"
+     ],
+     "sector:SECTOR:XLY": [
+      "sector:XLY"
+     ]
     },
     "concentration": {
      "issuer_limit": "0.1",
@@ -349,7 +1196,7 @@
      {
       "assessor": "ENGINE",
       "description": "Operating margin below 10% for 2 consecutive fiscal years",
-      "id": "ic_8b5e944168a547f4bca7",
+      "id": "ic_0fed8f713961406584ce",
       "kind": "METRIC",
       "latest_breaches": true,
       "state": "TRIGGERED",
@@ -358,13 +1205,55 @@
      {
       "assessor": "NONE",
       "description": "Loss of the largest customer contract",
-      "id": "ic_f4cb532a7fe241c28ecc",
+      "id": "ic_ace796ab67da403c856c",
       "kind": "EVENT",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
       "verified": false
      }
     ],
+    "current_conditions": {
+     "blocks": [
+      "long-term action is EXIT",
+      "thesis invalidated (BROKEN)"
+     ],
+     "context_count": 2,
+     "eligibility": "BLOCKED",
+     "independent_developments": 4,
+     "observations": 6,
+     "pauses": [
+      {
+       "cluster": "market:CREDIT",
+       "code": "ADVERSE_REFINANCING_HIGH_EXPOSURE",
+       "detail": "REFINANCING (HIGH, NEGATIVE when the company's cost of refinancing debt rises): maturing debt must be refinanced at prevailing yields and spreads; net debt/EBIT 5.95",
+       "reassess_condition": "CREDIT_TIGHTENING clears, or owner re-approves the valuation/exposure with this condition considered",
+       "reassess_on": "2026-10-30",
+       "sources": [
+        {
+         "data_class": "CREDIT_SPREAD",
+         "observation": "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
+         "public_at": "2026-09-30T22:00:00.000000Z",
+         "source_id": "snapshot"
+        },
+        {
+         "data_class": "CREDIT_SPREAD",
+         "observation": "flag:CREDIT_TIGHTENING:REFINANCING",
+         "public_at": "2026-09-30T22:00:00.000000Z",
+         "source_id": "snapshot"
+        }
+       ]
+      }
+     ],
+     "research": [
+      {
+       "cluster": "company:PRICE:2026-W40",
+       "detail": "unclear: may reflect information not yet in filings, hedging, or noise",
+       "next_step": "owner looks for a primary-source explanation (filings, IR releases)",
+       "reason": "LARGE_COMPANY_SPECIFIC_MOVE"
+      }
+     ],
+     "unknowns": []
+    },
     "disclaimer": "Decision support only. No order has been placed; holdings are unchanged.",
     "downside": {
      "base_value": "10.58830528992246000104703778211622",
@@ -375,6 +1264,7 @@
      "price": "5.29"
     },
     "evidence": [],
+    "exposure_version_id": "exv_6de54f4f367a40bda473",
     "freshness": {
      "filings_check_failed": false,
      "filings_checked_hours_ago": 0.0,
@@ -386,16 +1276,63 @@
      "price_stale_sessions": 0
     },
     "held": true,
+    "long_term_case": {
+     "action": "EXIT",
+     "business_assessment": "BROKEN",
+     "current_thesis": {
+      "approved_at": "2026-09-30T22:00:00.000000Z",
+      "change_reason": "initial thesis",
+      "version_id": "thv_f01c3e0070764bc69239",
+      "version_no": 1
+     },
+     "margin_of_safety": "0.5003921916536711807507709210502279",
+     "original_thesis": {
+      "approved_at": "2026-09-30T22:00:00.000000Z",
+      "version_id": "thv_f01c3e0070764bc69239",
+      "version_no": 1
+     },
+     "thesis_changed_since_original": false,
+     "valuation": {
+      "approved": true,
+      "base": "10.58830528992246000104703778211622",
+      "bear": "3.26302159159851924044014884168283",
+      "bull": "23.13788453237857412246696812576594",
+      "version_id": "val_2fc4a50485a2428d80f2"
+     }
+    },
     "margin_of_safety": "0.5003921916536711807507709210502279",
+    "market_context": {
+     "developments": {
+      "company": [
+       "ZZEXT 1m -33.4%: market +0.0%, sector +0.0%, company-specific -33.4% (association, not causation)"
+      ],
+      "market": [
+       "CREDIT_TIGHTENING: HY OAS 6.2% (+3.20pp over 3m)",
+       "SPY 1m -0.6%, 3m +0.5%, 12m +8.1%, -1.1% from 52w high",
+       "QQQ 1m +1.8%, 3m +2.8%, 12m +9.5%, -0.2% from 52w high"
+      ],
+      "sector": [
+       "Consumer Discretionary (XLY) 3m -0.0%, vs SPY -0.5%"
+      ]
+     },
+     "snapshot_as_of": "2026-09-30T22:00:00.000000Z",
+     "snapshot_id": "mks_e036b98ff3344fe48396",
+     "snapshot_missing": []
+    },
     "milestones": [
      {
       "description": "Revenue above $1.3bn by FY2027",
-      "id": "ms_09be9ecc6fc64190a432",
+      "id": "ms_a7d70a601ce34626bb32",
       "state": "PENDING"
      }
     ],
     "missing": [],
     "next_review": "2026-10-08",
+    "position_implications": {
+     "limits_unchanged": "market context never relaxes cash, issuer or sector limits",
+     "room_to_target": "4242.8038734072",
+     "summary": "No new purchases: long-term action is EXIT; thesis invalidated (BROKEN). Proposed (not executed): SELL ~3997.48110674"
+    },
     "price": "5.29",
     "price_date": "2026-09-30",
     "price_to_base": "0.4996078083463288192492290789497721",
@@ -404,31 +1341,180 @@
      "side": "SELL",
      "target_weight": "0"
     },
+    "purchase_eligibility": "BLOCKED",
     "symbol": "ZZEXT",
-    "urgent": []
+    "urgent": [],
+    "valuation_changes": {
+     "note": "proposals are not applied; material changes need a new valuation version + approval",
+     "proposals": [],
+     "stress_downside": {
+      "bear_value": "3.26302159159851924044014884168283",
+      "label": "illustrative stress of the bear case; context only, not approved",
+      "shift": "WACC +0.01",
+      "stressed_bear_value": "2.52715053825046883166971040255404"
+     }
+    }
    },
-   "policy_version_id": "pol_2c06a95c62474d99be78",
-   "portfolio_id": "pf_341f7f0421374a6095f6",
+   "policy_version_id": "pol_a4a6a4e61548455482f0",
+   "portfolio_id": "pf_a485f90af2b846428527",
    "previous_action": null,
    "previous_recommendation_id": null,
+   "purchase_eligibility": "BLOCKED",
    "reason_codes": [
     "VERIFIED_THESIS_INVALIDATION"
    ],
-   "security_id": "sec_480964347c7e4e4da352",
-   "thesis_version_id": "thv_4bdd0049ea274b69ac83",
-   "valuation_version_id": "val_df6ff1a72f584edbaae1"
+   "security_id": "sec_a8f8c193210042b083b3",
+   "thesis_version_id": "thv_f01c3e0070764bc69239",
+   "valuation_version_id": "val_2fc4a50485a2428d80f2"
   },
   {
    "action": "ADD",
    "as_of": "2026-09-30T22:00:00.000000Z",
+   "baseline_eligibility": "ELIGIBLE",
    "business_assessment": "INTACT",
    "created_at": "2026-09-30T22:00:00.000000Z",
    "explanation": "Thesis intact; margin of safety 40.0% >= 25%; within limits.",
-   "id": "rec_32882660a2e641b596b9",
-   "input_hash": "03ac9a51ccf425d38d6fb6af3c4acf55c420ed1b4bfcce426b3360fc664666d0",
+   "exposure_version_id": "exv_118eff1d432d4064b213",
+   "id": "rec_0c25dbd15edf4bcdbb2c",
+   "input_hash": "f34e3ccbd8612c2a30669622136b5079a48fb131cfb2d9b8077fc4ef83fc5282",
    "is_preview": 1,
    "label": "FIXTURE",
+   "market_snapshot_id": "mks_e036b98ff3344fe48396",
    "payload": {
+    "baseline_eligibility": "ELIGIBLE",
+    "chains": [
+     {
+      "cluster_key": "company:PRICE:2026-W40",
+      "effect": "RESEARCH_TASK",
+      "implication": {
+       "detail": "ZZADD 1m -20.0%: market +0.0%, sector +0.0%, company-specific -20.0% (association, not causation)",
+       "type": "RESEARCH"
+      },
+      "level": "COMPANY",
+      "mechanism": "unclear: may reflect information not yet in filings, hedging, or noise",
+      "observations": [
+       "attr:sec_7a4559941fe64f179ac8:2026-09-30"
+      ],
+      "reason": "LARGE_COMPANY_SPECIFIC_MOVE",
+      "reassess_condition": "owner looks for a primary-source explanation (filings, IR releases)",
+      "reassess_on": null,
+      "relevance": {
+       "status": "COMPANY",
+       "why": "company-level market information"
+      },
+      "sources": [
+       {
+        "data_class": "PRICE_RETURN",
+        "observation": "attr:sec_7a4559941fe64f179ac8:2026-09-30",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "yahoo_chart"
+       }
+      ]
+     },
+     {
+      "cluster_key": "market:CREDIT",
+      "effect": "NO_CHANGE",
+      "implication": {
+       "detail": [
+        "REFINANCING: adverse; monitor"
+       ],
+       "type": "RISK"
+      },
+      "level": "MARKET",
+      "mechanism": "REFINANCING (LOW, NEGATIVE when the company's cost of refinancing debt rises): maturing debt must be refinanced at prevailing yields and spreads; net debt/EBIT 0.95",
+      "observations": [
+       "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
+       "flag:CREDIT_TIGHTENING:REFINANCING"
+      ],
+      "reason": "LINKED_NO_CHANGE",
+      "reassess_condition": null,
+      "reassess_on": null,
+      "relevance": {
+       "exposures": [
+        "REFINANCING"
+       ],
+       "status": "LINKED"
+      },
+      "sources": [
+       {
+        "data_class": "CREDIT_SPREAD",
+        "observation": "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "snapshot"
+       },
+       {
+        "data_class": "CREDIT_SPREAD",
+        "observation": "flag:CREDIT_TIGHTENING:REFINANCING",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "snapshot"
+       }
+      ]
+     },
+     {
+      "cluster_key": "market:EQUITY_MARKET",
+      "effect": "CONTEXT_ONLY",
+      "implication": {
+       "detail": "SPY 1m -0.6%, 3m +0.5%, 12m +8.1%, -1.1% from 52w high; QQQ 1m +1.8%, 3m +2.8%, 12m +9.5%, -0.2% from 52w high",
+       "type": "NONE"
+      },
+      "level": "MARKET",
+      "mechanism": "none applied: market strength does not justify buying and weakness does not justify selling",
+      "observations": [
+       "px:SPY",
+       "px:QQQ"
+      ],
+      "reason": "BROAD_MARKET_CONTEXT",
+      "reassess_condition": null,
+      "reassess_on": null,
+      "relevance": {
+       "exposures": [],
+       "status": "CONTEXT",
+       "why": "broad market moves are shared by all holdings; market risk is counted once at portfolio level, not per company"
+      },
+      "sources": [
+       {
+        "data_class": "PRICE_RETURN",
+        "observation": "px:SPY",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "yahoo_chart"
+       },
+       {
+        "data_class": "PRICE_RETURN",
+        "observation": "px:QQQ",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "yahoo_chart"
+       }
+      ]
+     },
+     {
+      "cluster_key": "sector:SECTOR:XLK",
+      "effect": "CONTEXT_ONLY",
+      "implication": {
+       "detail": "Technology (XLK) 3m -0.0%, vs SPY -0.5%",
+       "type": "NONE"
+      },
+      "level": "SECTOR",
+      "mechanism": "none identified",
+      "observations": [
+       "sector:XLK"
+      ],
+      "reason": "SECTOR_CONTEXT",
+      "reassess_condition": null,
+      "reassess_on": null,
+      "relevance": {
+       "status": "SECTOR_MEMBER",
+       "why": "company belongs to this sector/industry"
+      },
+      "sources": [
+       {
+        "data_class": "PRICE_RETURN",
+        "observation": "sector:XLK",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "yahoo_chart"
+       }
+      ]
+     }
+    ],
     "change_conditions": [
      "ADD band starts at price <= 28.38 (MoS 25%) if thesis stays intact",
      "TRIM considered at price >= 45.40 (120% of base value)",
@@ -437,7 +1523,28 @@
      "EXIT if verified: Loss of the largest customer contract"
     ],
     "changes": {
+     "eligibility": {
+      "before": null,
+      "now": "ELIGIBLE",
+      "pauses_now": []
+     },
      "first_review": true
+    },
+    "clusters": {
+     "company:PRICE:2026-W40": [
+      "attr:sec_7a4559941fe64f179ac8:2026-09-30"
+     ],
+     "market:CREDIT": [
+      "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
+      "flag:CREDIT_TIGHTENING:REFINANCING"
+     ],
+     "market:EQUITY_MARKET": [
+      "px:SPY",
+      "px:QQQ"
+     ],
+     "sector:SECTOR:XLK": [
+      "sector:XLK"
+     ]
     },
     "concentration": {
      "issuer_limit": "0.1",
@@ -451,7 +1558,7 @@
      {
       "assessor": "ENGINE",
       "description": "Operating margin below 10% for 2 consecutive fiscal years",
-      "id": "ic_2ae9ef0c0a37449a90dc",
+      "id": "ic_1352d223ba9a4fc0ab21",
       "kind": "METRIC",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -460,13 +1567,30 @@
      {
       "assessor": "NONE",
       "description": "Loss of the largest customer contract",
-      "id": "ic_4896bfca92674bc39747",
+      "id": "ic_84dd072daaac43d7835f",
       "kind": "EVENT",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
       "verified": false
      }
     ],
+    "current_conditions": {
+     "blocks": [],
+     "context_count": 3,
+     "eligibility": "ELIGIBLE",
+     "independent_developments": 4,
+     "observations": 6,
+     "pauses": [],
+     "research": [
+      {
+       "cluster": "company:PRICE:2026-W40",
+       "detail": "unclear: may reflect information not yet in filings, hedging, or noise",
+       "next_step": "owner looks for a primary-source explanation (filings, IR releases)",
+       "reason": "LARGE_COMPANY_SPECIFIC_MOVE"
+      }
+     ],
+     "unknowns": []
+    },
     "disclaimer": "Decision support only. No order has been placed; holdings are unchanged.",
     "downside": {
      "base_value": "37.83414217584997603146366224545997",
@@ -477,6 +1601,7 @@
      "price": "22.7"
     },
     "evidence": [],
+    "exposure_version_id": "exv_118eff1d432d4064b213",
     "freshness": {
      "filings_check_failed": false,
      "filings_checked_hours_ago": 0.0,
@@ -488,47 +1613,238 @@
      "price_stale_sessions": 0
     },
     "held": true,
+    "long_term_case": {
+     "action": "ADD",
+     "business_assessment": "INTACT",
+     "current_thesis": {
+      "approved_at": "2026-09-30T22:00:00.000000Z",
+      "change_reason": "initial thesis",
+      "version_id": "thv_e7d7b239855e4031b54d",
+      "version_no": 1
+     },
+     "margin_of_safety": "0.4000128271841800974064001781378377",
+     "original_thesis": {
+      "approved_at": "2026-09-30T22:00:00.000000Z",
+      "version_id": "thv_e7d7b239855e4031b54d",
+      "version_no": 1
+     },
+     "thesis_changed_since_original": false,
+     "valuation": {
+      "approved": true,
+      "base": "37.83414217584997603146366224545997",
+      "bear": "23.18892514586636464774106325997942",
+      "bull": "61.34009952285785370516873554635731",
+      "version_id": "val_530b85bcfdc94917935f"
+     }
+    },
     "margin_of_safety": "0.4000128271841800974064001781378377",
+    "market_context": {
+     "developments": {
+      "company": [
+       "ZZADD 1m -20.0%: market +0.0%, sector +0.0%, company-specific -20.0% (association, not causation)"
+      ],
+      "market": [
+       "CREDIT_TIGHTENING: HY OAS 6.2% (+3.20pp over 3m)",
+       "SPY 1m -0.6%, 3m +0.5%, 12m +8.1%, -1.1% from 52w high",
+       "QQQ 1m +1.8%, 3m +2.8%, 12m +9.5%, -0.2% from 52w high"
+      ],
+      "sector": [
+       "Technology (XLK) 3m -0.0%, vs SPY -0.5%"
+      ]
+     },
+     "snapshot_as_of": "2026-09-30T22:00:00.000000Z",
+     "snapshot_id": "mks_e036b98ff3344fe48396",
+     "snapshot_missing": []
+    },
     "milestones": [
      {
       "description": "Revenue above $1.3bn by FY2027",
-      "id": "ms_fc22d6780406495bb8d3",
+      "id": "ms_3fdacb91d58942a2acbf",
       "state": "PENDING"
      }
     ],
     "missing": [],
     "next_review": "2026-10-08",
+    "position_implications": {
+     "limits_unchanged": "market context never relaxes cash, issuer or sector limits",
+     "room_to_target": "5040.8487572472",
+     "summary": "Eligible for the next monthly contribution, up to about 5,040.85 of room to the target weight"
+    },
     "price": "22.7",
     "price_date": "2026-09-30",
     "price_to_base": "0.5999871728158199025935998218621623",
     "proposed_trade": null,
+    "purchase_eligibility": "ELIGIBLE",
     "symbol": "ZZADD",
-    "urgent": []
+    "urgent": [],
+    "valuation_changes": {
+     "note": "proposals are not applied; material changes need a new valuation version + approval",
+     "proposals": [],
+     "stress_downside": null
+    }
    },
-   "policy_version_id": "pol_2c06a95c62474d99be78",
-   "portfolio_id": "pf_341f7f0421374a6095f6",
+   "policy_version_id": "pol_a4a6a4e61548455482f0",
+   "portfolio_id": "pf_a485f90af2b846428527",
    "previous_action": null,
    "previous_recommendation_id": null,
+   "purchase_eligibility": "ELIGIBLE",
    "reason_codes": [
     "THESIS_INTACT",
     "VALUATION_ATTRACTIVE",
     "CAPACITY_AVAILABLE"
    ],
-   "security_id": "sec_c9c9b057e63e4e81af4c",
-   "thesis_version_id": "thv_71669e5d2eaa4a7c88f2",
-   "valuation_version_id": "val_61b57e67576e439e9e1f"
+   "security_id": "sec_7a4559941fe64f179ac8",
+   "thesis_version_id": "thv_e7d7b239855e4031b54d",
+   "valuation_version_id": "val_530b85bcfdc94917935f"
   },
   {
    "action": "ADD",
    "as_of": "2026-09-30T22:00:00.000000Z",
+   "baseline_eligibility": "ELIGIBLE",
    "business_assessment": "INTACT",
    "created_at": "2026-09-30T22:00:00.000000Z",
    "explanation": "Thesis intact; margin of safety 35.0% >= 25%; within limits.",
-   "id": "rec_3c983817a2624b599617",
-   "input_hash": "c7e737364a842b961cb84bba20bd836d4875241ce2a9b837af557e1e781dbb03",
+   "exposure_version_id": "exv_5c220538ef7a4c7da68d",
+   "id": "rec_9d3a6a5321834c2fbfa6",
+   "input_hash": "eff7a32a76cf5bec38a281906efec842ce88347d709d1ce1093d2a69ebf84086",
    "is_preview": 1,
    "label": "FIXTURE",
+   "market_snapshot_id": "mks_e036b98ff3344fe48396",
    "payload": {
+    "baseline_eligibility": "ELIGIBLE",
+    "chains": [
+     {
+      "cluster_key": "market:CREDIT",
+      "effect": "PAUSE_PURCHASES",
+      "implication": {
+       "detail": [
+        "REFINANCING: adverse; downside scenario may be understated"
+       ],
+       "type": "RISK"
+      },
+      "level": "MARKET",
+      "mechanism": "REFINANCING (HIGH, NEGATIVE when the company's cost of refinancing debt rises): ILLUSTRATIVE: large bond maturity next year must be refinanced",
+      "observations": [
+       "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
+       "flag:CREDIT_TIGHTENING:REFINANCING"
+      ],
+      "reason": "ADVERSE_REFINANCING_HIGH_EXPOSURE",
+      "reassess_condition": "CREDIT_TIGHTENING clears, or owner re-approves the valuation/exposure with this condition considered",
+      "reassess_on": "2026-10-30",
+      "relevance": {
+       "exposures": [
+        "REFINANCING"
+       ],
+       "status": "LINKED"
+      },
+      "sources": [
+       {
+        "data_class": "CREDIT_SPREAD",
+        "observation": "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "snapshot"
+       },
+       {
+        "data_class": "CREDIT_SPREAD",
+        "observation": "flag:CREDIT_TIGHTENING:REFINANCING",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "snapshot"
+       }
+      ]
+     },
+     {
+      "cluster_key": "company:PRICE:2026-W40",
+      "effect": "CONTEXT_ONLY",
+      "implication": {
+       "detail": "ZZNEW 1m -13.4%: market +0.0%, sector +0.0%, company-specific -13.4% (association, not causation)",
+       "type": "NONE"
+      },
+      "level": "COMPANY",
+      "mechanism": "none identified (co-movement is not causation)",
+      "observations": [
+       "attr:sec_153deb9683d7435bbd05:2026-09-30"
+      ],
+      "reason": "COMPANY_CONTEXT",
+      "reassess_condition": null,
+      "reassess_on": null,
+      "relevance": {
+       "status": "COMPANY",
+       "why": "company-level market information"
+      },
+      "sources": [
+       {
+        "data_class": "PRICE_RETURN",
+        "observation": "attr:sec_153deb9683d7435bbd05:2026-09-30",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "yahoo_chart"
+       }
+      ]
+     },
+     {
+      "cluster_key": "market:EQUITY_MARKET",
+      "effect": "CONTEXT_ONLY",
+      "implication": {
+       "detail": "SPY 1m -0.6%, 3m +0.5%, 12m +8.1%, -1.1% from 52w high; QQQ 1m +1.8%, 3m +2.8%, 12m +9.5%, -0.2% from 52w high",
+       "type": "NONE"
+      },
+      "level": "MARKET",
+      "mechanism": "none applied: market strength does not justify buying and weakness does not justify selling",
+      "observations": [
+       "px:SPY",
+       "px:QQQ"
+      ],
+      "reason": "BROAD_MARKET_CONTEXT",
+      "reassess_condition": null,
+      "reassess_on": null,
+      "relevance": {
+       "exposures": [],
+       "status": "CONTEXT",
+       "why": "broad market moves are shared by all holdings; market risk is counted once at portfolio level, not per company"
+      },
+      "sources": [
+       {
+        "data_class": "PRICE_RETURN",
+        "observation": "px:SPY",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "yahoo_chart"
+       },
+       {
+        "data_class": "PRICE_RETURN",
+        "observation": "px:QQQ",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "yahoo_chart"
+       }
+      ]
+     },
+     {
+      "cluster_key": "sector:SECTOR:XLK",
+      "effect": "CONTEXT_ONLY",
+      "implication": {
+       "detail": "Technology (XLK) 3m -0.0%, vs SPY -0.5%",
+       "type": "NONE"
+      },
+      "level": "SECTOR",
+      "mechanism": "none identified",
+      "observations": [
+       "sector:XLK"
+      ],
+      "reason": "SECTOR_CONTEXT",
+      "reassess_condition": null,
+      "reassess_on": null,
+      "relevance": {
+       "status": "SECTOR_MEMBER",
+       "why": "company belongs to this sector/industry"
+      },
+      "sources": [
+       {
+        "data_class": "PRICE_RETURN",
+        "observation": "sector:XLK",
+        "public_at": "2026-09-30T22:00:00.000000Z",
+        "source_id": "yahoo_chart"
+       }
+      ]
+     }
+    ],
     "change_conditions": [
      "ADD band starts at price <= 28.38 (MoS 25%) if thesis stays intact",
      "TRIM considered at price >= 45.40 (120% of base value)",
@@ -537,7 +1853,30 @@
      "EXIT if verified: Loss of the largest customer contract"
     ],
     "changes": {
+     "eligibility": {
+      "before": null,
+      "now": "PAUSED",
+      "pauses_now": [
+       "ADVERSE_REFINANCING_HIGH_EXPOSURE"
+      ]
+     },
      "first_review": true
+    },
+    "clusters": {
+     "company:PRICE:2026-W40": [
+      "attr:sec_153deb9683d7435bbd05:2026-09-30"
+     ],
+     "market:CREDIT": [
+      "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
+      "flag:CREDIT_TIGHTENING:REFINANCING"
+     ],
+     "market:EQUITY_MARKET": [
+      "px:SPY",
+      "px:QQQ"
+     ],
+     "sector:SECTOR:XLK": [
+      "sector:XLK"
+     ]
     },
     "concentration": {
      "issuer_limit": "0.1",
@@ -551,7 +1890,7 @@
      {
       "assessor": "ENGINE",
       "description": "Operating margin below 10% for 2 consecutive fiscal years",
-      "id": "ic_6e4bc5a00dff4f5986bd",
+      "id": "ic_d51f62014df94d46959d",
       "kind": "METRIC",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -560,13 +1899,45 @@
      {
       "assessor": "NONE",
       "description": "Loss of the largest customer contract",
-      "id": "ic_28c4a82656fa433ab84d",
+      "id": "ic_b460f06f28954afd85da",
       "kind": "EVENT",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
       "verified": false
      }
     ],
+    "current_conditions": {
+     "blocks": [],
+     "context_count": 3,
+     "eligibility": "PAUSED",
+     "independent_developments": 4,
+     "observations": 6,
+     "pauses": [
+      {
+       "cluster": "market:CREDIT",
+       "code": "ADVERSE_REFINANCING_HIGH_EXPOSURE",
+       "detail": "REFINANCING (HIGH, NEGATIVE when the company's cost of refinancing debt rises): ILLUSTRATIVE: large bond maturity next year must be refinanced",
+       "reassess_condition": "CREDIT_TIGHTENING clears, or owner re-approves the valuation/exposure with this condition considered",
+       "reassess_on": "2026-10-30",
+       "sources": [
+        {
+         "data_class": "CREDIT_SPREAD",
+         "observation": "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
+         "public_at": "2026-09-30T22:00:00.000000Z",
+         "source_id": "snapshot"
+        },
+        {
+         "data_class": "CREDIT_SPREAD",
+         "observation": "flag:CREDIT_TIGHTENING:REFINANCING",
+         "public_at": "2026-09-30T22:00:00.000000Z",
+         "source_id": "snapshot"
+        }
+       ]
+      }
+     ],
+     "research": [],
+     "unknowns": []
+    },
     "disclaimer": "Decision support only. No order has been placed; holdings are unchanged.",
     "downside": {
      "base_value": "37.83414217584997603146366224545997",
@@ -577,6 +1948,7 @@
      "price": "24.59"
     },
     "evidence": [],
+    "exposure_version_id": "exv_5c220538ef7a4c7da68d",
     "freshness": {
      "filings_check_failed": false,
      "filings_checked_hours_ago": 0.0,
@@ -588,35 +1960,94 @@
      "price_stale_sessions": 0
     },
     "held": false,
+    "long_term_case": {
+     "action": "ADD",
+     "business_assessment": "INTACT",
+     "current_thesis": {
+      "approved_at": "2026-09-30T22:00:00.000000Z",
+      "change_reason": "initial thesis",
+      "version_id": "thv_8a047973215a438ab687",
+      "version_no": 1
+     },
+     "margin_of_safety": "0.3500579480378409072785630123528382",
+     "original_thesis": {
+      "approved_at": "2026-09-30T22:00:00.000000Z",
+      "version_id": "thv_8a047973215a438ab687",
+      "version_no": 1
+     },
+     "thesis_changed_since_original": false,
+     "valuation": {
+      "approved": true,
+      "base": "37.83414217584997603146366224545997",
+      "bear": "23.18892514586636464774106325997942",
+      "bull": "61.34009952285785370516873554635731",
+      "version_id": "val_0fd8d48da03f4e9eb3a6"
+     }
+    },
     "margin_of_safety": "0.3500579480378409072785630123528382",
+    "market_context": {
+     "developments": {
+      "company": [
+       "ZZNEW 1m -13.4%: market +0.0%, sector +0.0%, company-specific -13.4% (association, not causation)"
+      ],
+      "market": [
+       "CREDIT_TIGHTENING: HY OAS 6.2% (+3.20pp over 3m)",
+       "SPY 1m -0.6%, 3m +0.5%, 12m +8.1%, -1.1% from 52w high",
+       "QQQ 1m +1.8%, 3m +2.8%, 12m +9.5%, -0.2% from 52w high"
+      ],
+      "sector": [
+       "Technology (XLK) 3m -0.0%, vs SPY -0.5%"
+      ]
+     },
+     "snapshot_as_of": "2026-09-30T22:00:00.000000Z",
+     "snapshot_id": "mks_e036b98ff3344fe48396",
+     "snapshot_missing": []
+    },
     "milestones": [
      {
       "description": "Revenue above $1.3bn by FY2027",
-      "id": "ms_2508de0139cf46cbae02",
+      "id": "ms_55c660633a064f99b343",
       "state": "PENDING"
      }
     ],
     "missing": [],
     "next_review": "2026-10-08",
+    "position_implications": {
+     "limits_unchanged": "market context never relaxes cash, issuer or sector limits",
+     "room_to_target": null,
+     "summary": "Long-term case supports adding, but purchases are PAUSED (ADVERSE_REFINANCING_HIGH_EXPOSURE); the next contribution skips it until the pause is reassessed"
+    },
     "price": "24.59",
     "price_date": "2026-09-30",
     "price_to_base": "0.6499420519621590927214369876471618",
     "proposed_trade": null,
+    "purchase_eligibility": "PAUSED",
     "symbol": "ZZNEW",
-    "urgent": []
+    "urgent": [],
+    "valuation_changes": {
+     "note": "proposals are not applied; material changes need a new valuation version + approval",
+     "proposals": [],
+     "stress_downside": {
+      "bear_value": "23.18892514586636464774106325997942",
+      "label": "illustrative stress of the bear case; context only, not approved",
+      "shift": "WACC +0.01",
+      "stressed_bear_value": "20.13067925399174318963438929365866"
+     }
+    }
    },
-   "policy_version_id": "pol_2c06a95c62474d99be78",
-   "portfolio_id": "pf_341f7f0421374a6095f6",
+   "policy_version_id": "pol_a4a6a4e61548455482f0",
+   "portfolio_id": "pf_a485f90af2b846428527",
    "previous_action": null,
    "previous_recommendation_id": null,
+   "purchase_eligibility": "PAUSED",
    "reason_codes": [
     "THESIS_INTACT",
     "VALUATION_ATTRACTIVE",
     "CAPACITY_AVAILABLE"
    ],
-   "security_id": "sec_4845b20568a140a18d2d",
-   "thesis_version_id": "thv_629c5ca5ffae43ed9bd0",
-   "valuation_version_id": "val_4f68a94a026245eb9367"
+   "security_id": "sec_153deb9683d7435bbd05",
+   "thesis_version_id": "thv_8a047973215a438ab687",
+   "valuation_version_id": "val_0fd8d48da03f4e9eb3a6"
   }
  ]
 }

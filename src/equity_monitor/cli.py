@@ -404,6 +404,9 @@ def cmd_alerts(args):
         print(deliver_pending(app))
     elif args.action == "requeue":
         requeue(app, args.alert_id, args.note or "")
+    elif args.action in ("useful", "not-useful"):
+        from .monitoring.alerts import record_feedback
+        record_feedback(app, args.alert_id, args.action == "useful", args.note)
 
 
 def cmd_health(args):
@@ -424,6 +427,9 @@ def cmd_report(args):
         md = reports.portfolio_review_md(app, pf)
     elif args.kind == "company":
         md = reports.company_md(app, pf, _sid(app, args.symbol))
+    elif args.kind == "market":
+        from .market.snapshot import snapshot_as_of
+        md = reports.market_context_md(app, snapshot_as_of(app, app.now()))
     else:
         print(reports.write_json(app, "decisions_export", reports.export_decisions(app, pf)))
         return
@@ -454,10 +460,22 @@ def cmd_demo(args):
     if (home / "equity_monitor.sqlite").exists():
         raise SystemExit(f"{home} already has a database; pick another --home-demo")
     app = _open(home, clock=Clock(AS_OF), policy_path=args.policy, settings_path=None)
+    out = Path(args.out)
     d = build_demo(app)
     pf = d["portfolio_id"]
+    from .fixtures import build_market_fixture
+    from .market.snapshot import load_snapshot
+    from .market.exposures import Exposure, approve_profile, create_profile, current_profile
+    zz = d["securities"]["ZZNEW"]["security_id"]
+    prof = current_profile(app, zz)[1]
+    prof = prof.with_exposure(Exposure(
+        factor="REFINANCING", direction="NEGATIVE", magnitude="HIGH", basis="ANALYST_ASSUMPTION", valuation_assumption="wacc",
+        mechanism="ILLUSTRATIVE: large bond maturity next year must be refinanced"))
+    approve_profile(app, create_profile(app, zz, prof, change_reason="FIXTURE: owner flags refinancing risk", author="FIXTURE",
+                                        label="FIXTURE"))
+    snap = build_market_fixture(app, hy_level=Decimal("6.2"))    # FIXTURE market with a credit-tightening flag
     review_portfolio(app, pf)
-    out = Path(args.out)
+    reports.write_report(app, "market_context", reports.market_context_md(app, load_snapshot(app, snap)), out_dir=out)
     reports.write_report(app, "portfolio_review", reports.portfolio_review_md(app, pf), out_dir=out)
     prop = propose(app, pf)
     reports.write_report(app, "allocation", reports.allocation_md(app, load(app, prop.id)), out_dir=out)
@@ -496,6 +514,90 @@ def cmd_policy(args):
         record_decision(app, "POLICY", pid, "ACCEPT", rationale=args.note or "owner approved policy")
         print(f"approval recorded for policy version {pid}. Now set `status: APPROVED` in config/policy.yaml "
               "(the content hash will be re-registered; approval refers to this exact content).")
+
+
+def cmd_market(args):
+    from .market import snapshot as snap_mod
+    from .market.sources import sources_markdown
+    from .reporting.reports import market_context_md, write_report
+    app = _app(args)
+    if args.action == "sources":
+        print(sources_markdown())
+    elif args.action == "refresh":
+        from .data.prices import provider_from_settings
+        from .monitoring.jobs import JobContext, _tracked, refresh_market_context
+        pids = [_pf(app, args.portfolio)] if (args.portfolio or app.settings.active_portfolio) else []
+        out = refresh_market_context(app, JobContext(), _tracked(app, pids) if pids else [], provider_from_settings(app), None)
+        _print(out)
+    elif args.action == "show":
+        s = snap_mod.snapshot_as_of(app, app.now())
+        if s is None:
+            raise SystemExit("no market snapshot yet: run `eqm market refresh`")
+        md = market_context_md(app, s)
+        print(md)
+        print("report:", write_report(app, "market_context", md)[0])
+    elif args.action == "note":
+        from .market.external import add_external_observation
+        oid, status = add_external_observation(app, _sid(app, args.symbol), source_name=args.source, text=args.text, url=args.url,
+                                               published_at=datetime.fromisoformat(args.published) if args.published else app.now(),
+                                               passage_id=args.passage_id, quote=args.quote, fact_id=args.fact_id)
+        print(f"{oid}: {status} (only VERIFIED claims count as facts; others are context)")
+    elif args.action == "explain":
+        from .llm.service import explain_cluster, provider_from_settings
+        _print(explain_cluster(app, provider_from_settings(app), args.recommendation, args.cluster))
+    elif args.action == "lookthrough":
+        from .market.lookthrough import portfolio_market_exposure
+        _print(portfolio_market_exposure(app, _pf(app, args.portfolio), cal.latest_completed_session(app.now())))
+
+
+def cmd_exposure(args):
+    from .market import exposures as ex
+    app = _app(args)
+    if args.action == "approve":
+        ex.approve_profile(app, args.version_id, note=args.note or "")
+        print("approved")
+        return
+    sid = _sid(app, args.symbol)
+    if args.action == "draft":
+        prof = ex.draft_default_profile(app, sid)
+        out = Path(args.out or f"exposure_{args.symbol}.yaml")
+        out.write_text(yaml.safe_dump(json.loads(prof.model_dump_json()), sort_keys=False))
+        print(f"DRAFT written to {out}: review every exposure (evidence or ANALYST_ASSUMPTION), then "
+              f"`eqm exposure create {args.symbol} --file {out} --reason ...`")
+    elif args.action == "create":
+        prof = ex.ExposureProfile.model_validate(yaml.safe_load(Path(args.file).read_text()))
+        vid = ex.create_profile(app, sid, prof, change_reason=args.reason or "", author="USER")
+        print(f"{vid} (not approved; approve with `eqm exposure approve --version-id {vid}`)")
+    elif args.action == "show":
+        for v in ex.profile_history(app, sid):
+            print(f"v{v['version_no']} {v['author']} {v['created_at'][:16]} {'approved ' + v['approved_at'][:16] if v['approved_at'] else 'DRAFT'}: "
+                  f"{v['change_reason']}")
+            for e, ver in zip(json.loads(v["content_json"])["exposures"], json.loads(v["verification_json"])):
+                print(f"   {e['factor']:<24} {e['direction']:<8} {e['magnitude']:<7} [{ver['status']}] {e['mechanism'][:80]}")
+
+
+def cmd_research(args):
+    app = _app(args)
+    if args.close:
+        app.conn.execute("UPDATE research_task SET status=?, closed_at=? WHERE id=?",
+                         ("DISMISSED" if args.dismiss else "DONE", app.now_iso(), args.close))
+        print("updated")
+        return
+    for r in app.conn.execute("SELECT t.*, s.symbol FROM research_task t LEFT JOIN security s ON s.id=t.security_id "
+                              "WHERE t.status='OPEN' ORDER BY t.created_at"):
+        print(f"  {r['id']} {r['symbol'] or '':<7} {r['reason']:<28} {r['created_at'][:16]} {json.loads(r['detail_json']).get('detail', '')[:90]}")
+
+
+def cmd_evaluate(args):
+    from .evaluation.augmented import compare
+    app = _app(args)
+    _print(compare(app, _pf(app, args.portfolio)))
+
+
+def cmd_paper(args):
+    from .evaluation.paper import paper_execute_allocation
+    app = _app(args)
+    print(paper_execute_allocation(app, args.proposal, _pf(app, args.paper_portfolio), args.variant))
 
 
 # ------------------------------------------------------------------ parser
@@ -636,7 +738,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(fn=cmd_serve)
 
     s = sub.add_parser("alerts", help="local inbox and delivery")
-    s.add_argument("action", choices=["list", "show", "ack", "snooze", "deliver", "requeue"])
+    s.add_argument("action", choices=["list", "show", "ack", "snooze", "deliver", "requeue", "useful", "not-useful"])
     s.add_argument("alert_id", nargs="?")
     s.add_argument("--days", type=int, default=7)
     s.add_argument("--note")
@@ -646,7 +748,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("health", help="system health report").set_defaults(fn=cmd_health)
 
     s = sub.add_parser("report", help="write a dated report")
-    s.add_argument("kind", choices=["weekly", "portfolio", "company", "export"])
+    s.add_argument("kind", choices=["weekly", "portfolio", "company", "export", "market"])
     s.add_argument("--portfolio")
     s.add_argument("--symbol")
     s.set_defaults(fn=cmd_report)
@@ -672,6 +774,46 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--archive")
     s.add_argument("--force", action="store_true")
     s.set_defaults(fn=cmd_backup)
+
+    s = sub.add_parser("market", help="market context: refresh, show snapshot, sources, notes, explanations, look-through")
+    s.add_argument("action", choices=["refresh", "show", "sources", "note", "explain", "lookthrough"])
+    s.add_argument("symbol", nargs="?")
+    s.add_argument("--portfolio")
+    s.add_argument("--source", default="owner note")
+    s.add_argument("--text")
+    s.add_argument("--url")
+    s.add_argument("--published", help="ISO timestamp with timezone")
+    s.add_argument("--passage-id")
+    s.add_argument("--quote")
+    s.add_argument("--fact-id")
+    s.add_argument("--recommendation")
+    s.add_argument("--cluster")
+    s.set_defaults(fn=cmd_market)
+
+    s = sub.add_parser("exposure", help="company exposure profiles (draft/create/approve/show)")
+    s.add_argument("action", choices=["draft", "create", "approve", "show"])
+    s.add_argument("symbol", nargs="?")
+    s.add_argument("--file")
+    s.add_argument("--out")
+    s.add_argument("--reason")
+    s.add_argument("--version-id")
+    s.add_argument("--note")
+    s.set_defaults(fn=cmd_exposure)
+
+    s = sub.add_parser("research", help="open research tasks raised by observations")
+    s.add_argument("--close")
+    s.add_argument("--dismiss", action="store_true")
+    s.set_defaults(fn=cmd_research)
+
+    s = sub.add_parser("evaluate", help="fundamental-only baseline vs augmented system")
+    s.add_argument("--portfolio")
+    s.set_defaults(fn=cmd_evaluate)
+
+    s = sub.add_parser("paper", help="paper-execute an allocation variant (requires FROZEN policy)")
+    s.add_argument("--proposal", required=True)
+    s.add_argument("--paper-portfolio", required=True)
+    s.add_argument("--variant", choices=["augmented", "baseline"], required=True)
+    s.set_defaults(fn=cmd_paper)
 
     s = sub.add_parser("policy", help="show or approve the decision policy")
     s.add_argument("action", choices=["show", "approve"])
