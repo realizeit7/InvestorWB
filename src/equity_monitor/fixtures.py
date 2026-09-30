@@ -137,3 +137,74 @@ def build_demo(app: App, *, as_of: datetime = AS_OF, portfolio_name: str = "demo
     assert not res.rejected, res.rejected
     out["securities"]["SCHG"] = {"security_id": schg}
     return out
+
+
+# ---------------------------------------------------------------- market-context fixture (synthetic, labelled)
+def build_market_fixture(app: App, *, as_of: datetime = AS_OF, rates_1m_change: Decimal = D(0), hy_level: Decimal = D("3.0"),
+                         equity_last_month: Decimal = D(0), vix_level: Decimal = D(16), oil_3m: Decimal = D(0),
+                         energy_last_month: Decimal = D(0), missing: tuple[str, ...] = (), tag: str = "") -> str:
+    """Synthetic reference prices + economic series, then a snapshot. Returns the snapshot id.
+
+    FIXTURE ONLY: smooth deterministic paths with scenario shocks applied to the most recent month/quarter.
+    ``tag`` changes nothing economically; it lets tests create a new vintage for the same period.
+    """
+    import math
+    from .market import series as ms
+    from .market.snapshot import build_snapshot, ensure_reference_securities
+    session = cal.latest_completed_session(as_of)
+    refs = ensure_reference_securities(app)
+    days = cal.sessions_between(date(2025, 6, 2), session)
+    n = len(days)
+    for sym, sid in refs.items():
+        # fixture-only: replace this fixture's own synthetic reference bars so a new scenario takes effect
+        app.conn.execute("DELETE FROM price_bar WHERE security_id=? AND provider='fixture'", (sid,))
+        bars = []
+        for i, d in enumerate(days):
+            if sym == "^VIX":
+                v = vix_level if i >= n - 5 else D(16)
+            elif sym == "^VIX3M":
+                v = D(18)
+            elif sym == "HG=F":
+                v = D("4.00")
+            elif sym == "CL=F":
+                v = D(70) * (1 + oil_3m * max(0, i - (n - 63)) / 63)
+            else:
+                h = sum(map(ord, sym)) % 7
+                base = 100 * math.exp(0.0003 * i + 0.01 * math.sin(i / 7 + h))
+                shock = equity_last_month if sym not in ("TLT", "HYG") else D(0)
+                if sym == "XLE":
+                    shock = shock + energy_last_month
+                frac = max(0, i - (n - 21)) / 21
+                v = D(str(round(base, 4))) * (1 + shock * D(str(frac)))
+            bars.append(Bar(d, v.quantize(D("0.0001")), open=v.quantize(D("0.0001")), volume=D(1_000_000)))
+        store_fetch(app, sid, PriceFetch(bars), "fixture")
+    start = session - timedelta(days=500)
+    daily = [d for d in cal.sessions_between(start, session - timedelta(days=1))]
+    def ramp(d, base, delta, window):
+        k = (session - d).days
+        return base + (delta if k <= window else D(0))
+    values = {
+        "fred:DGS10": [(d, ramp(d, D("4.00"), rates_1m_change, 20)) for d in daily],
+        "fred:DGS2": [(d, ramp(d, D("3.80"), rates_1m_change, 20)) for d in daily],
+        "fred:T10Y2Y": [(d, D("0.20")) for d in daily],
+        "fred:DFF": [(d, D("3.75")) for d in daily],
+        "fred:BAMLH0A0HYM2": [(d, ramp(d, D("3.0"), hy_level - D("3.0"), 5)) for d in daily],
+        "fred:BAMLC0A0CM": [(d, D("1.0")) for d in daily],
+        "fred:DTWEXBGS": [(d, D("120")) for d in daily],
+        "fred:DCOILWTICO": [(d, D(70) * (1 + oil_3m * D(str(max(0, 90 - (session - d).days) / 90)))) for d in daily],
+    }
+    months = []
+    m = date(start.year, start.month, 1)
+    while m <= session.replace(day=1):
+        months.append(m)
+        m = (m + timedelta(days=32)).replace(day=1)
+    values.update({
+        "fred:CPIAUCSL": [(mm, (D(320) * D("1.0025") ** i).quantize(D("0.001"))) for i, mm in enumerate(months)],
+        "fred:UNRATE": [(mm, D("4.0")) for mm in months], "fred:PAYEMS": [(mm, D(160000) + i * 100) for i, mm in enumerate(months)],
+        "fred:INDPRO": [(mm, D(103)) for mm in months], "fred:RSAFS": [(mm, D(700000) + i * 1000) for i, mm in enumerate(months)],
+    })
+    for key, vals in values.items():
+        if key in missing:
+            continue
+        ms.store_values(app, ms.SPECS[key], [(d, v.quantize(D("0.0001"))) for d, v in vals], raw_id=None)
+    return build_snapshot(app, as_of)
