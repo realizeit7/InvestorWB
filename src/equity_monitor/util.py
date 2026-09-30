@@ -112,14 +112,15 @@ def money(value: Decimal) -> Decimal:
     return value.quantize(CENT, rounding=ROUND_HALF_EVEN)
 
 
-def fmt_money(value: Decimal | None) -> str:
-    if value is None:
+def fmt_money(value: Decimal | str | None) -> str:
+    if value is None or value == "":
         return "unknown"
-    return f"${money(value):,.2f}"
+    v = money(D(value))
+    return f"-${-v:,.2f}" if v < 0 else f"${v:,.2f}"
 
 
-def fmt_pct(value: Decimal | float | None, digits: int = 1) -> str:
-    if value is None:
+def fmt_pct(value: Decimal | float | str | None, digits: int = 1) -> str:
+    if value is None or value == "":
         return "n/a"
     return f"{float(value) * 100:.{digits}f}%"
 

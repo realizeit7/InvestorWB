@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% block body %}
+<div class="kpis">
+<div class="card kpi"><div class="muted">NAV</div><div class="v">{{ view.nav|money }}</div>{% if view.missing_prices %}<div class="muted">missing prices: {{ view.missing_prices|join(', ') }}</div>{% endif %}</div>
+<div class="card kpi"><div class="muted">Cash (available)</div><div class="v">{{ view.cash|money }}</div><div class="muted">{{ view.available_cash|money }} available · {{ view.unsettled_cash|money }} unsettled</div></div>
+<div class="card kpi"><div class="muted">Realized gain</div><div class="v">{{ view.realized_gain|money }}</div><div class="muted">{{ view.realized_unknown_lots }} lot(s) without basis</div></div>
+<div class="card kpi"><div class="muted">Dividends · fees</div><div class="v">{{ view.dividends|money }}</div><div class="muted">fees {{ view.fees|money }}</div></div>
+<div class="card kpi"><div class="muted">Reconciliation</div><div class="v">{{ view.open_issues|length }} open</div><div class="muted">as of {{ view.as_of }}</div></div>
+</div>
+<div class="card scroll"><h3>Holdings</h3><table><tr><th>Symbol</th><th>Shares</th><th>Price (date)</th><th>Value</th><th>Weight</th><th>Basis</th><th>Unrealized</th><th>Business</th><th>Action</th><th>MoS</th><th>Freshness</th></tr>
+{% for x in rows %}{% set h=x.h %}{% set r=x.r %}<tr>
+<td>{% if h.security_type not in ('ETF','FUND') %}<a href="/company/{{ h.security_id }}?portfolio={{ pf.name }}">{{ h.symbol }}</a>{% else %}{{ h.symbol }}{% endif %}</td>
+<td>{{ '%.4f'|format(h.shares) }}</td><td>{{ h.price|num }} <span class="muted">({{ h.price_date or '—' }})</span></td><td>{{ h.market_value|money }}</td><td>{{ h.weight|pct }}</td>
+<td>{{ h.cost_basis|money }}</td><td>{{ h.unrealized_gain|money }}</td>
+<td>{{ r.business_assessment if r else '—' }}</td>
+<td>{% if r %}<span class="a {{ r.action }}">{{ r.action }}</span>{% if r.is_preview %} <span class="muted">preview</span>{% endif %}{% elif h.security_type in ('ETF','FUND') %}<span class="muted">ETF · tracked only</span>{% else %}<span class="muted">not reviewed</span>{% endif %}</td>
+<td>{{ (r.payload.margin_of_safety|pct) if r else '—' }}</td>
+<td class="muted">{{ ('price ' ~ h.price_stale_sessions ~ ' session(s) old') if h.price_stale_sessions is not none else 'no price' }}</td></tr>{% endfor %}
+</table></div>
+{% if wl %}<div class="card scroll"><h3>Watchlist</h3><table><tr><th>Symbol</th><th>Status</th><th>Action</th><th>Explanation</th></tr>
+{% for w in wl %}<tr><td><a href="/company/{{ w.security_id }}?portfolio={{ pf.name }}">{{ w.symbol }}</a></td><td>{{ w.status }}</td><td>{% if w.r %}<span class="a {{ w.r.action }}">{{ w.r.action }}</span>{% endif %}</td><td style="white-space:normal">{{ w.r.explanation if w.r else '' }}</td></tr>{% endfor %}</table></div>{% endif %}
+<div class="card"><h3>Sector weights</h3><ul>{% for k,v in view.sector_weights|dictsort(by='value', reverse=true) %}<li>{{ k }}: {{ v|pct }}</li>{% endfor %}</ul></div>
+{% if view.open_issues %}<div class="card scroll"><h3>Reconciliation issues</h3><table><tr><th>Type</th><th>Severity</th><th>Detail</th></tr>{% for i in view.open_issues %}<tr><td>{{ i.issue_type }}</td><td>{{ i.severity }}</td><td style="white-space:normal">{{ i.detail_json }}</td></tr>{% endfor %}</table></div>{% endif %}
+{% endblock %}

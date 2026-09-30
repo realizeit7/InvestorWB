@@ -1,0 +1,37 @@
+# Thesis template. Facts must cite ingested evidence (passage_id from `eqm sec sync SYMBOL --docs`,
+# or fact_id); anything uncited must be labelled ASSUMPTION or OPINION.
+business_model: "How the company makes money, in two or three sentences."
+valuation_requires: "What the current price appears to require (use `eqm valuation reverse`)."
+our_view_differs: "Where and why our assumptions differ."
+evidence:
+  - text: "Revenue grew 12% to $4.2 billion"
+    claim_type: FACT
+    citations:
+      - passage_id: "doc_xxx#p12"
+        quote: "increased 12% to $4.2 billion"
+    supports: true
+  - text: "Pricing power should persist"
+    claim_type: ASSUMPTION
+counterargument: "The strongest case against owning it."
+milestones:
+  - description: "Operating margin at or above 20% in FY2027"
+    concept: operating_income
+    metric: margin
+    comparator: ">="
+    target: 0.20
+    due_date: 2027-12-31
+invalidation_conditions:
+  - description: "Operating margin below 10% for 2 consecutive fiscal years"
+    kind: METRIC
+    concept: operating_income
+    metric: margin
+    comparator: "<"
+    threshold: 0.10
+    consecutive_periods: 2
+    period_basis: FY
+  - description: "Loss of the largest customer"
+    kind: EVENT
+value_realization: "Mechanism and timeframe (e.g. earnings growth + buybacks over 3-5 years)."
+key_risks: ["risk 1", "risk 2"]
+assumptions: ["assumption 1"]
+next_review_date: 2027-03-31

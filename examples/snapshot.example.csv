@@ -1,0 +1,5 @@
+type,symbol,quantity,cash,market_value,cost_basis
+POSITION,SCHG,120,,,
+POSITION,MSFT,3,,,
+POSITION,KO,5.078,,,
+CASH,,,3228.50,,

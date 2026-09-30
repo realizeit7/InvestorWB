@@ -32,19 +32,21 @@ def sic_to_sector(sic: str | int | None) -> str | None:
     if s < 1000:
         return "Agriculture"
     if s < 1500:
-        return "Energy & Mining" if s in range(1300, 1400) or s < 1300 else "Energy & Mining"
+        return "Energy" if 1300 <= s < 1400 else "Materials"   # 13xx oil & gas; 10-14 otherwise mining
     if s < 1800:
         return "Construction"
     if s < 4000:
         mg = s // 100
         if mg in (28,):
             return "Health Care" if s in (2833, 2834, 2835, 2836) else "Materials"
-        if mg in (35, 36, 38):
+        if mg == 35:
+            return "Technology" if 3570 <= s < 3580 else "Industrials"   # 357x computers; rest machinery
+        if mg in (36, 38):
             if s in (3841, 3842, 3843, 3844, 3845, 3851):
                 return "Health Care"
             return "Technology"
         if mg in (29,):
-            return "Energy & Mining"
+            return "Energy"
         if mg in (20, 21):
             return "Consumer Staples"
         if mg in (22, 23, 25, 31, 39):
@@ -67,10 +69,10 @@ def sic_to_sector(sic: str | int | None) -> str | None:
         return "Industrials"
     if s < 6000:
         return "Consumer Staples" if s in (5400, 5411, 5412, 5912) else "Consumer Discretionary"
+    if s == 6798 or 6500 <= s < 6600:
+        return "Real Estate"
     if s < 6800:
         return "Financials"
-    if s == 6798:
-        return "Real Estate"
     if s < 7000:
         return "Financials"
     if s < 9000:

@@ -292,14 +292,14 @@ def test_allocation_respects_constraints_and_keeps_cash(app, demo):  # §18.17, 
         assert l.proposed_weight <= app.policy.portfolio.max_issuer_weight
     assert [l.symbol for l in p.lines] == ["ZZADD", "ZZNEW"]          # ranked by margin of safety
     # tighter sector limit binds; whole-share rounding when fractional shares are off
-    strict = Policy(portfolio=PortfolioPolicy(max_sector_weight=Dec("0.20"), fractional_shares=False,
+    strict = Policy(portfolio=PortfolioPolicy(max_sector_weight=Dec("0.15"), fractional_shares=False,
                                               min_trade_usd=Dec("50"), fee_per_trade_usd=Dec("1")))
     app.policy = strict
     review_portfolio(app, pf)
     p2 = propose(app, pf)
     tech_before = view.sector_weights["Technology"] * view.nav
     tech_added = sum(l.amount for l in p2.lines)
-    assert tech_before + tech_added <= Dec("0.20") * p2.nav_after + Dec("0.01")
+    assert tech_before + tech_added <= Dec("0.15") * p2.nav_after + Dec("0.01")
     assert "SECTOR_LIMIT" in p2.binding_constraints
     for l in p2.lines:
         assert l.shares == l.shares.to_integral_value() and l.amount == l.shares * l.price

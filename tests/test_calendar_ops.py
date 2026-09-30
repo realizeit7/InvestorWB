@@ -71,3 +71,15 @@ def test_backup_restore_roundtrip(tmp_path, clock):
     app2 = open_app(new_home, clock=clock)
     assert app2.conn.execute("SELECT COUNT(*) FROM ledger_event").fetchone()[0] == 1
     assert (new_home / "raw" / "x" / "f.json").exists()
+
+
+def test_sic_sector_mapping():
+    from equity_monitor.data.securities import sic_to_sector
+    assert sic_to_sector("3571") == "Technology"       # computers
+    assert sic_to_sector("3560") == "Industrials"      # general industrial machinery
+    assert sic_to_sector("7372") == "Technology"
+    assert sic_to_sector("2834") == "Health Care"
+    assert sic_to_sector("6022") == "Financials"
+    assert sic_to_sector("6798") == "Real Estate"
+    assert sic_to_sector("1311") == "Energy"
+    assert sic_to_sector(None) is None

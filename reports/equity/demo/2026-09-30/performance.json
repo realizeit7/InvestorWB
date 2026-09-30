@@ -1,0 +1,48 @@
+{
+ "benchmarks": {
+  "SCHG": {
+   "assumptions": "close of first session on/after flow date; no fees; dividends reinvested at ex-date close",
+   "end_value": "0",
+   "max_drawdown": null,
+   "twr": null,
+   "unapplied_flows": []
+  },
+  "VTI": {
+   "error": "'benchmark VTI has no price data; refresh prices for it first'"
+  }
+ },
+ "caveat": "A short live record cannot establish skill. No alpha claim is made.",
+ "dividends": "0",
+ "drawdown_window": [
+  null,
+  null
+ ],
+ "end": "2026-09-30",
+ "fees": "0",
+ "label": "FIXTURE",
+ "max_drawdown": "0",
+ "missing_nav_days": [],
+ "mwr": {
+  "note": "annualized",
+  "rate": 0.0934419246,
+  "status": "SOLVED"
+ },
+ "nav_end": "103003.56225184",
+ "nav_reconciliation": {
+  "contributions+pnl+income": "103003.56225184",
+  "difference_is_standalone_fees": "0",
+  "nav": "103003.56225184",
+  "note": "trade fees are inside cost basis/proceeds; the difference should equal minus standalone FEE events"
+ },
+ "nav_start": "100000",
+ "pre_tax": true,
+ "realized_gain": "0",
+ "research_costs": {},
+ "sessions": 85,
+ "start": "2026-06-01",
+ "trade_count": 6,
+ "turnover": "0.4794209453059790064288428043932342",
+ "twr": "0.030035622518399999999999999999998",
+ "unknown_cost_records": 0,
+ "unrealized_gain": "3003.56225184"
+}

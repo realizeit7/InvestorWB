@@ -1,0 +1,24 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ title }} · Equity monitor</title>
+<style>
+:root{--bg:#f7f8fa;--card:#fff;--fg:#1d2330;--muted:#5c6475;--line:#dde1e8;--accent:#1f5fbf;--add:#1b7a3d;--hold:#5c6475;--trim:#9a5b00;--exit:#b3261e;--review:#6a3fb5}
+@media (prefers-color-scheme: dark){:root{--bg:#111418;--card:#181c22;--fg:#e6e8ec;--muted:#9aa2af;--line:#2a3039;--accent:#7fb0ff;--add:#7bd88f;--hold:#aab1bd;--trim:#e0a84a;--exit:#ff8a80;--review:#c3a6ff}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--card)}
+header a{color:var(--fg);text-decoration:none;padding:4px 8px;border-radius:6px}header a.on{background:var(--line)}
+main{max-width:1200px;margin:0 auto;padding:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin:12px 0}
+.banner{border-left:4px solid var(--trim);background:var(--card);padding:8px 12px;margin:12px 0;border-radius:6px}.banner div{margin:2px 0}
+table{border-collapse:collapse;width:100%}th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase}
+.scroll{overflow-x:auto}.muted{color:var(--muted)}.a{font-weight:700;padding:1px 8px;border-radius:10px;border:1px solid currentColor}
+.ADD{color:var(--add)}.HOLD{color:var(--hold)}.TRIM{color:var(--trim)}.EXIT{color:var(--exit)}.REVIEW{color:var(--review)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}.kpi .v{font-size:20px;font-weight:650}
+button,select,input{font:inherit;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg)}
+a{color:var(--accent)} ul{margin:4px 0;padding-left:20px}
+</style></head><body>
+<header><strong>Equity monitor</strong>
+{% for (href,label) in [('/','Portfolio'),('/allocation','Allocation'),('/inbox','Inbox'),('/health','Health')] %}
+<a href="{{ href }}?portfolio={{ pf.name }}" class="{{ 'on' if path==href else '' }}">{{ label }}</a>{% endfor %}
+<form method="get" action="{{ path }}" style="margin-left:auto"><select name="portfolio" onchange="this.form.submit()">
+{% for p in portfolios %}<option value="{{ p.name }}" {{ 'selected' if p.id==pf.id else '' }}>{{ p.name }} [{{ p.kind }}]</option>{% endfor %}</select></form>
+</header>
+<main><div class="banner">{% for l in banner %}<div>{{ l }}</div>{% endfor %}</div>{% block body %}{% endblock %}</main></body></html>

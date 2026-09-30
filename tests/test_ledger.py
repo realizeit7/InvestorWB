@@ -185,3 +185,14 @@ def test_actual_paper_fixture_cannot_mix(app):  # §18.20
     import_csv(app, a2, text="date,type,amount\n2026-01-05,DEPOSIT,999\n")
     assert portfolio_view(app, actual, as_of=date(2026, 1, 6)).cash == Dec(100)
     assert portfolio_view(app, paper, as_of=date(2026, 1, 6)).kind == "PAPER"
+
+
+def test_documented_example_files_import_cleanly(app, acct):
+    from pathlib import Path
+    pf, a = acct
+    root = Path(__file__).resolve().parents[1]
+    rep = import_csv(app, a, root / "examples" / "transactions.example.csv")
+    assert not rep.rejected and rep.inserted == 8
+    snap = import_snapshot(app, a, date(2026, 7, 16), root / "examples" / "snapshot.example.csv")
+    found = reconcile_snapshot(app, snap)
+    assert found == []

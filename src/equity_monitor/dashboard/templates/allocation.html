@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% block body %}
+{% if not p %}<div class="card">No allocation proposal yet. Run <code>eqm allocate --portfolio {{ pf.name }}</code>.</div>{% else %}
+<div class="kpis"><div class="card kpi"><div class="muted">Basis</div><div class="v">{{ p.kind }}</div><div class="muted">{{ p.as_of[:10] }}</div></div>
+<div class="card kpi"><div class="muted">Budget</div><div class="v">{{ p.budget|money }}</div><div class="muted">settled deployable {{ p.deployable_cash|money }}</div></div>
+<div class="card kpi"><div class="muted">Remaining cash</div><div class="v">{{ p.remaining_cash|money }}</div><div class="muted">binding: {{ p.binding_constraints|join(', ') or '—' }}</div></div></div>
+<div class="card scroll"><h3>Proposed (not executed)</h3><table><tr><th>Rank</th><th>Symbol</th><th>MoS</th><th>Current weight</th><th>Proposed $</th><th>Est. shares</th><th>Fee</th><th>Proposed weight</th><th>Binding</th></tr>
+{% for l in p.lines %}<tr><td>{{ l.rank }}</td><td>{{ l.symbol }}</td><td>{{ l.margin_of_safety|pct }}</td><td>{{ l.current_weight|pct }}</td><td>{{ l.amount|money }}</td><td>{{ l.shares|num }}</td><td>{{ l.fee|money }}</td><td>{{ l.proposed_weight|pct }}</td><td>{{ l.binding }} {{ l.note }}</td></tr>{% endfor %}</table></div>
+{% if p.excluded %}<div class="card"><h3>Excluded</h3><ul>{% for e in p.excluded %}<li>{{ e.symbol }}: {{ e.reason }}</li>{% endfor %}</ul></div>{% endif %}
+<div class="card"><h3>Notes</h3><ul>{% for n in p.notes %}<li>{{ n }}</li>{% endfor %}</ul></div>
+<div class="card"><h3>Your decision</h3>{% for d in decisions %}<div>{{ d.decided_at[:16] }} · {{ d.decision }} · {{ d.rationale }}</div>{% endfor %}
+<form method="post" action="/decide"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="subject_type" value="ALLOCATION"><input type="hidden" name="subject_id" value="{{ a.id }}"><input type="hidden" name="back" value="/allocation?portfolio={{ pf.name }}">
+<select name="decision"><option>ACCEPT</option><option>REJECT</option><option>DEFER</option></select><input name="rationale" placeholder="rationale"><button>Record</button></form>
+<p class="muted">Recording a decision does not trade. After you trade at your broker, import or enter the fills.</p></div>{% endif %}
+{% endblock %}

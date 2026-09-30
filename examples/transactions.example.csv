@@ -1,0 +1,8 @@
+account,date,settle_date,time,timezone,type,symbol,security_type,quantity,price,fees,amount,currency,cost_basis,split_from,split_to,subtype,link_id,external_id,note,acquired_unknown
+,2026-01-02,,,,OPENING_CASH,,,,,,2500,USD,,,,,,open-cash-1,cash carried over,
+,2026-01-02,,,,OPENING_POSITION,SCHG,ETF,120,,,,USD,3100.50,,,,,open-schg-1,imported holding with known basis,
+,2026-01-02,,,,OPENING_POSITION,MSFT,,3,,,,USD,,,,,,open-msft-1,basis unknown (left blank on purpose),true
+,2026-02-03,,,,DEPOSIT,,,,,,1000,USD,,,,,,dep-2026-02,monthly contribution,
+,2026-02-04,2026-02-05,10:31,America/New_York,BUY,KO,COMMON,10,62.15,0,,USD,,,,,,t-1001,,
+,2026-04-01,,,,DIVIDEND_REINVEST,KO,,0.078,62.80,0,4.90,USD,,,,,drip-1,div-ko-q1,dividend reinvested,
+,2026-07-15,2026-07-16,14:02,America/New_York,SELL,KO,,5,70.00,0,,USD,,,,,,t-1002,,

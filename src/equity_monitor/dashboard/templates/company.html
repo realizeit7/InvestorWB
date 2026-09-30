@@ -1,0 +1,25 @@
+{% extends "base.html" %}{% block body %}
+<h2>{{ sec.symbol }} — {{ sec.issuer_name }}</h2><p class="muted">CIK {{ sec.cik }} · sector {{ sec.sector }} · {{ sec.security_type }}</p>
+{% for label, v in [('Original approved thesis', original), ('Current approved thesis', current)] %}
+<div class="card"><h3>{{ label }}</h3>{% if v %}<p class="muted">v{{ v.version_no }} · {{ v.author }} · approved {{ v.approved_at }} · reason: {{ v.change_reason }}</p>
+<ul><li><b>How it makes money:</b> {{ v.content.business_model }}</li><li><b>What the price requires:</b> {{ v.content.valuation_requires }}</li>
+<li><b>Where we differ:</b> {{ v.content.our_view_differs }}</li><li><b>Strongest counterargument:</b> {{ v.content.counterargument }}</li>
+<li><b>Value realization:</b> {{ v.content.value_realization }}</li><li><b>Key risks:</b> {{ v.content.key_risks|join(', ') }}</li>
+<li><b>Assumptions (not facts):</b> {{ v.content.assumptions|join('; ') }}</li><li><b>Next review:</b> {{ v.content.next_review_date }}</li></ul>
+<p><b>Invalidation conditions</b></p><ul>{% for c in v.conditions %}<li>{{ c.description }} <span class="muted">({{ c.kind }})</span></li>{% endfor %}</ul>
+<p><b>Milestones</b></p><ul>{% for m in v.milestones %}<li>{{ m.description }} <span class="muted">due {{ m.due_date }}</span></li>{% endfor %}</ul>
+<p><b>Evidence</b></p><ul>{% for c in v.claims %}<li>[{{ c.claim_type }}/{{ c.verification }}] {{ c.text }} {% for l in c.links %}<span class="muted">— {{ 'supports' if l.supports else 'contradicts' }}: “{{ l.quote }}”</span>{% endfor %}</li>{% else %}<li class="muted">no cited claims</li>{% endfor %}</ul>
+{% else %}<p class="muted">none</p>{% endif %}</div>{% endfor %}
+<div class="card scroll"><h3>Thesis history</h3><table><tr><th>Version</th><th>Author</th><th>Created</th><th>Approved</th><th>Reason</th></tr>
+{% for v in history %}<tr><td>{{ v.version_no }}</td><td>{{ v.author }}</td><td>{{ v.created_at[:10] }}</td><td>{{ v.approved_at[:10] if v.approved_at else 'draft' }}</td><td style="white-space:normal">{{ v.change_reason }}</td></tr>{% endfor %}</table></div>
+<div class="card scroll"><h3>Valuations (per share; scenarios, not forecasts)</h3><table><tr><th>Version</th><th>Created</th><th>Approved</th><th>Bear</th><th>Base</th><th>Bull</th><th>Terminal share</th></tr>
+{% for v in vals %}<tr><td>{{ v.version_no }}</td><td>{{ v.created_at[:10] }}</td><td>{{ (v.approved_at[:10] ~ (' · downside reviewed' if v.downside_reviewed else '')) if v.approved_at else 'no' }}</td><td>{{ v.bear_value_ps|num }}</td><td>{{ v.base_value_ps|num }}</td><td>{{ v.bull_value_ps|num }}</td><td>{{ v.out.base.terminal_share|pct }}</td></tr>{% endfor %}</table></div>
+<div class="card scroll"><h3>Recommendation history · price vs estimated value</h3><table><tr><th>As of</th><th>Action</th><th>Business</th><th>Price</th><th>Base value</th><th>MoS</th><th>Reasons</th><th>Your decision</th></tr>
+{% for r in recs|reverse %}<tr><td>{{ r.as_of[:16] }}</td><td><span class="a {{ r.action }}">{{ r.action }}</span></td><td>{{ r.business_assessment }}</td><td>{{ r.payload.price|num }}</td><td>{{ r.payload.downside.base_value|num }}</td><td>{{ r.payload.margin_of_safety|pct }}</td><td style="white-space:normal">{{ r.reason_codes|join(', ') }}</td>
+<td>{% for d in r.decisions %}{{ d.decision }}{{ ' → ' ~ d.override_action if d.override_action else '' }}<br>{% endfor %}
+<form method="post" action="/decide"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="subject_type" value="RECOMMENDATION"><input type="hidden" name="subject_id" value="{{ r.id }}"><input type="hidden" name="back" value="{{ path }}?portfolio={{ pf.name }}">
+<select name="decision"><option>ACCEPT</option><option>REJECT</option><option>DEFER</option><option>OVERRIDE</option></select>
+<select name="override_action"><option value="">(override to)</option><option>ADD</option><option>HOLD</option><option>TRIM</option><option>EXIT</option></select>
+<input name="rationale" placeholder="rationale"><button>Record</button></form></td></tr>
+<tr><td colspan="8" class="muted" style="white-space:normal">{{ r.explanation }}{% if r.payload.missing %} · Missing: {{ r.payload.missing|join('; ') }}{% endif %}{% if r.payload.urgent %} · <b>Urgent:</b> {{ r.payload.urgent|join('; ') }}{% endif %} · Would change: {{ r.payload.change_conditions|join('; ') }}</td></tr>{% endfor %}</table></div>
+{% endblock %}

@@ -1,0 +1,72 @@
+# Decision policy. ALL numbers are provisional engineering defaults, not validated investment rules.
+# status: PREVIEW until you review and approve (eqm policy approve, then set status: APPROVED).
+# FROZEN is required before prospective paper execution. See POLICY.md for every definition.
+name: provisional-preview
+version: 0.1.0
+status: PREVIEW
+recommendation:
+  add_min_margin_of_safety: '0.25'
+  add_exit_margin_of_safety: '0.20'
+  trim_price_to_base: '1.20'
+  trim_release_price_to_base: '1.10'
+  exit_price_to_bull: '1.00'
+  max_bear_downside: '0.50'
+  require_thesis_approval: true
+  require_valuation_approval: true
+  require_downside_review: true
+  max_valuation_age_days: 400
+  max_price_age_sessions: 1
+  max_filing_check_age_hours: 36
+  max_financials_age_days: 200
+  next_review_days: 90
+portfolio:
+  target_holdings_min: 10
+  target_holdings_max: 15
+  max_issuer_weight: '0.10'
+  max_sector_weight: '0.30'
+  target_position_weight: '0.08'
+  min_trade_usd: '50'
+  fee_per_trade_usd: '0'
+  fractional_shares: true
+  cash_buffer_usd: '0'
+  allow_borrowing: false
+  residual_policy: hold_cash
+screening:
+  min_fiscal_years: 3
+  min_completeness: '0.70'
+  min_peer_group_size: 5
+  excluded_sic_ranges:
+  - - 6000
+    - 6199
+    - BANK_OR_CREDIT
+  - - 6300
+    - 6411
+    - INSURANCE
+  - - 6798
+    - 6798
+    - REIT
+  - - 6770
+    - 6770
+    - SHELL
+  biotech_sic:
+  - 2834
+  - 2835
+  - 2836
+  - 8731
+  biotech_min_revenue_usd: '100000000'
+alerts:
+  cooldown_hours: 24
+  price_move_alert: '0.10'
+paper:
+  slippage_bps: '5'
+  fee_per_trade_usd: '0'
+  fill: next_session_open
+valuation:
+  explicit_years: 5
+  terminal_growth_cap: '0.04'
+  default_wacc: '0.09'
+  default_terminal_growth: '0.025'
+  scenario_growth_shift: '0.04'
+  scenario_margin_shift: '0.03'
+  scenario_wacc_shift: '0.01'
+

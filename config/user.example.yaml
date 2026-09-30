@@ -1,0 +1,38 @@
+# Copy to config/user.yaml (git-ignored) and fill in. Unknown values stay null on purpose:
+# the system labels personalized output as PREVIEW until you supply them.
+display_timezone: America/New_York
+
+# SEC fair-access policy requires a descriptive User-Agent with contact details, e.g.
+# "Jane Doe jane@example.com". Requests without an email-like contact are refused (HTTP 403).
+sec_user_agent: null
+
+# yahoo_chart = unofficial Yahoo endpoint (personal research only; no license grant),
+# csv = files in <home>/prices_csv/<SYMBOL>.csv, fixture = demo data only.
+market_data_provider: yahoo_chart
+
+active_portfolio: null          # e.g. "main"
+benchmarks: [SCHG, VTI]         # contribution-matched benchmarks (broad market = VTI)
+
+contribution:
+  monthly_amount_usd: null      # e.g. 1000 — a plan, not cash until you record the DEPOSIT
+  schg_relationship: undecided  # supplement | replace | undecided
+
+risk:
+  confirmed: false              # set true after reviewing config/policy.yaml portfolio limits
+  total_investable_assets_usd: null
+  outside_holdings_known: false # retirement/outside holdings are not tracked => household concentration unknown
+
+llm:
+  provider: none                # none | anthropic | fixture
+  model: claude-opus-5-5
+  effort: high
+  use_server_fallbacks: true    # server-side refusal fallback (beta header server-side-fallback-2026-07-01)
+  monthly_budget_usd: null      # hard stop for LLM spend when set
+  max_output_tokens: 16000
+
+notifications:
+  webhook_enabled: false        # external delivery stays OFF until you enable AND authorize it
+  webhook_authorized: false
+  webhook_url_env: EQM_WEBHOOK_URL   # the URL itself lives in this environment variable, not in files
+  ambiguous_timeout_policy: hold_for_review   # or retry_same_key (only if your receiver de-duplicates)
+  max_attempts: 5

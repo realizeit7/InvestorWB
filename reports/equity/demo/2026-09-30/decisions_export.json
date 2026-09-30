@@ -1,0 +1,622 @@
+{
+ "allocations": [
+  {
+   "as_of": "2026-09-30T22:00:00.000000Z",
+   "budget": "51759.99999878",
+   "contribution_kind": "CONFIRMED",
+   "id": "alloc_05a7d42eab9b428ea3f9",
+   "is_preview": 1,
+   "label": "FIXTURE",
+   "remaining_cash": "38478.87999878"
+  }
+ ],
+ "decisions": [],
+ "exported_at": "2026-09-30T22:00:00.000000Z",
+ "kind": "FIXTURE",
+ "policy_versions": [
+  {
+   "content_hash": "0594e42577e61fe16aef6229d4808d02e0aedd2ea5e2c14b57033309b2065550",
+   "id": "pol_d36d9814ca654035b507",
+   "name": "provisional-preview@0.1.0",
+   "status": "PREVIEW"
+  }
+ ],
+ "portfolio_id": "pf_48d57fc9c1bb453b987d",
+ "recommendations": [
+  {
+   "action": "HOLD",
+   "as_of": "2026-09-30T22:00:00.000000Z",
+   "business_assessment": "INTACT",
+   "created_at": "2026-09-30T22:00:00.000000Z",
+   "explanation": "Ownership remains reasonable but new money is not preferred: margin of safety 10.0% < 25%; position at/above target weight 8%",
+   "id": "rec_4b40ea02b2374dc189f5",
+   "input_hash": "06e98fcd6beba97e23588f063610d81b9ce10bf8562153e20261ec74dfbb547e",
+   "is_preview": 1,
+   "label": "FIXTURE",
+   "payload": {
+    "change_conditions": [
+     "ADD band starts at price <= 20.20 (MoS 25%) if thesis stays intact",
+     "TRIM considered at price >= 32.32 (120% of base value)",
+     "EXIT considered at price >= 46.06 (bull value)",
+     "EXIT if verified: Operating margin below 10% for 2 consecutive fiscal years",
+     "EXIT if verified: Loss of the largest customer contract"
+    ],
+    "changes": {
+     "first_review": true
+    },
+    "concentration": {
+     "issuer_limit": "0.1",
+     "issuer_weight": "0.09320066016249365963361147411456787",
+     "nav": "103003.56225184",
+     "sector": "Consumer Staples",
+     "sector_limit": "0.3",
+     "sector_weight": "0.09320066016249365963361147411456787"
+    },
+    "conditions": [
+     {
+      "assessor": "ENGINE",
+      "description": "Operating margin below 10% for 2 consecutive fiscal years",
+      "id": "ic_6ac34d4d31774e35b76f",
+      "kind": "METRIC",
+      "latest_breaches": false,
+      "state": "NOT_TRIGGERED",
+      "verified": false
+     },
+     {
+      "assessor": "NONE",
+      "description": "Loss of the largest customer contract",
+      "id": "ic_9252087e9b6346378c10",
+      "kind": "EVENT",
+      "latest_breaches": false,
+      "state": "NOT_TRIGGERED",
+      "verified": false
+     }
+    ],
+    "disclaimer": "Decision support only. No order has been placed; holdings are unchanged.",
+    "downside": {
+     "base_value": "26.93580742147896961929701246012247",
+     "bear_downside": "-0.3721714635247843859397402024479872",
+     "bear_value": "15.21856372415922648482069749266079",
+     "bull_value": "46.05921352666614187208802857812076",
+     "note": "bear value is a scenario, not a probability-weighted forecast",
+     "price": "24.24"
+    },
+    "evidence": [],
+    "freshness": {
+     "filings_check_failed": false,
+     "filings_checked_hours_ago": 0.0,
+     "financials_overdue": false,
+     "last_completed_session": "2026-09-30",
+     "latest_period_end": "2026-06-30",
+     "new_financials_since_valuation": false,
+     "price_date": "2026-09-30",
+     "price_stale_sessions": 0
+    },
+    "held": true,
+    "margin_of_safety": "0.1000826661438519594469245626043998",
+    "milestones": [
+     {
+      "description": "Revenue above $1.3bn by FY2027",
+      "id": "ms_5fe20afb988e400296a1",
+      "state": "PENDING"
+     }
+    ],
+    "missing": [],
+    "next_review": "2026-10-08",
+    "price": "24.24",
+    "price_date": "2026-09-30",
+    "price_to_base": "0.8999173338561480405530754373956002",
+    "proposed_trade": null,
+    "symbol": "ZZHLD",
+    "urgent": []
+   },
+   "policy_version_id": "pol_d36d9814ca654035b507",
+   "portfolio_id": "pf_48d57fc9c1bb453b987d",
+   "previous_action": null,
+   "previous_recommendation_id": null,
+   "reason_codes": [
+    "NO_ADD"
+   ],
+   "security_id": "sec_03d53ebe80a544cdac29",
+   "thesis_version_id": "thv_fdfb33a107914e5abba2",
+   "valuation_version_id": "val_e0d154ddf1ac4fed9a0b"
+  },
+  {
+   "action": "TRIM",
+   "as_of": "2026-09-30T22:00:00.000000Z",
+   "business_assessment": "INTACT",
+   "created_at": "2026-09-30T22:00:00.000000Z",
+   "explanation": "Price is 130% of base value (> 120%).",
+   "id": "rec_de1744bed10a411cacc9",
+   "input_hash": "6cffd9235648e2e2884f2c24a547e8fd152da95ead50907477329aaa614131e0",
+   "is_preview": 1,
+   "label": "FIXTURE",
+   "payload": {
+    "change_conditions": [
+     "ADD band starts at price <= 22.93 (MoS 25%) if thesis stays intact",
+     "TRIM considered at price >= 36.68 (120% of base value)",
+     "EXIT considered at price >= 51.15 (bull value)",
+     "EXIT if verified: Operating margin below 10% for 2 consecutive fiscal years",
+     "EXIT if verified: Loss of the largest customer contract"
+    ],
+    "changes": {
+     "first_review": true
+    },
+    "concentration": {
+     "issuer_limit": "0.1",
+     "issuer_weight": "0.08412819443868509627425841209540658",
+     "nav": "103003.56225184",
+     "sector": "Technology",
+     "sector_limit": "0.3",
+     "sector_weight": "0.1151896077816284564632307523918442"
+    },
+    "conditions": [
+     {
+      "assessor": "ENGINE",
+      "description": "Operating margin below 10% for 2 consecutive fiscal years",
+      "id": "ic_46fee16ca86b40fda686",
+      "kind": "METRIC",
+      "latest_breaches": false,
+      "state": "NOT_TRIGGERED",
+      "verified": false
+     },
+     {
+      "assessor": "NONE",
+      "description": "Loss of the largest customer contract",
+      "id": "ic_788d87bc68794d4a9b49",
+      "kind": "EVENT",
+      "latest_breaches": false,
+      "state": "NOT_TRIGGERED",
+      "verified": false
+     }
+    ],
+    "disclaimer": "Decision support only. No order has been placed; holdings are unchanged.",
+    "downside": {
+     "base_value": "30.56858567293597175668589572190164",
+     "bear_downside": "-0.5501924794985336552811402596435078",
+     "bear_value": "17.875350864728272539127486081767",
+     "bull_value": "51.15284219206337914978159756753292",
+     "note": "bear value is a scenario, not a probability-weighted forecast",
+     "price": "39.74"
+    },
+    "evidence": [],
+    "freshness": {
+     "filings_check_failed": false,
+     "filings_checked_hours_ago": 0.0,
+     "financials_overdue": false,
+     "last_completed_session": "2026-09-30",
+     "latest_period_end": "2026-06-30",
+     "new_financials_since_valuation": false,
+     "price_date": "2026-09-30",
+     "price_stale_sessions": 0
+    },
+    "held": true,
+    "margin_of_safety": "-0.300027434216035032222833287779116",
+    "milestones": [
+     {
+      "description": "Revenue above $1.3bn by FY2027",
+      "id": "ms_8660d1b35f604a18a3f2",
+      "state": "PENDING"
+     }
+    ],
+    "missing": [],
+    "next_review": "2026-10-08",
+    "price": "39.74",
+    "price_date": "2026-09-30",
+    "price_to_base": "1.300027434216035032222833287779116",
+    "proposed_trade": {
+     "amount": "4545.3612229264",
+     "note": "illustrative trim to half the target weight; owner decides size",
+     "side": "SELL",
+     "target_weight": "0.04"
+    },
+    "symbol": "ZZTRM",
+    "urgent": []
+   },
+   "policy_version_id": "pol_d36d9814ca654035b507",
+   "portfolio_id": "pf_48d57fc9c1bb453b987d",
+   "previous_action": null,
+   "previous_recommendation_id": null,
+   "reason_codes": [
+    "VALUATION_ABOVE_TRIM_BAND"
+   ],
+   "security_id": "sec_842a7f2577964d4aa9de",
+   "thesis_version_id": "thv_8cc6c445cd684d82a769",
+   "valuation_version_id": "val_8efee0172d0b4a159a7b"
+  },
+  {
+   "action": "REVIEW",
+   "as_of": "2026-09-30T22:00:00.000000Z",
+   "business_assessment": "INTACT",
+   "created_at": "2026-09-30T22:00:00.000000Z",
+   "explanation": "Review required before any action: valuation assumptions not approved",
+   "id": "rec_ba6f69667c1c40abb4fa",
+   "input_hash": "a3e80e198145ba73844aaa073fca849703cc03e1b1487cbc1c0b25f0c536212f",
+   "is_preview": 1,
+   "label": "FIXTURE",
+   "payload": {
+    "change_conditions": [
+     "Resolve: valuation assumptions not approved"
+    ],
+    "changes": {
+     "first_review": true
+    },
+    "concentration": {
+     "issuer_limit": "0.1",
+     "issuer_weight": "0.06342636183287239169466214067059435",
+     "nav": "103003.56225184",
+     "sector": "Communication Services",
+     "sector_limit": "0.3",
+     "sector_weight": "0.06342636183287239169466214067059435"
+    },
+    "conditions": [
+     {
+      "assessor": "ENGINE",
+      "description": "Operating margin below 10% for 2 consecutive fiscal years",
+      "id": "ic_8cdddf272be5431ebea8",
+      "kind": "METRIC",
+      "latest_breaches": false,
+      "state": "NOT_TRIGGERED",
+      "verified": false
+     },
+     {
+      "assessor": "NONE",
+      "description": "Loss of the largest customer contract",
+      "id": "ic_513e33c0ae8b43c99441",
+      "kind": "EVENT",
+      "latest_breaches": false,
+      "state": "NOT_TRIGGERED",
+      "verified": false
+     }
+    ],
+    "disclaimer": "Decision support only. No order has been placed; holdings are unchanged.",
+    "downside": {
+     "base_value": "32.38497479866447282538033735279123",
+     "bear_downside": "-0.1529005542561625246457485497873794",
+     "bear_value": "19.20374443501279556628088037632011",
+     "bull_value": "53.69965652476199778862838206223903",
+     "note": "bear value is a scenario, not a probability-weighted forecast",
+     "price": "22.67"
+    },
+    "evidence": [],
+    "freshness": {
+     "filings_check_failed": false,
+     "filings_checked_hours_ago": 0.0,
+     "financials_overdue": false,
+     "last_completed_session": "2026-09-30",
+     "latest_period_end": "2026-06-30",
+     "new_financials_since_valuation": false,
+     "price_date": "2026-09-30",
+     "price_stale_sessions": 0
+    },
+    "held": true,
+    "margin_of_safety": "0.2999840160155106753617295374492125",
+    "milestones": [
+     {
+      "description": "Revenue above $1.3bn by FY2027",
+      "id": "ms_9c2aacca51974ac18995",
+      "state": "PENDING"
+     }
+    ],
+    "missing": [
+     "valuation assumptions not approved"
+    ],
+    "next_review": "2026-10-08",
+    "price": "22.67",
+    "price_date": "2026-09-30",
+    "price_to_base": "0.7000159839844893246382704625507875",
+    "proposed_trade": null,
+    "symbol": "ZZREV",
+    "urgent": []
+   },
+   "policy_version_id": "pol_d36d9814ca654035b507",
+   "portfolio_id": "pf_48d57fc9c1bb453b987d",
+   "previous_action": null,
+   "previous_recommendation_id": null,
+   "reason_codes": [
+    "VALUATION_NOT_APPROVED"
+   ],
+   "security_id": "sec_20fb820eedea4a8696e9",
+   "thesis_version_id": "thv_13a0e43725f4475a8341",
+   "valuation_version_id": "val_9cc3644a994e497ba648"
+  },
+  {
+   "action": "EXIT",
+   "as_of": "2026-09-30T22:00:00.000000Z",
+   "business_assessment": "BROKEN",
+   "created_at": "2026-09-30T22:00:00.000000Z",
+   "explanation": "Pre-declared invalidation condition met and verified: Operating margin below 10% for 2 consecutive fiscal years",
+   "id": "rec_66ef1bedb9074a9d99d6",
+   "input_hash": "2974f77cfcb08ab24771c0475d63495de836203374de3dc5fe9f1204e302d0ba",
+   "is_preview": 1,
+   "label": "FIXTURE",
+   "payload": {
+    "change_conditions": [
+     "Owner may override with a documented rationale; the original thesis stays on record."
+    ],
+    "changes": {
+     "first_review": true
+    },
+    "concentration": {
+     "issuer_limit": "0.1",
+     "issuer_weight": "0.03880915396854239530631264155756307",
+     "nav": "103003.56225184",
+     "sector": "Consumer Discretionary",
+     "sector_limit": "0.3",
+     "sector_weight": "0.03880915396854239530631264155756307"
+    },
+    "conditions": [
+     {
+      "assessor": "ENGINE",
+      "description": "Operating margin below 10% for 2 consecutive fiscal years",
+      "id": "ic_e207f5fd0f3342f7a420",
+      "kind": "METRIC",
+      "latest_breaches": true,
+      "state": "TRIGGERED",
+      "verified": true
+     },
+     {
+      "assessor": "NONE",
+      "description": "Loss of the largest customer contract",
+      "id": "ic_ec016d8388964b37863a",
+      "kind": "EVENT",
+      "latest_breaches": false,
+      "state": "NOT_TRIGGERED",
+      "verified": false
+     }
+    ],
+    "disclaimer": "Decision support only. No order has been placed; holdings are unchanged.",
+    "downside": {
+     "base_value": "10.58830528992246000104703778211622",
+     "bear_downside": "-0.383171721815024718253279992120448",
+     "bear_value": "3.26302159159851924044014884168283",
+     "bull_value": "23.13788453237857412246696812576594",
+     "note": "bear value is a scenario, not a probability-weighted forecast",
+     "price": "5.29"
+    },
+    "evidence": [],
+    "freshness": {
+     "filings_check_failed": false,
+     "filings_checked_hours_ago": 0.0,
+     "financials_overdue": false,
+     "last_completed_session": "2026-09-30",
+     "latest_period_end": "2026-06-30",
+     "new_financials_since_valuation": false,
+     "price_date": "2026-09-30",
+     "price_stale_sessions": 0
+    },
+    "held": true,
+    "margin_of_safety": "0.5003921916536711807507709210502279",
+    "milestones": [
+     {
+      "description": "Revenue above $1.3bn by FY2027",
+      "id": "ms_c3c3a5a1b7c44903bfa7",
+      "state": "PENDING"
+     }
+    ],
+    "missing": [],
+    "next_review": "2026-10-08",
+    "price": "5.29",
+    "price_date": "2026-09-30",
+    "price_to_base": "0.4996078083463288192492290789497721",
+    "proposed_trade": {
+     "amount": "3997.48110674",
+     "side": "SELL",
+     "target_weight": "0"
+    },
+    "symbol": "ZZEXT",
+    "urgent": []
+   },
+   "policy_version_id": "pol_d36d9814ca654035b507",
+   "portfolio_id": "pf_48d57fc9c1bb453b987d",
+   "previous_action": null,
+   "previous_recommendation_id": null,
+   "reason_codes": [
+    "VERIFIED_THESIS_INVALIDATION"
+   ],
+   "security_id": "sec_c9d9d702f597485b8b8f",
+   "thesis_version_id": "thv_b54b127326844acd9f7d",
+   "valuation_version_id": "val_93c58b8d6734406f9cae"
+  },
+  {
+   "action": "ADD",
+   "as_of": "2026-09-30T22:00:00.000000Z",
+   "business_assessment": "INTACT",
+   "created_at": "2026-09-30T22:00:00.000000Z",
+   "explanation": "Thesis intact; margin of safety 40.0% >= 25%; within limits.",
+   "id": "rec_609466ad328a4d55b573",
+   "input_hash": "40c4c0acfda7b13aca864b7940497428be303f58c5049dee3e9e83696d8a323d",
+   "is_preview": 1,
+   "label": "FIXTURE",
+   "payload": {
+    "change_conditions": [
+     "ADD band starts at price <= 28.38 (MoS 25%) if thesis stays intact",
+     "TRIM considered at price >= 45.40 (120% of base value)",
+     "EXIT considered at price >= 61.34 (bull value)",
+     "EXIT if verified: Operating margin below 10% for 2 consecutive fiscal years",
+     "EXIT if verified: Loss of the largest customer contract"
+    ],
+    "changes": {
+     "first_review": true
+    },
+    "concentration": {
+     "issuer_limit": "0.1",
+     "issuer_weight": "0.03106141334294336018897234029643757",
+     "nav": "103003.56225184",
+     "sector": "Technology",
+     "sector_limit": "0.3",
+     "sector_weight": "0.1151896077816284564632307523918442"
+    },
+    "conditions": [
+     {
+      "assessor": "ENGINE",
+      "description": "Operating margin below 10% for 2 consecutive fiscal years",
+      "id": "ic_5a169b89c1724085b60a",
+      "kind": "METRIC",
+      "latest_breaches": false,
+      "state": "NOT_TRIGGERED",
+      "verified": false
+     },
+     {
+      "assessor": "NONE",
+      "description": "Loss of the largest customer contract",
+      "id": "ic_eeda1550115c4d6b8ddf",
+      "kind": "EVENT",
+      "latest_breaches": false,
+      "state": "NOT_TRIGGERED",
+      "verified": false
+     }
+    ],
+    "disclaimer": "Decision support only. No order has been placed; holdings are unchanged.",
+    "downside": {
+     "base_value": "37.83414217584997603146366224545997",
+     "bear_downside": "0.021538552681337649680223051100415",
+     "bear_value": "23.18892514586636464774106325997942",
+     "bull_value": "61.34009952285785370516873554635731",
+     "note": "bear value is a scenario, not a probability-weighted forecast",
+     "price": "22.7"
+    },
+    "evidence": [],
+    "freshness": {
+     "filings_check_failed": false,
+     "filings_checked_hours_ago": 0.0,
+     "financials_overdue": false,
+     "last_completed_session": "2026-09-30",
+     "latest_period_end": "2026-06-30",
+     "new_financials_since_valuation": false,
+     "price_date": "2026-09-30",
+     "price_stale_sessions": 0
+    },
+    "held": true,
+    "margin_of_safety": "0.4000128271841800974064001781378377",
+    "milestones": [
+     {
+      "description": "Revenue above $1.3bn by FY2027",
+      "id": "ms_b259ff806da9415187c2",
+      "state": "PENDING"
+     }
+    ],
+    "missing": [],
+    "next_review": "2026-10-08",
+    "price": "22.7",
+    "price_date": "2026-09-30",
+    "price_to_base": "0.5999871728158199025935998218621623",
+    "proposed_trade": null,
+    "symbol": "ZZADD",
+    "urgent": []
+   },
+   "policy_version_id": "pol_d36d9814ca654035b507",
+   "portfolio_id": "pf_48d57fc9c1bb453b987d",
+   "previous_action": null,
+   "previous_recommendation_id": null,
+   "reason_codes": [
+    "THESIS_INTACT",
+    "VALUATION_ATTRACTIVE",
+    "CAPACITY_AVAILABLE"
+   ],
+   "security_id": "sec_8ef89748075c4500bb93",
+   "thesis_version_id": "thv_ce3fe33f1c3c43878943",
+   "valuation_version_id": "val_9c311d52aec6406db0ca"
+  },
+  {
+   "action": "ADD",
+   "as_of": "2026-09-30T22:00:00.000000Z",
+   "business_assessment": "INTACT",
+   "created_at": "2026-09-30T22:00:00.000000Z",
+   "explanation": "Thesis intact; margin of safety 35.0% >= 25%; within limits.",
+   "id": "rec_b4349c3e10784badb398",
+   "input_hash": "782609267166762d51c9f44278fea22c88c7b6342d9f92ac140db8b24eecd430",
+   "is_preview": 1,
+   "label": "FIXTURE",
+   "payload": {
+    "change_conditions": [
+     "ADD band starts at price <= 28.38 (MoS 25%) if thesis stays intact",
+     "TRIM considered at price >= 45.40 (120% of base value)",
+     "EXIT considered at price >= 61.34 (bull value)",
+     "EXIT if verified: Operating margin below 10% for 2 consecutive fiscal years",
+     "EXIT if verified: Loss of the largest customer contract"
+    ],
+    "changes": {
+     "first_review": true
+    },
+    "concentration": {
+     "issuer_limit": "0.1",
+     "issuer_weight": null,
+     "nav": "103003.56225184",
+     "sector": "Technology",
+     "sector_limit": "0.3",
+     "sector_weight": "0.1151896077816284564632307523918442"
+    },
+    "conditions": [
+     {
+      "assessor": "ENGINE",
+      "description": "Operating margin below 10% for 2 consecutive fiscal years",
+      "id": "ic_eb9d30ebbeb442569e26",
+      "kind": "METRIC",
+      "latest_breaches": false,
+      "state": "NOT_TRIGGERED",
+      "verified": false
+     },
+     {
+      "assessor": "NONE",
+      "description": "Loss of the largest customer contract",
+      "id": "ic_2e9b8f610f7a4103bffe",
+      "kind": "EVENT",
+      "latest_breaches": false,
+      "state": "NOT_TRIGGERED",
+      "verified": false
+     }
+    ],
+    "disclaimer": "Decision support only. No order has been placed; holdings are unchanged.",
+    "downside": {
+     "base_value": "37.83414217584997603146366224545997",
+     "bear_downside": "-0.056977423917593954951563104514867",
+     "bear_value": "23.18892514586636464774106325997942",
+     "bull_value": "61.34009952285785370516873554635731",
+     "note": "bear value is a scenario, not a probability-weighted forecast",
+     "price": "24.59"
+    },
+    "evidence": [],
+    "freshness": {
+     "filings_check_failed": false,
+     "filings_checked_hours_ago": 0.0,
+     "financials_overdue": false,
+     "last_completed_session": "2026-09-30",
+     "latest_period_end": "2026-06-30",
+     "new_financials_since_valuation": false,
+     "price_date": "2026-09-30",
+     "price_stale_sessions": 0
+    },
+    "held": false,
+    "margin_of_safety": "0.3500579480378409072785630123528382",
+    "milestones": [
+     {
+      "description": "Revenue above $1.3bn by FY2027",
+      "id": "ms_907e326301e34180b327",
+      "state": "PENDING"
+     }
+    ],
+    "missing": [],
+    "next_review": "2026-10-08",
+    "price": "24.59",
+    "price_date": "2026-09-30",
+    "price_to_base": "0.6499420519621590927214369876471618",
+    "proposed_trade": null,
+    "symbol": "ZZNEW",
+    "urgent": []
+   },
+   "policy_version_id": "pol_d36d9814ca654035b507",
+   "portfolio_id": "pf_48d57fc9c1bb453b987d",
+   "previous_action": null,
+   "previous_recommendation_id": null,
+   "reason_codes": [
+    "THESIS_INTACT",
+    "VALUATION_ATTRACTIVE",
+    "CAPACITY_AVAILABLE"
+   ],
+   "security_id": "sec_326a0743b55a4c728a3a",
+   "thesis_version_id": "thv_0667bcfa5a4b4abab001",
+   "valuation_version_id": "val_05dcd42ce0614eb18820"
+  }
+ ]
+}
