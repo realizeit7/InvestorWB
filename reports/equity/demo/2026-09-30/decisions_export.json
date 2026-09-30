@@ -4,7 +4,7 @@
    "as_of": "2026-09-30T22:00:00.000000Z",
    "budget": "51759.99999878",
    "contribution_kind": "CONFIRMED",
-   "id": "alloc_05a7d42eab9b428ea3f9",
+   "id": "alloc_1178c38d2ae24671917b",
    "is_preview": 1,
    "label": "FIXTURE",
    "remaining_cash": "38478.87999878"
@@ -16,12 +16,12 @@
  "policy_versions": [
   {
    "content_hash": "0594e42577e61fe16aef6229d4808d02e0aedd2ea5e2c14b57033309b2065550",
-   "id": "pol_d36d9814ca654035b507",
+   "id": "pol_2c06a95c62474d99be78",
    "name": "provisional-preview@0.1.0",
    "status": "PREVIEW"
   }
  ],
- "portfolio_id": "pf_48d57fc9c1bb453b987d",
+ "portfolio_id": "pf_341f7f0421374a6095f6",
  "recommendations": [
   {
    "action": "HOLD",
@@ -29,8 +29,8 @@
    "business_assessment": "INTACT",
    "created_at": "2026-09-30T22:00:00.000000Z",
    "explanation": "Ownership remains reasonable but new money is not preferred: margin of safety 10.0% < 25%; position at/above target weight 8%",
-   "id": "rec_4b40ea02b2374dc189f5",
-   "input_hash": "06e98fcd6beba97e23588f063610d81b9ce10bf8562153e20261ec74dfbb547e",
+   "id": "rec_ee39e77845f3452faf92",
+   "input_hash": "3f004d265d1f6d456e59b552e17f9990a6f9396ce72fa1b02613be4f7cf9a9d7",
    "is_preview": 1,
    "label": "FIXTURE",
    "payload": {
@@ -56,7 +56,7 @@
      {
       "assessor": "ENGINE",
       "description": "Operating margin below 10% for 2 consecutive fiscal years",
-      "id": "ic_6ac34d4d31774e35b76f",
+      "id": "ic_25270874be3747219434",
       "kind": "METRIC",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -65,7 +65,7 @@
      {
       "assessor": "NONE",
       "description": "Loss of the largest customer contract",
-      "id": "ic_9252087e9b6346378c10",
+      "id": "ic_686afd259c3c4e918c77",
       "kind": "EVENT",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -97,7 +97,7 @@
     "milestones": [
      {
       "description": "Revenue above $1.3bn by FY2027",
-      "id": "ms_5fe20afb988e400296a1",
+      "id": "ms_26a7f8f3c02a4f8ca63e",
       "state": "PENDING"
      }
     ],
@@ -110,16 +110,16 @@
     "symbol": "ZZHLD",
     "urgent": []
    },
-   "policy_version_id": "pol_d36d9814ca654035b507",
-   "portfolio_id": "pf_48d57fc9c1bb453b987d",
+   "policy_version_id": "pol_2c06a95c62474d99be78",
+   "portfolio_id": "pf_341f7f0421374a6095f6",
    "previous_action": null,
    "previous_recommendation_id": null,
    "reason_codes": [
     "NO_ADD"
    ],
-   "security_id": "sec_03d53ebe80a544cdac29",
-   "thesis_version_id": "thv_fdfb33a107914e5abba2",
-   "valuation_version_id": "val_e0d154ddf1ac4fed9a0b"
+   "security_id": "sec_5daafb00f5bf4a33877b",
+   "thesis_version_id": "thv_b90a54fa15da4638af54",
+   "valuation_version_id": "val_a01d683bde284ffcbe3a"
   },
   {
    "action": "TRIM",
@@ -127,8 +127,8 @@
    "business_assessment": "INTACT",
    "created_at": "2026-09-30T22:00:00.000000Z",
    "explanation": "Price is 130% of base value (> 120%).",
-   "id": "rec_de1744bed10a411cacc9",
-   "input_hash": "6cffd9235648e2e2884f2c24a547e8fd152da95ead50907477329aaa614131e0",
+   "id": "rec_1a0cd5b6c32a4a089c93",
+   "input_hash": "7a0f8880feb0d2052bed70b93f49cb0da8ba4834b173f37eb510a83ae0d7a14d",
    "is_preview": 1,
    "label": "FIXTURE",
    "payload": {
@@ -146,15 +146,15 @@
      "issuer_limit": "0.1",
      "issuer_weight": "0.08412819443868509627425841209540658",
      "nav": "103003.56225184",
-     "sector": "Technology",
+     "sector": "Industrials",
      "sector_limit": "0.3",
-     "sector_weight": "0.1151896077816284564632307523918442"
+     "sector_weight": "0.08412819443868509627425841209540658"
     },
     "conditions": [
      {
       "assessor": "ENGINE",
       "description": "Operating margin below 10% for 2 consecutive fiscal years",
-      "id": "ic_46fee16ca86b40fda686",
+      "id": "ic_8889be2118d24066ad58",
       "kind": "METRIC",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -163,7 +163,7 @@
      {
       "assessor": "NONE",
       "description": "Loss of the largest customer contract",
-      "id": "ic_788d87bc68794d4a9b49",
+      "id": "ic_6bcbc0c7422a45c3abfb",
       "kind": "EVENT",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -195,7 +195,7 @@
     "milestones": [
      {
       "description": "Revenue above $1.3bn by FY2027",
-      "id": "ms_8660d1b35f604a18a3f2",
+      "id": "ms_5d1d9cffdb8e4cef80b4",
       "state": "PENDING"
      }
     ],
@@ -213,16 +213,16 @@
     "symbol": "ZZTRM",
     "urgent": []
    },
-   "policy_version_id": "pol_d36d9814ca654035b507",
-   "portfolio_id": "pf_48d57fc9c1bb453b987d",
+   "policy_version_id": "pol_2c06a95c62474d99be78",
+   "portfolio_id": "pf_341f7f0421374a6095f6",
    "previous_action": null,
    "previous_recommendation_id": null,
    "reason_codes": [
     "VALUATION_ABOVE_TRIM_BAND"
    ],
-   "security_id": "sec_842a7f2577964d4aa9de",
-   "thesis_version_id": "thv_8cc6c445cd684d82a769",
-   "valuation_version_id": "val_8efee0172d0b4a159a7b"
+   "security_id": "sec_2da849e96c49418a8bad",
+   "thesis_version_id": "thv_2b4e0b053dc04964bebd",
+   "valuation_version_id": "val_d2c28ed09af44f23b598"
   },
   {
    "action": "REVIEW",
@@ -230,8 +230,8 @@
    "business_assessment": "INTACT",
    "created_at": "2026-09-30T22:00:00.000000Z",
    "explanation": "Review required before any action: valuation assumptions not approved",
-   "id": "rec_ba6f69667c1c40abb4fa",
-   "input_hash": "a3e80e198145ba73844aaa073fca849703cc03e1b1487cbc1c0b25f0c536212f",
+   "id": "rec_0e8dbd5747b44fa3a97c",
+   "input_hash": "cd6ffc44e8bb093a7d8c6dd9e18d6fe8505856307d458c32aa92785be0661470",
    "is_preview": 1,
    "label": "FIXTURE",
    "payload": {
@@ -253,7 +253,7 @@
      {
       "assessor": "ENGINE",
       "description": "Operating margin below 10% for 2 consecutive fiscal years",
-      "id": "ic_8cdddf272be5431ebea8",
+      "id": "ic_c43c9fe109ee4450a6b2",
       "kind": "METRIC",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -262,7 +262,7 @@
      {
       "assessor": "NONE",
       "description": "Loss of the largest customer contract",
-      "id": "ic_513e33c0ae8b43c99441",
+      "id": "ic_2234ca46827f489991c9",
       "kind": "EVENT",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -294,7 +294,7 @@
     "milestones": [
      {
       "description": "Revenue above $1.3bn by FY2027",
-      "id": "ms_9c2aacca51974ac18995",
+      "id": "ms_b255bb4c32a5415796d9",
       "state": "PENDING"
      }
     ],
@@ -309,16 +309,16 @@
     "symbol": "ZZREV",
     "urgent": []
    },
-   "policy_version_id": "pol_d36d9814ca654035b507",
-   "portfolio_id": "pf_48d57fc9c1bb453b987d",
+   "policy_version_id": "pol_2c06a95c62474d99be78",
+   "portfolio_id": "pf_341f7f0421374a6095f6",
    "previous_action": null,
    "previous_recommendation_id": null,
    "reason_codes": [
     "VALUATION_NOT_APPROVED"
    ],
-   "security_id": "sec_20fb820eedea4a8696e9",
-   "thesis_version_id": "thv_13a0e43725f4475a8341",
-   "valuation_version_id": "val_9cc3644a994e497ba648"
+   "security_id": "sec_c39a92f0f0854a57a79d",
+   "thesis_version_id": "thv_6e61ccdf1dd54ee19738",
+   "valuation_version_id": "val_4e303ee77f484a36a6ae"
   },
   {
    "action": "EXIT",
@@ -326,8 +326,8 @@
    "business_assessment": "BROKEN",
    "created_at": "2026-09-30T22:00:00.000000Z",
    "explanation": "Pre-declared invalidation condition met and verified: Operating margin below 10% for 2 consecutive fiscal years",
-   "id": "rec_66ef1bedb9074a9d99d6",
-   "input_hash": "2974f77cfcb08ab24771c0475d63495de836203374de3dc5fe9f1204e302d0ba",
+   "id": "rec_f5f8516233264dc79d43",
+   "input_hash": "643391fd0bdc62f050ee648ef19cc1a77240e72f6099c1fa63bdfc4c5fe05dbd",
    "is_preview": 1,
    "label": "FIXTURE",
    "payload": {
@@ -349,7 +349,7 @@
      {
       "assessor": "ENGINE",
       "description": "Operating margin below 10% for 2 consecutive fiscal years",
-      "id": "ic_e207f5fd0f3342f7a420",
+      "id": "ic_8b5e944168a547f4bca7",
       "kind": "METRIC",
       "latest_breaches": true,
       "state": "TRIGGERED",
@@ -358,7 +358,7 @@
      {
       "assessor": "NONE",
       "description": "Loss of the largest customer contract",
-      "id": "ic_ec016d8388964b37863a",
+      "id": "ic_f4cb532a7fe241c28ecc",
       "kind": "EVENT",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -390,7 +390,7 @@
     "milestones": [
      {
       "description": "Revenue above $1.3bn by FY2027",
-      "id": "ms_c3c3a5a1b7c44903bfa7",
+      "id": "ms_09be9ecc6fc64190a432",
       "state": "PENDING"
      }
     ],
@@ -407,16 +407,16 @@
     "symbol": "ZZEXT",
     "urgent": []
    },
-   "policy_version_id": "pol_d36d9814ca654035b507",
-   "portfolio_id": "pf_48d57fc9c1bb453b987d",
+   "policy_version_id": "pol_2c06a95c62474d99be78",
+   "portfolio_id": "pf_341f7f0421374a6095f6",
    "previous_action": null,
    "previous_recommendation_id": null,
    "reason_codes": [
     "VERIFIED_THESIS_INVALIDATION"
    ],
-   "security_id": "sec_c9d9d702f597485b8b8f",
-   "thesis_version_id": "thv_b54b127326844acd9f7d",
-   "valuation_version_id": "val_93c58b8d6734406f9cae"
+   "security_id": "sec_480964347c7e4e4da352",
+   "thesis_version_id": "thv_4bdd0049ea274b69ac83",
+   "valuation_version_id": "val_df6ff1a72f584edbaae1"
   },
   {
    "action": "ADD",
@@ -424,8 +424,8 @@
    "business_assessment": "INTACT",
    "created_at": "2026-09-30T22:00:00.000000Z",
    "explanation": "Thesis intact; margin of safety 40.0% >= 25%; within limits.",
-   "id": "rec_609466ad328a4d55b573",
-   "input_hash": "40c4c0acfda7b13aca864b7940497428be303f58c5049dee3e9e83696d8a323d",
+   "id": "rec_32882660a2e641b596b9",
+   "input_hash": "03ac9a51ccf425d38d6fb6af3c4acf55c420ed1b4bfcce426b3360fc664666d0",
    "is_preview": 1,
    "label": "FIXTURE",
    "payload": {
@@ -445,13 +445,13 @@
      "nav": "103003.56225184",
      "sector": "Technology",
      "sector_limit": "0.3",
-     "sector_weight": "0.1151896077816284564632307523918442"
+     "sector_weight": "0.03106141334294336018897234029643757"
     },
     "conditions": [
      {
       "assessor": "ENGINE",
       "description": "Operating margin below 10% for 2 consecutive fiscal years",
-      "id": "ic_5a169b89c1724085b60a",
+      "id": "ic_2ae9ef0c0a37449a90dc",
       "kind": "METRIC",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -460,7 +460,7 @@
      {
       "assessor": "NONE",
       "description": "Loss of the largest customer contract",
-      "id": "ic_eeda1550115c4d6b8ddf",
+      "id": "ic_4896bfca92674bc39747",
       "kind": "EVENT",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -492,7 +492,7 @@
     "milestones": [
      {
       "description": "Revenue above $1.3bn by FY2027",
-      "id": "ms_b259ff806da9415187c2",
+      "id": "ms_fc22d6780406495bb8d3",
       "state": "PENDING"
      }
     ],
@@ -505,8 +505,8 @@
     "symbol": "ZZADD",
     "urgent": []
    },
-   "policy_version_id": "pol_d36d9814ca654035b507",
-   "portfolio_id": "pf_48d57fc9c1bb453b987d",
+   "policy_version_id": "pol_2c06a95c62474d99be78",
+   "portfolio_id": "pf_341f7f0421374a6095f6",
    "previous_action": null,
    "previous_recommendation_id": null,
    "reason_codes": [
@@ -514,9 +514,9 @@
     "VALUATION_ATTRACTIVE",
     "CAPACITY_AVAILABLE"
    ],
-   "security_id": "sec_8ef89748075c4500bb93",
-   "thesis_version_id": "thv_ce3fe33f1c3c43878943",
-   "valuation_version_id": "val_9c311d52aec6406db0ca"
+   "security_id": "sec_c9c9b057e63e4e81af4c",
+   "thesis_version_id": "thv_71669e5d2eaa4a7c88f2",
+   "valuation_version_id": "val_61b57e67576e439e9e1f"
   },
   {
    "action": "ADD",
@@ -524,8 +524,8 @@
    "business_assessment": "INTACT",
    "created_at": "2026-09-30T22:00:00.000000Z",
    "explanation": "Thesis intact; margin of safety 35.0% >= 25%; within limits.",
-   "id": "rec_b4349c3e10784badb398",
-   "input_hash": "782609267166762d51c9f44278fea22c88c7b6342d9f92ac140db8b24eecd430",
+   "id": "rec_3c983817a2624b599617",
+   "input_hash": "c7e737364a842b961cb84bba20bd836d4875241ce2a9b837af557e1e781dbb03",
    "is_preview": 1,
    "label": "FIXTURE",
    "payload": {
@@ -545,13 +545,13 @@
      "nav": "103003.56225184",
      "sector": "Technology",
      "sector_limit": "0.3",
-     "sector_weight": "0.1151896077816284564632307523918442"
+     "sector_weight": "0.03106141334294336018897234029643757"
     },
     "conditions": [
      {
       "assessor": "ENGINE",
       "description": "Operating margin below 10% for 2 consecutive fiscal years",
-      "id": "ic_eb9d30ebbeb442569e26",
+      "id": "ic_6e4bc5a00dff4f5986bd",
       "kind": "METRIC",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -560,7 +560,7 @@
      {
       "assessor": "NONE",
       "description": "Loss of the largest customer contract",
-      "id": "ic_2e9b8f610f7a4103bffe",
+      "id": "ic_28c4a82656fa433ab84d",
       "kind": "EVENT",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -592,7 +592,7 @@
     "milestones": [
      {
       "description": "Revenue above $1.3bn by FY2027",
-      "id": "ms_907e326301e34180b327",
+      "id": "ms_2508de0139cf46cbae02",
       "state": "PENDING"
      }
     ],
@@ -605,8 +605,8 @@
     "symbol": "ZZNEW",
     "urgent": []
    },
-   "policy_version_id": "pol_d36d9814ca654035b507",
-   "portfolio_id": "pf_48d57fc9c1bb453b987d",
+   "policy_version_id": "pol_2c06a95c62474d99be78",
+   "portfolio_id": "pf_341f7f0421374a6095f6",
    "previous_action": null,
    "previous_recommendation_id": null,
    "reason_codes": [
@@ -614,9 +614,9 @@
     "VALUATION_ATTRACTIVE",
     "CAPACITY_AVAILABLE"
    ],
-   "security_id": "sec_326a0743b55a4c728a3a",
-   "thesis_version_id": "thv_0667bcfa5a4b4abab001",
-   "valuation_version_id": "val_05dcd42ce0614eb18820"
+   "security_id": "sec_4845b20568a140a18d2d",
+   "thesis_version_id": "thv_629c5ca5ffae43ed9bd0",
+   "valuation_version_id": "val_4f68a94a026245eb9367"
   }
  ]
 }

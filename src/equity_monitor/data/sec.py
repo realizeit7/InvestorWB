@@ -27,7 +27,7 @@ from ..util import NY, UTC, iso_utc, new_id, sha256_text
 from .http import HttpClient, ProviderError
 from .prices import record_check
 from .rawstore import resolve_quality_issue, save_raw, upsert_quality_issue
-from .securities import get_or_create_issuer, register_security, update_issuer_classification
+from .securities import find_security, get_or_create_issuer, register_security, update_issuer_classification
 
 PROVIDER = "SEC_EDGAR"
 PARSER_VERSION = "sec-text-1"
@@ -97,14 +97,36 @@ def load_ticker_map(app: App, client: HttpClient) -> list[dict]:
 
 
 def register_from_ticker(app: App, client: HttpClient, symbol: str) -> str:
-    """Find a ticker in the SEC map and register issuer + security. Returns security id."""
+    """Find a ticker in the SEC map and register (or link) issuer + security. Returns security id.
+
+    A security first seen in a CSV import has a placeholder issuer without a CIK; it is linked here:
+    the placeholder gets the CIK and name, or the security is re-pointed to the issuer that already
+    holds that CIK. Reference-data changes are audited.
+    """
     symbol = symbol.upper()
     for r in load_ticker_map(app, client):
-        if str(r.get("ticker", "")).upper() == symbol:
-            iid = get_or_create_issuer(app.conn, app.now_iso(), name=r["name"], cik=cik10(r["cik"]))
-            sid = register_security(app.conn, app.now_iso(), symbol, security_type="COMMON", issuer_id=iid,
-                                    exchange=r.get("exchange"), source="sec_ticker_map")
-            return sid
+        if str(r.get("ticker", "")).upper() != symbol:
+            continue
+        cik = cik10(r["cik"])
+        existing = find_security(app.conn, symbol)
+        if existing is None:
+            iid = get_or_create_issuer(app.conn, app.now_iso(), name=r["name"], cik=cik)
+            return register_security(app.conn, app.now_iso(), symbol, security_type="COMMON", issuer_id=iid,
+                                     exchange=r.get("exchange"), source="sec_ticker_map")
+        sec_row = one(app.conn, "SELECT * FROM security WHERE id=?", (existing,))
+        holder = one(app.conn, "SELECT id FROM issuer WHERE cik=?", (cik,))
+        if holder and holder["id"] != sec_row["issuer_id"]:
+            app.conn.execute("UPDATE security SET issuer_id=? WHERE id=?", (holder["id"], existing))
+        elif sec_row["issuer_id"] is None:
+            iid = get_or_create_issuer(app.conn, app.now_iso(), name=r["name"], cik=cik)
+            app.conn.execute("UPDATE security SET issuer_id=? WHERE id=?", (iid, existing))
+        else:
+            app.conn.execute("UPDATE issuer SET cik=COALESCE(cik, ?), name=? WHERE id=?", (cik, r["name"], sec_row["issuer_id"]))
+        if sec_row["security_type"] == "UNKNOWN":
+            app.conn.execute("UPDATE security SET security_type='COMMON', exchange=COALESCE(exchange, ?) WHERE id=?",
+                             (r.get("exchange"), existing))
+        app.audit("security.linked_to_sec", "security", existing, {"cik": cik, "name": r["name"]})
+        return existing
     raise ProviderError(PROVIDER, f"ticker {symbol} not in SEC company_tickers_exchange.json")
 
 

@@ -63,8 +63,10 @@ def approve_valuation(app: App, valuation_id: str, *, downside_reviewed: bool, n
     app.audit("valuation.approved", "valuation_version", valuation_id, {"downside_reviewed": downside_reviewed})
 
 
-def _record(app: App, r) -> ValuationRecord:
+def _record(app: App, r, as_of: str | None = None) -> ValuationRecord:
     ap = one(app.conn, "SELECT * FROM valuation_approval WHERE valuation_version_id=?", (r["id"],))
+    if ap is not None and as_of is not None and ap["approved_at"] > as_of:
+        ap = None   # approval happened after the as-of time: not visible to that decision
     outputs = from_json(r["outputs_json"])
     return ValuationRecord(
         id=r["id"], security_id=r["security_id"], version_no=r["version_no"], created_at=r["created_at"],
@@ -88,7 +90,7 @@ def latest_valuation(app: App, security_id: str, as_of: str | None = None, appro
             sql += " AND a.approved_at<=?"
             params.append(as_of)
     r = one(app.conn, sql + " ORDER BY v.version_no DESC LIMIT 1", params)
-    return _record(app, r) if r else None
+    return _record(app, r, as_of) if r else None
 
 
 def get_valuation(app: App, valuation_id: str) -> ValuationRecord:

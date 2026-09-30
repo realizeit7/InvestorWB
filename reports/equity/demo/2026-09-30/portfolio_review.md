@@ -19,9 +19,9 @@
 | SCHG | 600.0000 | 32.08 (2026-09-30) | $19,248.00 | 18.7% | $18,240.00 | $1,008.00 | — | **ETF (tracked, no company valuation)** | — | price 0 session(s) old |
 | ZZHLD | 396.0396 | 24.24 (2026-09-30) | $9,600.00 | 9.3% | $8,000.00 | $1,600.00 | INTACT | **HOLD** | 10.0% | price 0 session(s) old |
 | ZZTRM | 218.0550 | 39.74 (2026-09-30) | $8,665.50 | 8.4% | $5,000.00 | $3,665.50 | INTACT | **TRIM** | -30.0% | price 0 session(s) old |
-| ZZREV | 288.1844 | 22.67 (2026-09-30) | $6,533.14 | 6.3% | $7,000.00 | $-466.86 | INTACT | **REVIEW** | 30.0% | price 0 session(s) old |
-| ZZEXT | 755.6675 | 5.29 (2026-09-30) | $3,997.48 | 3.9% | $6,000.00 | $-2,002.52 | BROKEN | **EXIT** | 50.0% | price 0 session(s) old |
-| ZZADD | 140.9443 | 22.70 (2026-09-30) | $3,199.44 | 3.1% | $4,000.00 | $-800.56 | INTACT | **ADD** | 40.0% | price 0 session(s) old |
+| ZZREV | 288.1844 | 22.67 (2026-09-30) | $6,533.14 | 6.3% | $7,000.00 | -$466.86 | INTACT | **REVIEW** | 30.0% | price 0 session(s) old |
+| ZZEXT | 755.6675 | 5.29 (2026-09-30) | $3,997.48 | 3.9% | $6,000.00 | -$2,002.52 | BROKEN | **EXIT** | 50.0% | price 0 session(s) old |
+| ZZADD | 140.9443 | 22.70 (2026-09-30) | $3,199.44 | 3.1% | $4,000.00 | -$800.56 | INTACT | **ADD** | 40.0% | price 0 session(s) old |
 
 ## Watchlist
 
@@ -48,7 +48,7 @@
 - Price is 130% of base value (> 120%).
 - Price 39.74 vs values bear/base/bull: 17.88 / 30.57 / 51.15 (scenarios, not forecasts)
 - Bear-case downside from price: -55.0%
-- Concentration: issuer 8.4% (limit 10.0%), sector Technology 11.5% (limit 30.0%)
+- Concentration: issuer 8.4% (limit 10.0%), sector Industrials 8.4% (limit 30.0%)
 - Freshness: price date 2026-09-30, filings checked 0.00 h ago, latest period 2026-06-30
 - Next review: 2026-10-08
 - Proposed (not executed): SELL about $4,545.36 — illustrative trim to half the target weight; owner decides size
@@ -84,7 +84,7 @@
 - Thesis intact; margin of safety 40.0% >= 25%; within limits.
 - Price 22.70 vs values bear/base/bull: 23.19 / 37.83 / 61.34 (scenarios, not forecasts)
 - Bear-case downside from price: 2.2%
-- Concentration: issuer 3.1% (limit 10.0%), sector Technology 11.5% (limit 30.0%)
+- Concentration: issuer 3.1% (limit 10.0%), sector Technology 3.1% (limit 30.0%)
 - Freshness: price date 2026-09-30, filings checked 0.00 h ago, latest period 2026-06-30
 - Next review: 2026-10-08
 - What would change this: ADD band starts at price <= 28.38 (MoS 25%) if thesis stays intact; TRIM considered at price >= 45.40 (120% of base value); EXIT considered at price >= 61.34 (bull value); EXIT if verified: Operating margin below 10% for 2 consecutive fiscal years; EXIT if verified: Loss of the largest customer contract
@@ -95,7 +95,7 @@
 - Thesis intact; margin of safety 35.0% >= 25%; within limits.
 - Price 24.59 vs values bear/base/bull: 23.19 / 37.83 / 61.34 (scenarios, not forecasts)
 - Bear-case downside from price: -5.7%
-- Concentration: issuer n/a (limit 10.0%), sector Technology 11.5% (limit 30.0%)
+- Concentration: issuer n/a (limit 10.0%), sector Technology 3.1% (limit 30.0%)
 - Freshness: price date 2026-09-30, filings checked 0.00 h ago, latest period 2026-06-30
 - Next review: 2026-10-08
 - What would change this: ADD band starts at price <= 28.38 (MoS 25%) if thesis stays intact; TRIM considered at price >= 45.40 (120% of base value); EXIT considered at price >= 61.34 (bull value); EXIT if verified: Operating margin below 10% for 2 consecutive fiscal years; EXIT if verified: Loss of the largest customer contract

@@ -1,0 +1,82 @@
+# Operational runbook
+
+## Runtime requirements
+
+Monitoring only happens while something runs the scheduler. A laptop that sleeps or a stopped process cannot monitor.
+Choose one:
+
+**A. Long-running process** (simplest; e.g. a small always-on machine):
+```bash
+uv run eqm serve --poll 60          # runs due jobs, then delivers pending notifications, every 60 s
+```
+systemd unit (`/etc/systemd/system/eqm.service`):
+```ini
+[Unit]
+Description=equity-monitor scheduler
+After=network-online.target
+[Service]
+WorkingDirectory=/path/to/InvestorWB
+Environment=EQM_HOME=/path/to/InvestorWB/var
+EnvironmentFile=-/path/to/InvestorWB/.env
+ExecStart=/usr/bin/env uv run eqm serve --poll 60
+Restart=always
+[Install]
+WantedBy=multi-user.target
+```
+
+**B. cron** (every 15 minutes; each run is idempotent):
+```cron
+*/15 * * * * cd /path/to/InvestorWB && EQM_HOME=var uv run eqm jobs run-due >> var/cron.log 2>&1
+*/15 * * * * cd /path/to/InvestorWB && EQM_HOME=var uv run eqm alerts deliver >> var/cron.log 2>&1
+```
+
+Check: `eqm jobs status` (last/next run; a due-but-not-run instance is shown as MISSED) and `eqm health`
+(warns "scheduler has never run" or "was due ... but has not run").
+
+## Job semantics
+
+- Each job instance has key `<job>@<scheduled time UTC>`; re-running a finished instance is a no-op; a crashed/failed
+  instance is retried up to 3 attempts; a RUNNING instance older than 2 h is treated as interrupted.
+- Only the latest missed instance of each job runs after downtime (no replay storm).
+- `daily_refresh`: prices → SEC filing index (+ facts when a 10-K/10-Q appears) → recommendations → events/alerts →
+  delivery. Failures end the job PARTIAL with a HEALTH alert.
+- `eqm jobs run daily_refresh --force` re-runs the latest instance manually.
+
+## Notifications
+
+Local inbox (`eqm alerts list|show|ack|snooze`, dashboard `/inbox`) is always on. External delivery (one webhook adapter)
+stays **off** until all three are true: `notifications.webhook_enabled: true`, `notifications.webhook_authorized: true`
+in `config/user.yaml`, and `EQM_WEBHOOK_URL` set in the environment. The JSON body carries an `idempotency_key` and the
+same value in the `Idempotency-Key` header. Timeouts after sending are AMBIGUOUS: by default the row is HELD; inspect the
+receiver, then `eqm alerts requeue <outbox_id>` if it did not arrive. DEAD rows (permanent 4xx or max attempts) need a
+configuration fix. Notifications never execute trades.
+
+## Backup and restore
+
+```bash
+uv run eqm backup create --dest backups        # consistent SQLite copy + raw store + SHA-256 manifest (.tar.gz)
+uv run eqm --home var_restored backup restore --archive backups/eqm_backup_<stamp>.tar.gz
+uv run eqm --home var backup restore --archive <file> --force   # existing DB is renamed *.pre-restore-*, never deleted
+```
+Restore verifies every checksum and runs `PRAGMA integrity_check`. Keep backups off the machine (the database holds your
+holdings). Suggested: nightly cron `eqm backup create` + weekly copy elsewhere; test a restore monthly.
+
+## Credentials and secrets
+
+- SEC: `sec_user_agent: "Your Name you@example.com"` in `config/user.yaml` (not a secret, but personal).
+- LLM: `llm.provider: anthropic` + `uv sync --extra llm` + credentials the Anthropic SDK resolves (`ANTHROPIC_API_KEY`
+  or an `ant auth login` profile). Optional `llm.monthly_budget_usd` hard-stops spending.
+- Webhook URL: environment variable only (`EQM_WEBHOOK_URL`), e.g. from a git-ignored `.env`.
+- `config/user.yaml`, `var/` and `.env` are git-ignored.
+
+## Troubleshooting
+
+| symptom | action |
+|---|---|
+| REVIEW with `FILINGS_NOT_CHECKED` | the daily job has not run in 36 h or SEC failed: `eqm jobs status`, `eqm health` |
+| REVIEW with `STALE_PRICE` / `DATA_REFRESH_FAILED` | provider down or symbol changed: `eqm prices refresh --symbols X`; consider the CSV provider |
+| HTTP 403 from SEC | set a User-Agent with an email address |
+| HTTP 429 from Yahoo | wait; the adapter retries with backoff; failures stay visible |
+| `UNSUPPORTED_CORPORATE_ACTION` | record the actual outcome (reverse/replace or new OPENING_POSITION with basis), then `eqm reconcile --resolve <id> --note ...` |
+| `NEGATIVE_CASH` | add the missing deposit or opening cash balance |
+| `NEW_FINANCIALS_SINCE_VALUATION` | `eqm valuation build X`, review, `eqm valuation approve X --downside-reviewed` |

@@ -335,3 +335,17 @@ def test_invalid_denominators_do_not_look_attractive(app):  # §18.11
     assert loser.value_score == min(r.value_score for r in res.values() if r.value_score is not None)
     assert loser.score is None and loser.rank is None                 # withheld: too many invalid metrics
     assert all(r.rank for s_, r in res.items() if s_ != "S1")
+
+
+def test_later_valuation_approval_is_invisible_to_earlier_as_of(app):
+    from equity_monitor.valuation.store import approve_valuation, create_valuation, latest_valuation
+    from equity_monitor.valuation.builder import build_scenarios
+    from equity_monitor.config.models import ValuationDefaults
+    app.clock.set(AS_OF)
+    d = build_demo(app)
+    sid, iss = d["securities"]["ZZREV"]["security_id"], d["securities"]["ZZREV"]["issuer_id"]
+    v = latest_valuation(app, sid)
+    app.clock.set(AS_OF + timedelta(days=2))
+    approve_valuation(app, v.id, downside_reviewed=True)
+    assert latest_valuation(app, sid, "2026-10-01T00:00:00.000000Z").approved is False
+    assert latest_valuation(app, sid).approved is True

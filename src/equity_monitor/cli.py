@@ -199,8 +199,7 @@ def cmd_sec(args):
     from .research.fundamentals import ingest_companyfacts
     app = _app(args)
     client = sec.make_client(app)
-    sid = app.conn.execute("SELECT id FROM security WHERE symbol=?", (args.symbol.upper(),)).fetchone()
-    sid = sid["id"] if sid else sec.register_from_ticker(app, client, args.symbol)
+    sid = sec.register_from_ticker(app, client, args.symbol)
     iss = app.conn.execute("SELECT issuer_id FROM security WHERE id=?", (sid,)).fetchone()["issuer_id"]
     res = sec.sync_filings(app, client, iss)
     print(f"filings: {len(res.new_document_ids)} new; latest accession {res.latest_accession}")
@@ -279,7 +278,7 @@ def cmd_valuation(args):
             raise SystemExit("need a valuation and a price")
         r = reverse_dcf(ScenarioInputs.model_validate(v.inputs["base"]), px[1], args.variable, cap=app.policy.valuation.terminal_growth_cap)
         print(f"reverse DCF for {args.variable} at price {px[1]}: {r.status} implied={r.implied_value and round(float(r.implied_value), 4)}")
-        print(f"  bounds {r.bounds}, values at bounds {r.value_at_bounds}; {r.note}; all other base inputs held fixed")
+        print(f"  bounds {r.bounds}, values at bounds {r.value_at_bounds}; {r.note}")
 
 
 def cmd_thesis(args):
@@ -297,7 +296,7 @@ def cmd_thesis(args):
         content = th.ThesisContent.model_validate(yaml.safe_load(Path(args.file).read_text()))
         vid = th.create_version(app, sid, content, change_reason=args.reason or "initial thesis", author="USER")
         v = [x for x in th.history(app, sid) if x.id == vid][0]
-        print(f"{vid} (draft; approve with `eqm thesis approve {vid}`)")
+        print(f"{vid} (draft; approve with `eqm thesis approve --version-id {vid}`)")
         for c in v.claims:
             print(f"  [{c['claim_type']}/{c['verification']}] {c['text']} {c['verification_detail'] or ''}")
     elif args.action == "draft":

@@ -17,10 +17,10 @@
 
 Excluded candidates:
 
-- ZZHLD: latest action HOLD
-- ZZREV: latest action REVIEW
 - ZZTRM: latest action TRIM
 - ZZEXT: latest action EXIT
+- ZZHLD: latest action HOLD
+- ZZREV: latest action REVIEW
 
 Notes:
 
