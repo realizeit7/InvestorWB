@@ -73,3 +73,41 @@ def paper_execute(app: App, recommendation_id: str, paper_portfolio_id: str, *, 
                                          "side": side, "fees": dstr(fee), "slippage_bps": dstr(app.policy.paper.slippage_bps),
                                          "policy_version_id": app.policy_version_id(), "created_at": app.now_iso()})
     return pid
+
+
+def paper_execute_allocation(app: App, proposal_id: str, paper_portfolio_id: str, variant: str) -> list[str]:
+    """Fill one variant ('augmented' or 'baseline') of an allocation proposal in a PAPER portfolio at the next
+    open after the proposal was created. Fund both paper portfolios with the same deposits so the two variants
+    can be compared on returns, drawdown, cash drag and turnover. Never uses a price from before the proposal."""
+    if variant not in ("augmented", "baseline"):
+        raise PaperError("variant must be 'augmented' or 'baseline'")
+    if portfolio_kind(app, paper_portfolio_id) != "PAPER":
+        raise PaperError("paper executions may only be recorded into a PAPER portfolio")
+    if app.policy.status != "FROZEN":
+        raise PaperError("freeze the policy first (status FROZEN) so the comparison is prospective")
+    from ..db.core import one as _one
+    from ..util import from_json
+    prop = _one(app.conn, "SELECT * FROM allocation_proposal WHERE id=?", (proposal_id,))
+    payload = from_json(prop["payload_json"])
+    lines = [(l["symbol"], D(l["amount"])) for l in payload["lines"] if D(l["amount"]) > 0] if variant == "augmented" else \
+        [(l["symbol"], D(l["amount"])) for l in payload["baseline"]["lines"]]
+    d = fill_session(prop["created_at"])
+    acct = accounts_of(app, paper_portfolio_id)[0]["id"]
+    slip = app.policy.paper.slippage_bps / Decimal(10000)
+    events, done = [], []
+    from ..data.securities import find_security
+    for sym, amount in lines:
+        sid = find_security(app.conn, sym)
+        bar = bar_on(app, sid, d)
+        if bar is None or bar["open"] is None:
+            continue
+        px = D(bar["open"]) * (1 + slip)
+        qty = (amount / px).quantize(Decimal("0.000001"), rounding=ROUND_DOWN)
+        events.append(NewEvent("BUY", d, sid, quantity=qty, price=px.quantize(Decimal("0.0001")),
+                               fees=app.policy.paper.fee_per_trade_usd, external_id=f"paper:{proposal_id}:{variant}:{sym}",
+                               note=f"paper {variant} allocation fill at next open"))
+        done.append(sym)
+    res = record_events(app, acct, events, recorded_by="paper")
+    if res.rejected:
+        raise PaperError(str(res.rejected))
+    return done

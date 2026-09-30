@@ -279,3 +279,20 @@ def documents_for(app: App, issuer_id: str, as_of: datetime | None = None, forms
             continue
         out.append(dict(r))
     return out
+
+
+def filing_severity(form: str, items: str | None) -> tuple[str, str]:
+    if form.startswith("8-K"):
+        sev, labels = "INFO", []
+        rank = {"INFO": 0, "MATERIAL": 1, "CRITICAL": 2}
+        for it in (items or "").split(","):
+            it = it.strip()
+            if it in EIGHT_K_ITEMS:
+                s, lab = EIGHT_K_ITEMS[it]
+                labels.append(f"{it} {lab}")
+                if rank[s] > rank[sev]:
+                    sev = s
+        return sev, "; ".join(labels) or "8-K"
+    if form.startswith(("10-K", "10-Q", "20-F", "40-F")):
+        return "MATERIAL", f"{form} periodic report" + (" (amendment)" if form.endswith("/A") else "")
+    return "INFO", form

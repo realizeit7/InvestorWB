@@ -24,6 +24,10 @@ from ..research.screening import ScreenInput, exclusion
 from ..research.thesis import current_version, latest_assessment, record_assessment
 from ..util import from_json, iso_utc, new_id, parse_utc, stable_hash, to_json
 from ..valuation.store import latest_valuation
+from ..market.exposures import current_profile
+from ..market.impacts import analyze
+from ..market.snapshot import snapshot_as_of
+from .conditions import assess as assess_conditions, baseline as baseline_eligibility
 from .engine import ConditionState, Decision, DecisionInputs, MilestoneState, decide
 
 UNSUPPORTED = {"BANK_OR_CREDIT", "INSURANCE", "REIT", "SHELL", "PRE_REVENUE_BIOTECH", "UNKNOWN_INDUSTRY", "ETF_OR_FUND"}
@@ -107,6 +111,8 @@ def gather_inputs(app: App, portfolio_id: str, security_id: str, as_of: datetime
     # critical events not yet reviewed (after the latest approval/decision touching this security)
     last_review = max(filter(None, [
         thesis.approved_at if thesis else None,
+        one(app.conn, "SELECT MAX(a.approved_at) AS t FROM exposure_approval a JOIN exposure_profile_version v "
+                      "ON v.id=a.exposure_version_id WHERE v.security_id=?", (security_id,))["t"],
         one(app.conn, "SELECT MAX(a.approved_at) AS t FROM valuation_approval a JOIN valuation_version v "
                       "ON v.id=a.valuation_version_id WHERE v.security_id=?", (security_id,))["t"],
         one(app.conn, "SELECT MAX(d.decided_at) AS t FROM user_decision d JOIN recommendation r ON r.id=d.subject_id "
@@ -135,7 +141,7 @@ def gather_inputs(app: App, portfolio_id: str, security_id: str, as_of: datetime
         unreviewed_critical_events=crit, previous_action=prev["action"] if prev else None,
     )
     ctx = {"prev": dict(prev) if prev else None, "valuation": val, "thesis": thesis, "session": session,
-           "filings_check": dict(chk) if chk else None, "view": view}
+           "filings_check": dict(chk) if chk else None, "view": view, "last_review": last_review, "ref": ref}
     return inp, ctx
 
 
@@ -166,11 +172,22 @@ def generate(app: App, portfolio_id: str, security_id: str, as_of: datetime | No
     as_of = as_of or app.now()
     inp, ctx = gather_inputs(app, portfolio_id, security_id, as_of, view)
     d = decide(inp, app.policy.recommendation, app.policy.portfolio)
+    ref = ctx["ref"]
+    snapshot = snapshot_as_of(app, as_of)
+    profile = current_profile(app, security_id, iso_utc(as_of))
+    impacts = analyze(app, security_id=security_id, issuer_id=ref.issuer_id, symbol=ref.symbol, sector=inp.sector,
+                      as_of=as_of, snapshot=snapshot, profile=profile, last_review_at=ctx["last_review"],
+                      valuation=ctx["valuation"])
+    cash_unrec = any(i["issue_type"] == "NEGATIVE_CASH" for i in ctx["view"].open_issues)
+    cc = assess_conditions(inp, d, app.policy.portfolio, app.policy.market, impacts, has_profile=profile is not None,
+                           cash_unreconciled=cash_unrec, today=as_of.date())
+    base_elig = baseline_eligibility(inp, d, app.policy.portfolio, cash_unrec, as_of.date())
     hashed = {k: v for k, v in asdict(inp).items() if k != "previous_action"}
-    ihash = stable_hash({"inputs": hashed, "policy": app.policy.content_hash()})
+    ihash = stable_hash({"inputs": hashed, "policy": app.policy.content_hash(), "exposure": profile[0] if profile else None,
+                         "conditions": impacts.decision_relevant(), "eligibility": cc.eligibility})
     prev = ctx["prev"]
     if prev and prev["input_hash"] == ihash and prev["action"] == d.action and not force:
-        return prev["id"]   # nothing changed: keep history concise
+        return prev["id"]   # nothing decision-relevant changed (context-only developments do not create rows)
     thesis = ctx["thesis"]
     next_review = min(filter(None, [
         inp.thesis_next_review,
@@ -197,8 +214,24 @@ def generate(app: App, portfolio_id: str, security_id: str, as_of: datetime | No
         "next_review": next_review, "change_conditions": d.change_conditions, "proposed_trade": d.proposed_trade,
         "conditions": [asdict(c) for c in inp.conditions], "milestones": [asdict(m) for m in inp.milestones],
         "held": inp.held,
+        "long_term_case": _long_term_case(app, security_id, d, inp, ctx),
+        "current_conditions": cc.to_dict(),
+        "purchase_eligibility": cc.eligibility, "baseline_eligibility": base_elig,
+        "market_context": {"snapshot_id": impacts.snapshot_id, "snapshot_as_of": snapshot["as_of"] if snapshot else None,
+                           "snapshot_missing": snapshot["missing"] if snapshot else ["no market snapshot available"],
+                           "developments": impacts.developments},
+        "exposure_version_id": impacts.exposure_version_id,
+        "chains": [asdict(c) for c in impacts.chains], "clusters": impacts.clusters,
+        "valuation_changes": {"proposals": impacts.valuation_proposals, "stress_downside": impacts.stress_downside,
+                              "note": "proposals are not applied; material changes need a new valuation version + approval"},
+        "position_implications": _position_implications(app, d, inp, cc),
         "disclaimer": "Decision support only. No order has been placed; holdings are unchanged.",
     }
+    payload["changes"]["eligibility"] = {"before": prev["purchase_eligibility"] if prev else None, "now": cc.eligibility,
+                                         "pauses_now": [p.code for p in cc.pauses]}
+    for u in impacts.unknowns:
+        if u not in payload["missing"]:
+            payload["missing"].append(u)
     kind = portfolio_kind(app, portfolio_id)
     rid = new_id("rec")
     insert(app.conn, "recommendation", {
@@ -208,10 +241,55 @@ def generate(app: App, portfolio_id: str, security_id: str, as_of: datetime | No
         "reason_codes_json": to_json(d.reason_codes), "explanation": d.explanation, "payload_json": to_json(payload),
         "thesis_version_id": inp.thesis_version_id, "valuation_version_id": inp.valuation_id,
         "policy_version_id": app.policy_version_id(), "input_hash": ihash, "is_preview": int(is_preview(app, portfolio_id)),
-        "label": kind,
+        "label": kind, "purchase_eligibility": cc.eligibility, "baseline_eligibility": base_elig,
+        "market_snapshot_id": impacts.snapshot_id, "exposure_version_id": impacts.exposure_version_id,
     })
+    _raise_research_tasks(app, security_id, rid, cc)
     app.audit("recommendation.created", "recommendation", rid, {"action": d.action, "security_id": security_id})
     return rid
+
+
+def _long_term_case(app: App, security_id: str, d: Decision, inp: DecisionInputs, ctx: dict) -> dict:
+    from ..research.thesis import original_version
+    orig, cur = original_version(app, security_id), ctx["thesis"]
+    val = ctx["valuation"]
+    return {"business_assessment": d.business, "action": d.action,
+            "original_thesis": {"version_id": orig.id, "version_no": orig.version_no, "approved_at": orig.approved_at} if orig else None,
+            "current_thesis": {"version_id": cur.id, "version_no": cur.version_no, "approved_at": cur.approved_at,
+                               "change_reason": cur.change_reason} if cur else None,
+            "thesis_changed_since_original": bool(orig and cur and orig.id != cur.id),
+            "valuation": {"version_id": val.id, "approved": val.approved, "bear": val.bear, "base": val.base, "bull": val.bull}
+            if val else None,
+            "margin_of_safety": d.margin_of_safety}
+
+
+def _position_implications(app: App, d: Decision, inp: DecisionInputs, cc) -> dict:
+    pp = app.policy.portfolio
+    room = None
+    if inp.nav and inp.position_weight is not None:
+        room = max(Decimal(0), min(pp.target_position_weight, pp.max_issuer_weight) - inp.position_weight) * inp.nav
+    if cc.eligibility == "BLOCKED":
+        txt = "No new purchases: " + "; ".join(cc.blocks)
+    elif d.action == "ADD" and cc.eligibility == "ELIGIBLE":
+        txt = f"Eligible for the next monthly contribution, up to about {room:,.2f} of room to the target weight" if room is not None \
+            else "Eligible for the next monthly contribution (room unknown: NAV incomplete)"
+    elif d.action == "ADD":
+        txt = "Long-term case supports adding, but purchases are PAUSED (" + ", ".join(p.code for p in cc.pauses) + \
+              "); the next contribution skips it until the pause is reassessed"
+    else:
+        txt = f"{d.action}: keep the position; no new money preferred" + \
+              (f"; purchases also PAUSED ({', '.join(p.code for p in cc.pauses)})" if cc.pauses else "")
+    if d.proposed_trade:
+        txt += f". Proposed (not executed): {d.proposed_trade.get('side')} ~{d.proposed_trade.get('amount')}"
+    return {"summary": txt, "room_to_target": room, "limits_unchanged": "market context never relaxes cash, issuer or sector limits"}
+
+
+def _raise_research_tasks(app: App, security_id: str, rec_id: str, cc) -> None:
+    for r in cc.research:
+        insert(app.conn, "research_task", {"id": new_id("rt"), "task_key": f"{security_id}:{r['cluster']}:{r['reason']}",
+                                           "security_id": security_id, "reason": r["reason"],
+                                           "detail_json": to_json({**r, "recommendation_id": rec_id}), "status": "OPEN",
+                                           "created_at": app.now_iso(), "closed_at": None}, or_ignore=True)
 
 
 def review_portfolio(app: App, portfolio_id: str, as_of: datetime | None = None, include_watchlist: bool = True) -> list[str]:

@@ -13,7 +13,7 @@ from ..app import App
 from ..data import calendar as cal
 from ..data.http import ProviderError
 from ..data.prices import PriceProvider, provider_from_settings, refresh_prices
-from ..data.sec import EIGHT_K_ITEMS, SecConfigError, fetch_companyfacts, make_client, sync_filings
+from ..data.sec import SecConfigError, fetch_companyfacts, filing_severity as _filing_severity, make_client, sync_filings
 from ..db.core import all_rows, one
 from ..decisions import recommend as rec_mod
 from ..decisions.allocation import propose
@@ -31,6 +31,10 @@ class JobContext:
     sec_client: object | None = None           # HttpClient or a fake with .get
     submissions: dict = field(default_factory=dict)   # issuer_id -> raw submissions JSON (tests)
     portfolios: list[str] | None = None
+    refresh_market_series: bool = True               # FRED / FINRA (network); tests inject fetchers or disable
+    fred_fetch: object | None = None
+    finra_si_fetch: object | None = None
+    regsho_fetch: object | None = None
 
 
 def _portfolios(app: App, ctx: JobContext) -> list[str]:
@@ -48,23 +52,6 @@ def _tracked(app: App, portfolio_ids: list[str]) -> list[str]:
         sids |= {h.security_id for h in portfolio_view(app, p, cal.latest_completed_session(app.now())).holdings}
     sids |= {r["security_id"] for r in all_rows(app.conn, "SELECT security_id FROM watchlist_entry WHERE status IN ('APPROVED','RESEARCH')")}
     return sorted(sids)
-
-
-def _filing_severity(form: str, items: str | None) -> tuple[str, str]:
-    if form.startswith("8-K"):
-        sev, labels = "INFO", []
-        rank = {"INFO": 0, "MATERIAL": 1, "CRITICAL": 2}
-        for it in (items or "").split(","):
-            it = it.strip()
-            if it in EIGHT_K_ITEMS:
-                s, lab = EIGHT_K_ITEMS[it]
-                labels.append(f"{it} {lab}")
-                if rank[s] > rank[sev]:
-                    sev = s
-        return sev, "; ".join(labels) or "8-K"
-    if form.startswith(("10-K", "10-Q", "20-F", "40-F")):
-        return "MATERIAL", f"{form} periodic report" + (" (amendment)" if form.endswith("/A") else "")
-    return "INFO", form
 
 
 def daily_refresh(app: App, run_id: str, scheduled_for: datetime, ctx: JobContext | None = None) -> dict:
@@ -128,6 +115,9 @@ def daily_refresh(app: App, run_id: str, scheduled_for: datetime, ctx: JobContex
                 ingest_companyfacts(app, iid, raw, rid)
             except ProviderError as exc:
                 failures.append(f"facts {iid}: {exc}")
+    # 2b. market context: reference instruments, economic series, positioning data, shared snapshot
+    detail["market"] = refresh_market_context(app, ctx, sids, provider, run_id)
+    failures += detail["market"].pop("failures")
     # 3. analyze: recommendations for every portfolio
     changed = []
     for p in pids:
@@ -157,6 +147,39 @@ def daily_refresh(app: App, run_id: str, scheduled_for: datetime, ctx: JobContex
     detail.update({"price_results": {k: v.get("ok") for k, v in pr.items()}, "new_events": len(new_events),
                    "action_changes": len(changed), "failures": failures, "delivery": deliver_pending(app)})
     return detail
+
+
+def refresh_market_context(app: App, ctx: JobContext, tracked: list[str], provider, run_id: str | None) -> dict:
+    from ..market import series as ms
+    from ..market.exposures import current_profile
+    from ..market.snapshot import build_snapshot, ensure_reference_securities
+    failures: list[str] = []
+    industry = sorted({p[1].industry_benchmark for sid in tracked if (p := current_profile(app, sid)) and p[1].industry_benchmark})
+    refs = ensure_reference_securities(app, industry)
+    pr = refresh_prices(app, sorted(set(refs.values())), provider, job_run_id=run_id)
+    missing_refs = [s for s, sid in refs.items() if not pr.get(sid, {}).get("ok")]
+    out = {"reference_instruments": len(refs), "reference_failures": missing_refs}
+    if ctx.refresh_market_series:
+        fred = ms.refresh_fred(app, fetch=ctx.fred_fetch, job_run_id=run_id)
+        out["fred_failures"] = [k for k, v in fred.items() if not v["ok"]]
+        commons = [r for r in all_rows(app.conn, f"SELECT s.symbol FROM security s JOIN issuer i ON i.id=s.issuer_id WHERE s.id IN "
+                                                 f"({','.join('?' for _ in tracked)}) AND s.security_type='COMMON' "
+                                                 f"AND i.name NOT LIKE 'FIXTURE %'", tracked)] if tracked else []
+        syms = [r["symbol"] for r in commons]
+        out["short_interest"] = {s_: ms.refresh_short_interest(app, s_, fetch=ctx.finra_si_fetch, job_run_id=run_id)["ok"]
+                                 for s_ in syms}
+        if syms:
+            out["short_volume"] = ms.refresh_short_volume(app, syms, cal.latest_completed_session(app.now()),
+                                                          fetch=ctx.regsho_fetch, job_run_id=run_id)
+        if out["fred_failures"]:
+            failures.append(f"economic series unavailable: {', '.join(out['fred_failures'])}")
+    else:
+        out["series"] = "skipped (refresh_market_series=False)"
+    if missing_refs:
+        failures.append(f"reference prices unavailable: {', '.join(missing_refs)}")
+    out["snapshot_id"] = build_snapshot(app, app.now(), industry)
+    out["failures"] = failures
+    return out
 
 
 def _alert_for_event(app: App, event_id: str, pids: list[str]) -> None:

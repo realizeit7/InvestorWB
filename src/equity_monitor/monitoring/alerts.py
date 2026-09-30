@@ -109,3 +109,9 @@ def alert_payload(app: App, alert_id: str) -> dict:
 def event_payload(app: App, event_id: str) -> dict:
     r = one(app.conn, "SELECT * FROM detected_event WHERE id=?", (event_id,))
     return {**dict(r), "payload": from_json(r["payload_json"])}
+
+
+def record_feedback(app: App, alert_id: str, useful: bool, note: str | None = None) -> None:
+    """Owner rates an alert's usefulness (for prospective alert-quality evaluation)."""
+    insert(app.conn, "alert_feedback", {"id": new_id("afb"), "alert_id": alert_id, "useful": int(useful), "note": note,
+                                        "at": app.now_iso()})

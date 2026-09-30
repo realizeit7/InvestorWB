@@ -57,7 +57,7 @@ def test_restart_does_not_duplicate_events(app, demo):  # §18.21
     subs = {demo["real"]["issuer_id"]: _submissions([("0001-26-000001", "8-K", "1.03", "2026-09-30T20:45:00.000Z"),
                                                      ("0001-26-000002", "10-Q", "", "2026-09-29T20:00:00.000Z"),
                                                      ("0001-24-000009", "10-K", "", "2024-11-01T20:00:00.000Z")])}
-    ctx = JobContext(price_provider=_prices(demo), submissions=subs)
+    ctx = JobContext(price_provider=_prices(demo), submissions=subs, refresh_market_series=False)
     h = handlers(ctx)
     spec = sch.DEFAULT_JOBS[0]
     due = sch.latest_due(spec, app.now())
@@ -94,7 +94,7 @@ def test_interrupted_run_is_retried_not_duplicated(app, demo):
 
 def test_failed_refresh_is_visible(app, demo):  # §18.22
     zzhld = demo["securities"]["ZZHLD"]["security_id"]
-    ctx = JobContext(price_provider=_prices(demo, fail={"ZZHLD"}))
+    ctx = JobContext(price_provider=_prices(demo, fail={"ZZHLD"}), refresh_market_series=False)
     app.clock.set(AS_OF + timedelta(days=1))   # 2026-10-01 18:00 ET: a new session needs prices
     res = sch.run_instance(app, sch.DEFAULT_JOBS[0], sch.latest_due(sch.DEFAULT_JOBS[0], app.now()), handlers(ctx)["daily_refresh"])
     assert res["status"] == "PARTIAL"

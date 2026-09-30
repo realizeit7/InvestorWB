@@ -23,6 +23,7 @@ from .valuation.builder import build_scenarios
 from .valuation.dcf import run_dcf
 from .valuation.store import approve_valuation, create_valuation
 from .decisions.recommend import set_watchlist
+from .market.exposures import approve_profile, create_profile, draft_default_profile
 
 D = Decimal
 
@@ -120,6 +121,9 @@ def build_demo(app: App, *, as_of: datetime = AS_OF, portfolio_name: str = "demo
         if co.position_usd:
             qty = (co.position_usd / buy_px).quantize(D("0.000001"))
             events.append(NewEvent("BUY", buy_day, sid, quantity=qty, price=buy_px, fees=D(0), note="FIXTURE buy"))
+        ev = create_profile(app, sid, draft_default_profile(app, sid, as_of), change_reason="initial exposure profile",
+                            author="FIXTURE", label="FIXTURE", as_of=as_of)
+        approve_profile(app, ev, note="FIXTURE approval")
         if co.watchlist:
             set_watchlist(app, sid, "APPROVED", "FIXTURE watchlist candidate")
         out["securities"][co.symbol] = {"security_id": sid, "issuer_id": iss, "base": base, "price": price}

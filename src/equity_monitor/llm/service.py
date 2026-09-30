@@ -179,3 +179,51 @@ def summarize_document(app: App, provider: LLMProvider, document_id: str, thesis
     checks = [{"text": c.text, **verify_claim(app, c, d["issuer_id"], max(as_of, app.now())).__dict__} for c in cs.claims]
     _set_validation(app, cid, "OK", {"claims": [{k: v for k, v in c.items() if k != "valid_citations"} for c in checks]})
     return {"llm_call_id": cid, "summary": cs.summary, "relevance": cs.thesis_relevance, "claims": checks}
+
+
+class Explanation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    hypothesis: str = Field(max_length=600)
+    supporting_observations: list[str] = Field(default_factory=list, max_length=20)
+    contradicting_observations: list[str] = Field(default_factory=list, max_length=20)
+    what_would_distinguish: str = Field(max_length=600)
+
+
+class ClusterExplanations(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    explanations: list[Explanation] = Field(min_length=1, max_length=5)
+    shared_cause_likely: bool
+    caveats: str = Field(max_length=1000)
+
+
+def explain_cluster(app: App, provider: LLMProvider, recommendation_id: str, cluster_key: str) -> dict:
+    """Competing explanations for one development (cluster). Output is INTERPRETATION / context only:
+    it cannot change eligibility, actions, policy or valuations."""
+    rec = one(app.conn, "SELECT payload_json FROM recommendation WHERE id=?", (recommendation_id,))
+    payload = json.loads(rec["payload_json"])
+    chain = next((c for c in payload["chains"] if c["cluster_key"] == cluster_key), None)
+    if chain is None:
+        raise ValueError(f"cluster {cluster_key} not in recommendation")
+    obs = "\n".join(f"- [{s['observation']}] {s['data_class']} from {s['source_id']} (public {s['public_at']})"
+                    for s in chain["sources"])
+    user = (f"Development cluster {cluster_key} for {payload['symbol']}. Observations (facts computed by code):\n{obs}\n"
+            f"Deterministic chain so far: relevance={chain['relevance']}, mechanism={chain['mechanism']}.\n"
+            "Give competing explanations, including that these observations share one cause. Refer to observation ids only; "
+            "do not introduce numbers that are not listed. Price co-movement is not causation; short-sale volume is not short "
+            "interest; implied volatility is not a probability.")
+    req = LLMRequest("cluster_explanation", "cluster-explanation-v1", SYSTEM_PROMPT, user,
+                     ClusterExplanations.model_json_schema(), app.settings.llm.max_output_tokens)
+    cid, parsed = call(app, provider, req, {"recommendation_id": recommendation_id, "cluster": cluster_key})
+    if parsed is None:
+        return {"llm_call_id": cid, "explanations": None}
+    try:
+        ce = ClusterExplanations.model_validate(parsed)
+    except ValidationError as exc:
+        _set_validation(app, cid, "INVALID", {"schema_errors": json.loads(exc.json())})
+        return {"llm_call_id": cid, "explanations": None, "error": "schema validation failed"}
+    known = {s["observation"] for s in chain["sources"]}
+    bad = [o for e in ce.explanations for o in e.supporting_observations + e.contradicting_observations if o not in known]
+    _set_validation(app, cid, "OK" if not bad else "INVALID",
+                    {"unknown_observation_refs": bad, "label": "INTERPRETATION (context only)"})
+    return {"llm_call_id": cid, "explanations": None if bad else ce.model_dump(), "label": "INTERPRETATION — context only",
+            "error": f"references to unknown observations: {bad}" if bad else None}

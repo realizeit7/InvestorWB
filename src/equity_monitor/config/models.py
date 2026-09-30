@@ -100,6 +100,39 @@ class ValuationDefaults(_Strict):
     scenario_wacc_shift: Decimal = Decimal("0.01")
 
 
+class MarketPolicy(_Strict):
+    """Current-conditions rules. Market information can PAUSE purchases or raise research/review; it never
+    creates ADD/TRIM/EXIT on its own and never relaxes portfolio limits. All thresholds provisional."""
+    enabled: bool = True
+    require_exposure_profile_for_purchase: bool = True
+    pause_on_adverse_high_exposure: bool = True
+    pause_on_unknown_high_exposure: bool = True          # missing data is UNKNOWN, not safe
+    pause_on_market_stress: bool = False                 # opt-in: broad weakness alone is not a reason to wait
+    unreviewed_event_pause_days: int = 30
+    pause_reassess_days: int = 30
+    cluster_window_before_days: int = 3
+    cluster_window_after_days: int = 10
+    stale_daily_days: int = 7
+    stale_monthly_days: int = 75
+    rates_1m_change_pp: Decimal = Decimal("0.50")
+    hy_oas_level_pct: Decimal = Decimal("5.0")
+    hy_oas_3m_change_pp: Decimal = Decimal("1.0")
+    usd_3m_change: Decimal = Decimal("0.05")
+    oil_3m_change: Decimal = Decimal("0.25")
+    copper_3m_change: Decimal = Decimal("0.20")
+    cpi_yoy_high: Decimal = Decimal("0.04")
+    unemployment_3m_rise_pp: Decimal = Decimal("0.5")
+    indpro_yoy_contraction: Decimal = Decimal("-0.02")
+    market_drawdown: Decimal = Decimal("0.10")
+    vix_elevated: Decimal = Decimal("30")
+    short_interest_days_to_cover_research: Decimal = Decimal("8")
+    short_interest_change_research: Decimal = Decimal("0.5")
+    valuation_rate_change_proposal_pp: Decimal = Decimal("0.50")
+    sector_relative_research: Decimal = Decimal("0.15")       # sector ETF 3m return vs SPY
+    company_specific_move_research: Decimal = Decimal("0.15") # |company-specific 1m component|
+    stress_wacc_shift: Decimal = Decimal("0.01")              # illustrative stress of the bear case (context only)
+
+
 class Policy(_Strict):
     name: str = "provisional-preview"
     version: str = "0.1.0"
@@ -110,6 +143,7 @@ class Policy(_Strict):
     alerts: AlertPolicy = AlertPolicy()
     paper: PaperPolicy = PaperPolicy()
     valuation: ValuationDefaults = ValuationDefaults()
+    market: MarketPolicy = MarketPolicy()
 
     def content_hash(self) -> str:
         return stable_hash(self.model_dump(mode="json"))
