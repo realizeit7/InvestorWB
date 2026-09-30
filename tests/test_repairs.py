@@ -309,3 +309,151 @@ def test_legacy_verified_claims_are_downgraded_to_source_matched():
     assert conn.execute("SELECT verified FROM evidence_link WHERE id='e1'").fetchone()[0] == 0
     assert conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
     assert [r[2] for r in conn.execute("PRAGMA foreign_key_list(evidence_link)") if r[3] == "claim_id"] == ["claim"]
+
+
+# ------------------------------------------------------------------ #2 issuer aggregation / #3 revalidation at cutoff
+from datetime import timedelta
+
+from equity_monitor.config.models import MarketPolicy, Policy, PortfolioPolicy
+from equity_monitor.decisions.allocation import propose
+from equity_monitor.decisions.recommend import generate, get, review_portfolio, set_watchlist
+from equity_monitor.ledger.views import portfolio_view
+
+
+def _add_share_class(app, d, approve_profile_b=True):
+    """ZZADD.B: a second share class of ZZADD's issuer with the same thesis, valuation and prices."""
+    from equity_monitor.data.prices import Bar, PriceFetch, store_fetch
+    from equity_monitor.data.securities import register_security
+    from equity_monitor.market.exposures import approve_profile, create_profile, current_profile
+    from equity_monitor.research.thesis import ThesisContent, approve_version, create_version, current_version
+    from equity_monitor.valuation.dcf import ScenarioInputs
+    from equity_monitor.valuation.store import approve_valuation, create_valuation, latest_valuation
+    a = d["securities"]["ZZADD"]
+    b = register_security(app.conn, app.now_iso(), "ZZADD.B", security_type="COMMON", issuer_id=a["issuer_id"])
+    bars = app.conn.execute("SELECT session_date, close FROM price_bar WHERE security_id=?", (a["security_id"],)).fetchall()
+    store_fetch(app, b, PriceFetch([Bar(date.fromisoformat(r["session_date"]), Dec(r["close"])) for r in bars]), "fixture")
+    tv = current_version(app, a["security_id"])
+    approve_version(app, create_version(app, b, ThesisContent.model_validate(tv.content), change_reason="class B",
+                                        author="FIXTURE", label="FIXTURE", as_of=AS_OF))
+    val = latest_valuation(app, a["security_id"])
+    vid = create_valuation(app, b, {k: ScenarioInputs.model_validate(val.inputs[k]) for k in ("bear", "base", "bull")},
+                           evidence_as_of=AS_OF, label="FIXTURE")
+    approve_valuation(app, vid, downside_reviewed=True)
+    if approve_profile_b:
+        approve_profile(app, create_profile(app, b, current_profile(app, a["security_id"])[1], change_reason="x",
+                                            label="FIXTURE"))
+    set_watchlist(app, b, "APPROVED")
+    return a["issuer_id"], a["security_id"], b
+
+
+def _issuer_weight(app, p, view, issuer_id, lines):
+    cur = view.issuer_weights.get(issuer_id, Dec(0)) * view.nav
+    fees = sum((Dec(str(l["fee"])) for l in lines), Dec(0))
+    add = sum((Dec(str(l["amount"])) for l in lines if l["issuer"] == issuer_id), Dec(0))
+    return (cur + add) / (p.nav_after - fees)
+
+
+@pytest.mark.parametrize("approve_b", [True, False])
+def test_share_classes_share_one_issuer_limit_in_both_variants(app, approve_b):
+    from equity_monitor.data.securities import security_ref
+    app.clock.set(AS_OF)
+    d = build_demo(app)
+    issuer, a_sid, b_sid = _add_share_class(app, d, approve_profile_b=approve_b)
+    pf = d["portfolio_id"]
+    p = propose(app, pf)
+    view = portfolio_view(app, pf)
+    pol = app.policy.portfolio
+
+    def rows(lines):
+        return [{"symbol": l["symbol"], "amount": l["amount"], "fee": l["fee"],
+                 "issuer": security_ref(app.conn, app.conn.execute("SELECT id FROM security WHERE symbol=?",
+                                                                   (l["symbol"],)).fetchone()["id"]).issuer_id}
+                for l in lines]
+    aug = rows([{"symbol": l.symbol, "amount": l.amount, "fee": l.fee} for l in p.lines if l.amount > 0])
+    base = rows(p.baseline["lines"])
+    for variant in (aug, base):
+        w = _issuer_weight(app, p, view, issuer, variant)
+        assert w <= pol.target_position_weight + Dec("0.0001"), (variant, w)    # was 12.89% before the repair
+    if approve_b:
+        # displayed weight is the aggregate issuer weight, identical for both classes
+        ws = {l.symbol: l.proposed_weight for l in p.lines if l.symbol in ("ZZADD", "ZZADD.B")}
+        assert len(set(ws.values())) == 1
+    else:
+        assert "ZZADD.B" not in [l["symbol"] for l in aug]                      # PAUSED: no approved exposure profile
+        assert {l["symbol"] for l in base} >= {"ZZADD"}
+
+
+def test_proposal_is_revalidated_after_fees_and_rounding(app):
+    from equity_monitor.data.securities import security_ref
+    app.clock.set(AS_OF)
+    d = build_demo(app)
+    app.policy = Policy(portfolio=PortfolioPolicy(target_position_weight=Dec("0.10"), max_issuer_weight=Dec("0.10"),
+                                                  fee_per_trade_usd=Dec("150"), fractional_shares=False))
+    pf = d["portfolio_id"]
+    p = propose(app, pf)
+    view = portfolio_view(app, pf)
+    active = [l for l in p.lines if l.amount > 0]
+    assert active
+    fees = sum((l.fee for l in active), Dec(0))
+    assert p.nav_after_fees == p.nav_after - fees
+    for l in active:
+        assert l.shares == l.shares.to_integral_value()
+        w = (view.issuer_weights.get(security_ref(app.conn, l.security_id).issuer_id, Dec(0)) * view.nav + l.amount) / p.nav_after_fees
+        assert w <= Dec("0.10"), (l.symbol, w)
+        assert abs(l.proposed_weight - w) < Dec("0.000001")
+    assert p.remaining_cash >= 0 and sum((l.amount for l in active), Dec(0)) + fees <= p.budget
+    assert any("revalidation" in l.note for l in p.lines)          # the fee pass actually had to cut a line
+
+
+def test_allocation_revalidates_stale_recommendations(app):
+    app.clock.set(AS_OF)
+    d = build_demo(app)
+    pf = d["portfolio_id"]
+    review_portfolio(app, pf)
+    app.clock.set(AS_OF + timedelta(days=2))            # no new prices or filings checks since the review
+    p = propose(app, pf)
+    assert [l for l in p.lines if l.amount > 0] == []                      # was: 7-day-old ADDs reused
+    reasons = {e["symbol"]: e["reason"] for e in p.excluded}
+    assert "STALE_PRICE" in reasons["ZZADD"] and "REVIEW" in reasons["ZZADD"]
+    assert all(v["recommendation_as_of"] <= p.as_of for v in p.validated)
+
+
+def test_allocation_sees_changed_eligibility_and_new_evidence(app):
+    app.clock.set(AS_OF)
+    d = build_demo(app)
+    pf = d["portfolio_id"]
+    review_portfolio(app, pf)
+    new = d["securities"]["ZZNEW"]
+    # eligibility change after the review: the exposure approval is withdrawn (profile missing -> PAUSED)
+    app.conn.execute("DELETE FROM exposure_approval WHERE exposure_version_id IN "
+                     "(SELECT id FROM exposure_profile_version WHERE security_id=?)", (new["security_id"],))
+    # new evidence after the review: a 10-Q for ZZADD becomes public before the cutoff
+    add_fact(app, d["securities"]["ZZADD"]["issuer_id"], "revenue", 1, start=date(2026, 7, 1), end=date(2026, 9, 30),
+             public_at=AS_OF + timedelta(minutes=30), accession="new-10q", form="10-Q")
+    app.clock.set(AS_OF + timedelta(hours=1))           # same session: prices are still current
+    p = propose(app, pf)
+    bought = {l.symbol for l in p.lines if l.amount > 0}
+    assert "ZZNEW" not in bought and "ZZADD" not in bought
+    reasons = {e["symbol"]: e["reason"] for e in p.excluded}
+    assert "PAUSED" in reasons["ZZNEW"]
+    assert "NEW_FINANCIALS" in reasons["ZZADD"] or "REVIEW" in reasons["ZZADD"]
+
+
+def test_allocation_uses_current_policy_and_rejects_future_cutoff(app):
+    app.clock.set(AS_OF)
+    d = build_demo(app)
+    pf = d["portfolio_id"]
+    review_portfolio(app, pf)
+    old_policy = app.policy_version_id()
+    app.policy = Policy(portfolio=PortfolioPolicy(max_issuer_weight=Dec("0.03"), target_position_weight=Dec("0.02")))
+    p = propose(app, pf)
+    assert {v["policy_version_id"] for v in p.validated} == {app.policy_version_id()} != {old_policy}
+    assert "ZZADD" not in {l.symbol for l in p.lines if l.amount > 0}       # ZZADD is above the new 3% issuer limit
+    with pytest.raises(ValueError, match="future"):
+        propose(app, pf, as_of=AS_OF + timedelta(days=1))
+    # a recommendation dated after the cutoff is never used for an earlier allocation
+    sid = d["securities"]["ZZNEW"]["security_id"]
+    app.clock.set(AS_OF + timedelta(days=1))
+    future = generate(app, pf, sid)
+    p2 = propose(app, pf, as_of=AS_OF)
+    assert future not in {v["recommendation_id"] for v in p2.validated}
