@@ -4,7 +4,7 @@
    "as_of": "2026-09-30T22:00:00.000000Z",
    "budget": "51759.99999878",
    "contribution_kind": "CONFIRMED",
-   "id": "alloc_ddfd0c15b8904560b460",
+   "id": "alloc_9552efcf04de473f9dad",
    "is_preview": 1,
    "label": "FIXTURE",
    "remaining_cash": "46719.15999878"
@@ -16,12 +16,12 @@
  "policy_versions": [
   {
    "content_hash": "a6f454a59dd106bd46ba847681e6465ce5eda37b92a631b744365d6b3fd8b310",
-   "id": "pol_353cc23be67d462f9c42",
+   "id": "pol_c4b4e76656e24834b8f9",
    "name": "provisional-preview@0.1.0",
    "status": "PREVIEW"
   }
  ],
- "portfolio_id": "pf_a0f36bf314644461b9b8",
+ "portfolio_id": "pf_03a525d437194923ab49",
  "recommendations": [
   {
    "action": "HOLD",
@@ -30,12 +30,12 @@
    "business_assessment": "INTACT",
    "created_at": "2026-09-30T22:00:00.000000Z",
    "explanation": "Ownership remains reasonable but new money is not preferred: margin of safety 10.0% < 25%; position at/above target weight 8%",
-   "exposure_version_id": "exv_1741dd94423b45e3b24b",
-   "id": "rec_856daf91edaa409ba5ce",
-   "input_hash": "d3bb152044e7bca2edfaec352f805e2c3ff3e2b5fa1f6c29f69200c44ab27368",
+   "exposure_version_id": "exv_c53e0aae3baa4ea9bf30",
+   "id": "rec_bf164652ac83467d97d5",
+   "input_hash": "d4df47c6dfa727f0a7b06b5997610a9707e94f0210fb667744ab54db87da348d",
    "is_preview": 1,
    "label": "FIXTURE",
-   "market_snapshot_id": "mks_a324e1b6dc5347e5959c",
+   "market_snapshot_id": "mks_254b93150aa940728466",
    "payload": {
     "baseline_eligibility": "ELIGIBLE",
     "chains": [
@@ -49,7 +49,7 @@
       "level": "COMPANY",
       "mechanism": "unclear: may reflect information not yet in filings, hedging, or noise",
       "observations": [
-       "attr:sec_4ac59c5c238e4f369bfd:2026-09-30"
+       "attr:sec_dbda677ab1d14546b4f9:2026-09-30"
       ],
       "reason": "LARGE_COMPANY_SPECIFIC_MOVE",
       "reassess_condition": "owner looks for a primary-source explanation (filings, IR releases)",
@@ -61,7 +61,7 @@
       "sources": [
        {
         "data_class": "PRICE_RETURN",
-        "observation": "attr:sec_4ac59c5c238e4f369bfd:2026-09-30",
+        "observation": "attr:sec_dbda677ab1d14546b4f9:2026-09-30",
         "public_at": "2026-09-30T22:00:00.000000Z",
         "source_id": "yahoo_chart"
        }
@@ -188,7 +188,7 @@
     },
     "clusters": {
      "company:PRICE:2026-W40": [
-      "attr:sec_4ac59c5c238e4f369bfd:2026-09-30"
+      "attr:sec_dbda677ab1d14546b4f9:2026-09-30"
      ],
      "market:CREDIT": [
       "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
@@ -214,7 +214,7 @@
      {
       "assessor": "ENGINE",
       "description": "Operating margin below 10% for 2 consecutive fiscal years",
-      "id": "ic_e14ab01334644eb59387",
+      "id": "ic_8c00bafa3fdc463b9097",
       "kind": "METRIC",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -223,7 +223,7 @@
      {
       "assessor": "NONE",
       "description": "Loss of the largest customer contract",
-      "id": "ic_6828edda15a3415b80c5",
+      "id": "ic_598109804e0246aea32e",
       "kind": "EVENT",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -257,7 +257,7 @@
      "price": "24.24"
     },
     "evidence": [],
-    "exposure_version_id": "exv_1741dd94423b45e3b24b",
+    "exposure_version_id": "exv_c53e0aae3baa4ea9bf30",
     "freshness": {
      "filings_check_failed": false,
      "filings_checked_hours_ago": 0.0,
@@ -275,13 +275,13 @@
      "current_thesis": {
       "approved_at": "2026-09-30T22:00:00.000000Z",
       "change_reason": "initial thesis",
-      "version_id": "thv_c9ae34687e6747e4a920",
+      "version_id": "thv_38e7dca8e8494bb8a5de",
       "version_no": 1
      },
      "margin_of_safety": "0.1000826661438519594469245626043998",
      "original_thesis": {
       "approved_at": "2026-09-30T22:00:00.000000Z",
-      "version_id": "thv_c9ae34687e6747e4a920",
+      "version_id": "thv_38e7dca8e8494bb8a5de",
       "version_no": 1
      },
      "thesis_changed_since_original": false,
@@ -290,7 +290,7 @@
       "base": "26.93580742147896961929701246012247",
       "bear": "15.21856372415922648482069749266079",
       "bull": "46.05921352666614187208802857812076",
-      "version_id": "val_7695d52da381475ca8c7"
+      "version_id": "val_6fff289c8b1f48b6b969"
      }
     },
     "margin_of_safety": "0.1000826661438519594469245626043998",
@@ -309,13 +309,13 @@
       ]
      },
      "snapshot_as_of": "2026-09-30T22:00:00.000000Z",
-     "snapshot_id": "mks_a324e1b6dc5347e5959c",
+     "snapshot_id": "mks_254b93150aa940728466",
      "snapshot_missing": []
     },
     "milestones": [
      {
       "description": "Revenue above $1.3bn by FY2027",
-      "id": "ms_971d2c35021c4c3daffa",
+      "id": "ms_a7c99e192309498b9704",
       "state": "PENDING"
      }
     ],
@@ -339,17 +339,17 @@
      "stress_downside": null
     }
    },
-   "policy_version_id": "pol_353cc23be67d462f9c42",
-   "portfolio_id": "pf_a0f36bf314644461b9b8",
+   "policy_version_id": "pol_c4b4e76656e24834b8f9",
+   "portfolio_id": "pf_03a525d437194923ab49",
    "previous_action": null,
    "previous_recommendation_id": null,
    "purchase_eligibility": "ELIGIBLE",
    "reason_codes": [
     "NO_ADD"
    ],
-   "security_id": "sec_4ac59c5c238e4f369bfd",
-   "thesis_version_id": "thv_c9ae34687e6747e4a920",
-   "valuation_version_id": "val_7695d52da381475ca8c7"
+   "security_id": "sec_dbda677ab1d14546b4f9",
+   "thesis_version_id": "thv_38e7dca8e8494bb8a5de",
+   "valuation_version_id": "val_6fff289c8b1f48b6b969"
   },
   {
    "action": "TRIM",
@@ -358,12 +358,12 @@
    "business_assessment": "INTACT",
    "created_at": "2026-09-30T22:00:00.000000Z",
    "explanation": "Price is 130% of base value (> 120%).",
-   "exposure_version_id": "exv_8c799c414bbe4896977b",
-   "id": "rec_48ef1c804770438bb238",
-   "input_hash": "2f01340922f41fe3d945bde79f6d896286642b83747df978019b133c5f7649d2",
+   "exposure_version_id": "exv_a618f486a8304f33b01c",
+   "id": "rec_6aa868eae24746b6a551",
+   "input_hash": "3c90ffbea29abc903965ee32f33950bbc61835ca4b05e5fe9cb98167778cdcf0",
    "is_preview": 1,
    "label": "FIXTURE",
-   "market_snapshot_id": "mks_a324e1b6dc5347e5959c",
+   "market_snapshot_id": "mks_254b93150aa940728466",
    "payload": {
     "baseline_eligibility": "BLOCKED",
     "chains": [
@@ -377,7 +377,7 @@
       "level": "COMPANY",
       "mechanism": "unclear: may reflect information not yet in filings, hedging, or noise",
       "observations": [
-       "attr:sec_8d7b8168c987402a8c10:2026-09-30"
+       "attr:sec_13a852ddc4fb4653ba69:2026-09-30"
       ],
       "reason": "LARGE_COMPANY_SPECIFIC_MOVE",
       "reassess_condition": "owner looks for a primary-source explanation (filings, IR releases)",
@@ -389,7 +389,7 @@
       "sources": [
        {
         "data_class": "PRICE_RETURN",
-        "observation": "attr:sec_8d7b8168c987402a8c10:2026-09-30",
+        "observation": "attr:sec_13a852ddc4fb4653ba69:2026-09-30",
         "public_at": "2026-09-30T22:00:00.000000Z",
         "source_id": "yahoo_chart"
        }
@@ -516,7 +516,7 @@
     },
     "clusters": {
      "company:PRICE:2026-W40": [
-      "attr:sec_8d7b8168c987402a8c10:2026-09-30"
+      "attr:sec_13a852ddc4fb4653ba69:2026-09-30"
      ],
      "market:CREDIT": [
       "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
@@ -542,7 +542,7 @@
      {
       "assessor": "ENGINE",
       "description": "Operating margin below 10% for 2 consecutive fiscal years",
-      "id": "ic_df1bcf224f454777a863",
+      "id": "ic_5cc07180abef4777aa68",
       "kind": "METRIC",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -551,7 +551,7 @@
      {
       "assessor": "NONE",
       "description": "Loss of the largest customer contract",
-      "id": "ic_dfd87d9fed5845c0bd72",
+      "id": "ic_934d1df80241401796c4",
       "kind": "EVENT",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -587,7 +587,7 @@
      "price": "39.74"
     },
     "evidence": [],
-    "exposure_version_id": "exv_8c799c414bbe4896977b",
+    "exposure_version_id": "exv_a618f486a8304f33b01c",
     "freshness": {
      "filings_check_failed": false,
      "filings_checked_hours_ago": 0.0,
@@ -605,13 +605,13 @@
      "current_thesis": {
       "approved_at": "2026-09-30T22:00:00.000000Z",
       "change_reason": "initial thesis",
-      "version_id": "thv_f5db2e98bfd94040a46e",
+      "version_id": "thv_fadef35639cd492a875a",
       "version_no": 1
      },
      "margin_of_safety": "-0.300027434216035032222833287779116",
      "original_thesis": {
       "approved_at": "2026-09-30T22:00:00.000000Z",
-      "version_id": "thv_f5db2e98bfd94040a46e",
+      "version_id": "thv_fadef35639cd492a875a",
       "version_no": 1
      },
      "thesis_changed_since_original": false,
@@ -620,7 +620,7 @@
       "base": "30.56858567293597175668589572190164",
       "bear": "17.875350864728272539127486081767",
       "bull": "51.15284219206337914978159756753292",
-      "version_id": "val_d6305196c1e640b09134"
+      "version_id": "val_b1031b7925fe414bbcb5"
      }
     },
     "margin_of_safety": "-0.300027434216035032222833287779116",
@@ -639,13 +639,13 @@
       ]
      },
      "snapshot_as_of": "2026-09-30T22:00:00.000000Z",
-     "snapshot_id": "mks_a324e1b6dc5347e5959c",
+     "snapshot_id": "mks_254b93150aa940728466",
      "snapshot_missing": []
     },
     "milestones": [
      {
       "description": "Revenue above $1.3bn by FY2027",
-      "id": "ms_8469fe12ef184cca860e",
+      "id": "ms_a37b8f72115f4299a8a3",
       "state": "PENDING"
      }
     ],
@@ -674,17 +674,17 @@
      "stress_downside": null
     }
    },
-   "policy_version_id": "pol_353cc23be67d462f9c42",
-   "portfolio_id": "pf_a0f36bf314644461b9b8",
+   "policy_version_id": "pol_c4b4e76656e24834b8f9",
+   "portfolio_id": "pf_03a525d437194923ab49",
    "previous_action": null,
    "previous_recommendation_id": null,
    "purchase_eligibility": "BLOCKED",
    "reason_codes": [
     "VALUATION_ABOVE_TRIM_BAND"
    ],
-   "security_id": "sec_8d7b8168c987402a8c10",
-   "thesis_version_id": "thv_f5db2e98bfd94040a46e",
-   "valuation_version_id": "val_d6305196c1e640b09134"
+   "security_id": "sec_13a852ddc4fb4653ba69",
+   "thesis_version_id": "thv_fadef35639cd492a875a",
+   "valuation_version_id": "val_b1031b7925fe414bbcb5"
   },
   {
    "action": "REVIEW",
@@ -693,12 +693,12 @@
    "business_assessment": "INTACT",
    "created_at": "2026-09-30T22:00:00.000000Z",
    "explanation": "Review required before any action: valuation assumptions not approved",
-   "exposure_version_id": "exv_392347abb3994d578388",
-   "id": "rec_4dd0f9826829428aa69c",
-   "input_hash": "cd37caa96ba4521d73322734a007239ee2047a0347914aa2fb9a22a19f105d67",
+   "exposure_version_id": "exv_e94d2fccf25043d28b42",
+   "id": "rec_f15d23fc72594a1fa528",
+   "input_hash": "c1d54846ef51e095cbf3a1e5b60e190877ae3d5735cd21968a27633003cffb00",
    "is_preview": 1,
    "label": "FIXTURE",
-   "market_snapshot_id": "mks_a324e1b6dc5347e5959c",
+   "market_snapshot_id": "mks_254b93150aa940728466",
    "payload": {
     "baseline_eligibility": "BLOCKED",
     "chains": [
@@ -751,7 +751,7 @@
       "level": "COMPANY",
       "mechanism": "none identified (co-movement is not causation)",
       "observations": [
-       "attr:sec_af225ee84a224ae78605:2026-09-30"
+       "attr:sec_d9c67427a59c4d1c8433:2026-09-30"
       ],
       "reason": "COMPANY_CONTEXT",
       "reassess_condition": null,
@@ -763,7 +763,7 @@
       "sources": [
        {
         "data_class": "PRICE_RETURN",
-        "observation": "attr:sec_af225ee84a224ae78605:2026-09-30",
+        "observation": "attr:sec_d9c67427a59c4d1c8433:2026-09-30",
         "public_at": "2026-09-30T22:00:00.000000Z",
         "source_id": "yahoo_chart"
        }
@@ -847,7 +847,7 @@
     },
     "clusters": {
      "company:PRICE:2026-W40": [
-      "attr:sec_af225ee84a224ae78605:2026-09-30"
+      "attr:sec_d9c67427a59c4d1c8433:2026-09-30"
      ],
      "market:CREDIT": [
       "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
@@ -873,7 +873,7 @@
      {
       "assessor": "ENGINE",
       "description": "Operating margin below 10% for 2 consecutive fiscal years",
-      "id": "ic_962710352e3748228783",
+      "id": "ic_ca63466ffc4c4af29fda",
       "kind": "METRIC",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -882,7 +882,7 @@
      {
       "assessor": "NONE",
       "description": "Loss of the largest customer contract",
-      "id": "ic_f026498d8ec94cfbb47e",
+      "id": "ic_b0099226c84444ec9890",
       "kind": "EVENT",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -911,7 +911,7 @@
      "price": "22.67"
     },
     "evidence": [],
-    "exposure_version_id": "exv_392347abb3994d578388",
+    "exposure_version_id": "exv_e94d2fccf25043d28b42",
     "freshness": {
      "filings_check_failed": false,
      "filings_checked_hours_ago": 0.0,
@@ -929,13 +929,13 @@
      "current_thesis": {
       "approved_at": "2026-09-30T22:00:00.000000Z",
       "change_reason": "initial thesis",
-      "version_id": "thv_6d48cf1c99fd4821bb83",
+      "version_id": "thv_93819bdbb4204be99a00",
       "version_no": 1
      },
      "margin_of_safety": "0.2999840160155106753617295374492125",
      "original_thesis": {
       "approved_at": "2026-09-30T22:00:00.000000Z",
-      "version_id": "thv_6d48cf1c99fd4821bb83",
+      "version_id": "thv_93819bdbb4204be99a00",
       "version_no": 1
      },
      "thesis_changed_since_original": false,
@@ -944,7 +944,7 @@
       "base": "32.38497479866447282538033735279123",
       "bear": "19.20374443501279556628088037632011",
       "bull": "53.69965652476199778862838206223903",
-      "version_id": "val_56c6830b76ae4aaf927e"
+      "version_id": "val_eb520ed90190494c9eeb"
      }
     },
     "margin_of_safety": "0.2999840160155106753617295374492125",
@@ -963,13 +963,13 @@
       ]
      },
      "snapshot_as_of": "2026-09-30T22:00:00.000000Z",
-     "snapshot_id": "mks_a324e1b6dc5347e5959c",
+     "snapshot_id": "mks_254b93150aa940728466",
      "snapshot_missing": []
     },
     "milestones": [
      {
       "description": "Revenue above $1.3bn by FY2027",
-      "id": "ms_a6faa591a3954bdbb4a2",
+      "id": "ms_e6d245f72a6b40bab0fc",
       "state": "PENDING"
      }
     ],
@@ -995,17 +995,17 @@
      "stress_downside": null
     }
    },
-   "policy_version_id": "pol_353cc23be67d462f9c42",
-   "portfolio_id": "pf_a0f36bf314644461b9b8",
+   "policy_version_id": "pol_c4b4e76656e24834b8f9",
+   "portfolio_id": "pf_03a525d437194923ab49",
    "previous_action": null,
    "previous_recommendation_id": null,
    "purchase_eligibility": "BLOCKED",
    "reason_codes": [
     "VALUATION_NOT_APPROVED"
    ],
-   "security_id": "sec_af225ee84a224ae78605",
-   "thesis_version_id": "thv_6d48cf1c99fd4821bb83",
-   "valuation_version_id": "val_56c6830b76ae4aaf927e"
+   "security_id": "sec_d9c67427a59c4d1c8433",
+   "thesis_version_id": "thv_93819bdbb4204be99a00",
+   "valuation_version_id": "val_eb520ed90190494c9eeb"
   },
   {
    "action": "EXIT",
@@ -1014,12 +1014,12 @@
    "business_assessment": "BROKEN",
    "created_at": "2026-09-30T22:00:00.000000Z",
    "explanation": "Pre-declared invalidation condition met and verified: Operating margin below 10% for 2 consecutive fiscal years",
-   "exposure_version_id": "exv_ae2cf23a574c47edbd49",
-   "id": "rec_bc064524e06141d5a585",
-   "input_hash": "0ba0b34175fe460f9bfc8eaaa4464aeb6196dd3926bf964297c46bc93f33126b",
+   "exposure_version_id": "exv_3797dab1b11a43d59bcf",
+   "id": "rec_1419fa250e1242ff9989",
+   "input_hash": "ad8f713d3152aecb3e59dd6b26d4926a004a6cda3c72309d6ce3b09cf2252deb",
    "is_preview": 1,
    "label": "FIXTURE",
-   "market_snapshot_id": "mks_a324e1b6dc5347e5959c",
+   "market_snapshot_id": "mks_254b93150aa940728466",
    "payload": {
     "baseline_eligibility": "BLOCKED",
     "chains": [
@@ -1072,7 +1072,7 @@
       "level": "COMPANY",
       "mechanism": "unclear: may reflect information not yet in filings, hedging, or noise",
       "observations": [
-       "attr:sec_f14558b22c8d40a09fc7:2026-09-30"
+       "attr:sec_5a02ddc362ff43158bb8:2026-09-30"
       ],
       "reason": "LARGE_COMPANY_SPECIFIC_MOVE",
       "reassess_condition": "owner looks for a primary-source explanation (filings, IR releases)",
@@ -1084,7 +1084,7 @@
       "sources": [
        {
         "data_class": "PRICE_RETURN",
-        "observation": "attr:sec_f14558b22c8d40a09fc7:2026-09-30",
+        "observation": "attr:sec_5a02ddc362ff43158bb8:2026-09-30",
         "public_at": "2026-09-30T22:00:00.000000Z",
         "source_id": "yahoo_chart"
        }
@@ -1170,7 +1170,7 @@
     },
     "clusters": {
      "company:PRICE:2026-W40": [
-      "attr:sec_f14558b22c8d40a09fc7:2026-09-30"
+      "attr:sec_5a02ddc362ff43158bb8:2026-09-30"
      ],
      "market:CREDIT": [
       "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
@@ -1196,7 +1196,7 @@
      {
       "assessor": "ENGINE",
       "description": "Operating margin below 10% for 2 consecutive fiscal years",
-      "id": "ic_4d7432bb2477429a9b82",
+      "id": "ic_de442cbe0bd04ff1b16b",
       "kind": "METRIC",
       "latest_breaches": true,
       "state": "TRIGGERED",
@@ -1205,7 +1205,7 @@
      {
       "assessor": "NONE",
       "description": "Loss of the largest customer contract",
-      "id": "ic_551b1a38b2cf45378326",
+      "id": "ic_1f277bce053843389968",
       "kind": "EVENT",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -1264,7 +1264,7 @@
      "price": "5.29"
     },
     "evidence": [],
-    "exposure_version_id": "exv_ae2cf23a574c47edbd49",
+    "exposure_version_id": "exv_3797dab1b11a43d59bcf",
     "freshness": {
      "filings_check_failed": false,
      "filings_checked_hours_ago": 0.0,
@@ -1282,13 +1282,13 @@
      "current_thesis": {
       "approved_at": "2026-09-30T22:00:00.000000Z",
       "change_reason": "initial thesis",
-      "version_id": "thv_5745c63eb9784bbea77f",
+      "version_id": "thv_14227e46ba494f9c8e32",
       "version_no": 1
      },
      "margin_of_safety": "0.5003921916536711807507709210502279",
      "original_thesis": {
       "approved_at": "2026-09-30T22:00:00.000000Z",
-      "version_id": "thv_5745c63eb9784bbea77f",
+      "version_id": "thv_14227e46ba494f9c8e32",
       "version_no": 1
      },
      "thesis_changed_since_original": false,
@@ -1297,7 +1297,7 @@
       "base": "10.58830528992246000104703778211622",
       "bear": "3.26302159159851924044014884168283",
       "bull": "23.13788453237857412246696812576594",
-      "version_id": "val_2e31f096f7fd42d0b8c3"
+      "version_id": "val_10b036f16138416db8d4"
      }
     },
     "margin_of_safety": "0.5003921916536711807507709210502279",
@@ -1316,13 +1316,13 @@
       ]
      },
      "snapshot_as_of": "2026-09-30T22:00:00.000000Z",
-     "snapshot_id": "mks_a324e1b6dc5347e5959c",
+     "snapshot_id": "mks_254b93150aa940728466",
      "snapshot_missing": []
     },
     "milestones": [
      {
       "description": "Revenue above $1.3bn by FY2027",
-      "id": "ms_76880566c36149f29fad",
+      "id": "ms_a58f67745e71421bb406",
       "state": "PENDING"
      }
     ],
@@ -1355,17 +1355,17 @@
      }
     }
    },
-   "policy_version_id": "pol_353cc23be67d462f9c42",
-   "portfolio_id": "pf_a0f36bf314644461b9b8",
+   "policy_version_id": "pol_c4b4e76656e24834b8f9",
+   "portfolio_id": "pf_03a525d437194923ab49",
    "previous_action": null,
    "previous_recommendation_id": null,
    "purchase_eligibility": "BLOCKED",
    "reason_codes": [
     "VERIFIED_THESIS_INVALIDATION"
    ],
-   "security_id": "sec_f14558b22c8d40a09fc7",
-   "thesis_version_id": "thv_5745c63eb9784bbea77f",
-   "valuation_version_id": "val_2e31f096f7fd42d0b8c3"
+   "security_id": "sec_5a02ddc362ff43158bb8",
+   "thesis_version_id": "thv_14227e46ba494f9c8e32",
+   "valuation_version_id": "val_10b036f16138416db8d4"
   },
   {
    "action": "ADD",
@@ -1374,12 +1374,12 @@
    "business_assessment": "INTACT",
    "created_at": "2026-09-30T22:00:00.000000Z",
    "explanation": "Thesis intact; margin of safety 40.0% >= 25%; within limits.",
-   "exposure_version_id": "exv_d1b4747b9ef14bb393ae",
-   "id": "rec_07c07ae045f1469d816d",
-   "input_hash": "a86c1d17b64e0cb13349fcd831225f47740bd75ebbc63397b253f5edcfa239f8",
+   "exposure_version_id": "exv_70a92b27514d43b79841",
+   "id": "rec_0b08c315197542adb2de",
+   "input_hash": "4813689e1d124b735713821fb60fa2c9f4dc3d32fe454b5712fc4b17f5d10556",
    "is_preview": 1,
    "label": "FIXTURE",
-   "market_snapshot_id": "mks_a324e1b6dc5347e5959c",
+   "market_snapshot_id": "mks_254b93150aa940728466",
    "payload": {
     "baseline_eligibility": "ELIGIBLE",
     "chains": [
@@ -1393,7 +1393,7 @@
       "level": "COMPANY",
       "mechanism": "unclear: may reflect information not yet in filings, hedging, or noise",
       "observations": [
-       "attr:sec_1bd554020550471e964e:2026-09-30"
+       "attr:sec_cd40a908f809442387fd:2026-09-30"
       ],
       "reason": "LARGE_COMPANY_SPECIFIC_MOVE",
       "reassess_condition": "owner looks for a primary-source explanation (filings, IR releases)",
@@ -1405,7 +1405,7 @@
       "sources": [
        {
         "data_class": "PRICE_RETURN",
-        "observation": "attr:sec_1bd554020550471e964e:2026-09-30",
+        "observation": "attr:sec_cd40a908f809442387fd:2026-09-30",
         "public_at": "2026-09-30T22:00:00.000000Z",
         "source_id": "yahoo_chart"
        }
@@ -1532,7 +1532,7 @@
     },
     "clusters": {
      "company:PRICE:2026-W40": [
-      "attr:sec_1bd554020550471e964e:2026-09-30"
+      "attr:sec_cd40a908f809442387fd:2026-09-30"
      ],
      "market:CREDIT": [
       "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
@@ -1558,7 +1558,7 @@
      {
       "assessor": "ENGINE",
       "description": "Operating margin below 10% for 2 consecutive fiscal years",
-      "id": "ic_f45bb41b814149a9b956",
+      "id": "ic_47a6d8e2a3244cc4b3a3",
       "kind": "METRIC",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -1567,7 +1567,7 @@
      {
       "assessor": "NONE",
       "description": "Loss of the largest customer contract",
-      "id": "ic_5ba305976f1c4e519b98",
+      "id": "ic_a51d16aa74af40dcbe58",
       "kind": "EVENT",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -1601,7 +1601,7 @@
      "price": "22.7"
     },
     "evidence": [],
-    "exposure_version_id": "exv_d1b4747b9ef14bb393ae",
+    "exposure_version_id": "exv_70a92b27514d43b79841",
     "freshness": {
      "filings_check_failed": false,
      "filings_checked_hours_ago": 0.0,
@@ -1619,13 +1619,13 @@
      "current_thesis": {
       "approved_at": "2026-09-30T22:00:00.000000Z",
       "change_reason": "initial thesis",
-      "version_id": "thv_fdb2f61b0f5e4d18a517",
+      "version_id": "thv_69729e7595cc47ec8633",
       "version_no": 1
      },
      "margin_of_safety": "0.4000128271841800974064001781378377",
      "original_thesis": {
       "approved_at": "2026-09-30T22:00:00.000000Z",
-      "version_id": "thv_fdb2f61b0f5e4d18a517",
+      "version_id": "thv_69729e7595cc47ec8633",
       "version_no": 1
      },
      "thesis_changed_since_original": false,
@@ -1634,7 +1634,7 @@
       "base": "37.83414217584997603146366224545997",
       "bear": "23.18892514586636464774106325997942",
       "bull": "61.34009952285785370516873554635731",
-      "version_id": "val_bc58fb68578d45ca83b2"
+      "version_id": "val_693a8e33ce374bb7ade7"
      }
     },
     "margin_of_safety": "0.4000128271841800974064001781378377",
@@ -1653,13 +1653,13 @@
       ]
      },
      "snapshot_as_of": "2026-09-30T22:00:00.000000Z",
-     "snapshot_id": "mks_a324e1b6dc5347e5959c",
+     "snapshot_id": "mks_254b93150aa940728466",
      "snapshot_missing": []
     },
     "milestones": [
      {
       "description": "Revenue above $1.3bn by FY2027",
-      "id": "ms_880ee5c9514c4c2387cf",
+      "id": "ms_741065fa8c0b4604a0ae",
       "state": "PENDING"
      }
     ],
@@ -1683,8 +1683,8 @@
      "stress_downside": null
     }
    },
-   "policy_version_id": "pol_353cc23be67d462f9c42",
-   "portfolio_id": "pf_a0f36bf314644461b9b8",
+   "policy_version_id": "pol_c4b4e76656e24834b8f9",
+   "portfolio_id": "pf_03a525d437194923ab49",
    "previous_action": null,
    "previous_recommendation_id": null,
    "purchase_eligibility": "ELIGIBLE",
@@ -1693,9 +1693,9 @@
     "VALUATION_ATTRACTIVE",
     "CAPACITY_AVAILABLE"
    ],
-   "security_id": "sec_1bd554020550471e964e",
-   "thesis_version_id": "thv_fdb2f61b0f5e4d18a517",
-   "valuation_version_id": "val_bc58fb68578d45ca83b2"
+   "security_id": "sec_cd40a908f809442387fd",
+   "thesis_version_id": "thv_69729e7595cc47ec8633",
+   "valuation_version_id": "val_693a8e33ce374bb7ade7"
   },
   {
    "action": "ADD",
@@ -1704,12 +1704,12 @@
    "business_assessment": "INTACT",
    "created_at": "2026-09-30T22:00:00.000000Z",
    "explanation": "Thesis intact; margin of safety 35.0% >= 25%; within limits.",
-   "exposure_version_id": "exv_1be2d19b99ac4e488633",
-   "id": "rec_cb024ef5d58b4680ab8b",
-   "input_hash": "3a2272a4d09329bde7bc6f0e9951e738b42650a79e1df0536e5be9117ec0e7b1",
+   "exposure_version_id": "exv_43b21e176cf64d318901",
+   "id": "rec_80fb95a718d24e3d9a62",
+   "input_hash": "cbb971a3adf1bbac1192b56f2197be35c528ad2b4abc01ecfc2f1a55805eb090",
    "is_preview": 1,
    "label": "FIXTURE",
-   "market_snapshot_id": "mks_a324e1b6dc5347e5959c",
+   "market_snapshot_id": "mks_254b93150aa940728466",
    "payload": {
     "baseline_eligibility": "ELIGIBLE",
     "chains": [
@@ -1762,7 +1762,7 @@
       "level": "COMPANY",
       "mechanism": "none identified (co-movement is not causation)",
       "observations": [
-       "attr:sec_81a5753eed1548269447:2026-09-30"
+       "attr:sec_2340ccaf085b4d3a9f4d:2026-09-30"
       ],
       "reason": "COMPANY_CONTEXT",
       "reassess_condition": null,
@@ -1774,7 +1774,7 @@
       "sources": [
        {
         "data_class": "PRICE_RETURN",
-        "observation": "attr:sec_81a5753eed1548269447:2026-09-30",
+        "observation": "attr:sec_2340ccaf085b4d3a9f4d:2026-09-30",
         "public_at": "2026-09-30T22:00:00.000000Z",
         "source_id": "yahoo_chart"
        }
@@ -1864,7 +1864,7 @@
     },
     "clusters": {
      "company:PRICE:2026-W40": [
-      "attr:sec_81a5753eed1548269447:2026-09-30"
+      "attr:sec_2340ccaf085b4d3a9f4d:2026-09-30"
      ],
      "market:CREDIT": [
       "flag:CREDIT_TIGHTENING:CREDIT_CONDITIONS",
@@ -1890,7 +1890,7 @@
      {
       "assessor": "ENGINE",
       "description": "Operating margin below 10% for 2 consecutive fiscal years",
-      "id": "ic_31646c82aac241e68fe8",
+      "id": "ic_2bcbf32efbc7490a8664",
       "kind": "METRIC",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -1899,7 +1899,7 @@
      {
       "assessor": "NONE",
       "description": "Loss of the largest customer contract",
-      "id": "ic_b70bf28281f74978bd84",
+      "id": "ic_5be86e9443c043549209",
       "kind": "EVENT",
       "latest_breaches": false,
       "state": "NOT_TRIGGERED",
@@ -1948,7 +1948,7 @@
      "price": "24.59"
     },
     "evidence": [],
-    "exposure_version_id": "exv_1be2d19b99ac4e488633",
+    "exposure_version_id": "exv_43b21e176cf64d318901",
     "freshness": {
      "filings_check_failed": false,
      "filings_checked_hours_ago": 0.0,
@@ -1966,13 +1966,13 @@
      "current_thesis": {
       "approved_at": "2026-09-30T22:00:00.000000Z",
       "change_reason": "initial thesis",
-      "version_id": "thv_92e701ad0c7e42879e15",
+      "version_id": "thv_00796bfd57eb4ba8b2f7",
       "version_no": 1
      },
      "margin_of_safety": "0.3500579480378409072785630123528382",
      "original_thesis": {
       "approved_at": "2026-09-30T22:00:00.000000Z",
-      "version_id": "thv_92e701ad0c7e42879e15",
+      "version_id": "thv_00796bfd57eb4ba8b2f7",
       "version_no": 1
      },
      "thesis_changed_since_original": false,
@@ -1981,7 +1981,7 @@
       "base": "37.83414217584997603146366224545997",
       "bear": "23.18892514586636464774106325997942",
       "bull": "61.34009952285785370516873554635731",
-      "version_id": "val_fedef305d9de44c09eec"
+      "version_id": "val_67e015915c244a1892ca"
      }
     },
     "margin_of_safety": "0.3500579480378409072785630123528382",
@@ -2000,13 +2000,13 @@
       ]
      },
      "snapshot_as_of": "2026-09-30T22:00:00.000000Z",
-     "snapshot_id": "mks_a324e1b6dc5347e5959c",
+     "snapshot_id": "mks_254b93150aa940728466",
      "snapshot_missing": []
     },
     "milestones": [
      {
       "description": "Revenue above $1.3bn by FY2027",
-      "id": "ms_b0a0e8c9bb8f4fb5a440",
+      "id": "ms_b03e883c533f4426a7e5",
       "state": "PENDING"
      }
     ],
@@ -2035,8 +2035,8 @@
      }
     }
    },
-   "policy_version_id": "pol_353cc23be67d462f9c42",
-   "portfolio_id": "pf_a0f36bf314644461b9b8",
+   "policy_version_id": "pol_c4b4e76656e24834b8f9",
+   "portfolio_id": "pf_03a525d437194923ab49",
    "previous_action": null,
    "previous_recommendation_id": null,
    "purchase_eligibility": "PAUSED",
@@ -2045,9 +2045,9 @@
     "VALUATION_ATTRACTIVE",
     "CAPACITY_AVAILABLE"
    ],
-   "security_id": "sec_81a5753eed1548269447",
-   "thesis_version_id": "thv_92e701ad0c7e42879e15",
-   "valuation_version_id": "val_fedef305d9de44c09eec"
+   "security_id": "sec_2340ccaf085b4d3a9f4d",
+   "thesis_version_id": "thv_00796bfd57eb4ba8b2f7",
+   "valuation_version_id": "val_67e015915c244a1892ca"
   }
  ]
 }

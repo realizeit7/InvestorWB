@@ -129,6 +129,7 @@ def propose(app: App, portfolio_id: str, *, as_of: datetime | None = None, hypot
     validated: list[dict] = []
     cutoff = iso_utc(as_of)
     policy_id = app.policy_version_id()
+    last_rowid = one(app.conn, "SELECT COALESCE(MAX(rowid), 0) AS m FROM recommendation")["m"]
     for sid in sorted(held_ids | wl):
         ref = security_ref(app.conn, sid)
         # Re-review at the cutoff with current policy + evidence; never act on an older decision as such.
@@ -136,7 +137,9 @@ def propose(app: App, portfolio_id: str, *, as_of: datetime | None = None, hypot
         validated.append({"symbol": ref.symbol, "recommendation_id": rec["id"], "recommendation_as_of": rec["as_of"],
                           "action": rec["action"], "purchase_eligibility": rec.get("purchase_eligibility"),
                           "baseline_eligibility": rec.get("baseline_eligibility"),
-                          "reused_equivalent": rec["as_of"] != cutoff, "policy_version_id": rec["policy_version_id"]})
+                          "reused_equivalent": one(app.conn, "SELECT rowid AS r FROM recommendation WHERE id=?",
+                                                   (rec["id"],))["r"] <= last_rowid,
+                          "policy_version_id": rec["policy_version_id"]})
         if rec["as_of"] > cutoff:
             excluded.append({"symbol": ref.symbol, "reason": f"recommendation is dated after the cutoff ({rec['as_of']})"})
             continue

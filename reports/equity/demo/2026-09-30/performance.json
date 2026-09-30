@@ -2,10 +2,14 @@
  "benchmarks": {
   "SCHG": {
    "assumptions": "close of first session on/after flow date; no fees; dividends reinvested at ex-date close",
-   "end_value": "0",
-   "max_drawdown": null,
-   "twr": null,
-   "unapplied_flows": []
+   "end_value": "105760.7801184990125082290980908492",
+   "max_drawdown": "0",
+   "mode": "inception",
+   "replayed_from": "2026-05-29",
+   "start_value": "100065.8327847267939433838051349572",
+   "twr": "0.056912006578947368421052631578946",
+   "unapplied_flows": [],
+   "warnings": []
   },
   "VTI": {
    "error": "'benchmark VTI has no price data; refresh prices for it first'"

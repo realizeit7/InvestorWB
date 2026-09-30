@@ -263,7 +263,9 @@ def allocation_md(app: App, proposal: dict) -> str:
     md = [f"# Monthly allocation proposal — {p['as_of'][:10]}", "", banner(app, p["portfolio_id"]), "",
           f"- Contribution basis: **{p['kind']}**" + (" (not real cash until recorded as a DEPOSIT)" if p["kind"] == "HYPOTHETICAL" else ""),
           f"- Budget: {_num(p['budget'], money=True)} (deployable settled cash {_num(p['deployable_cash'], money=True)})",
-          f"- NAV before/after contribution: {_num(p['nav_before'], money=True)} / {_num(p['nav_after'], money=True)}", "",
+          f"- NAV before/after contribution: {_num(p['nav_before'], money=True)} / {_num(p['nav_after'], money=True)}"
+          + (f" (after fees {_num(p.get('nav_after_fees'), money=True)})" if p.get("nav_after_fees") is not None else ""),
+          "- Proposed weight = aggregate issuer weight (all share classes, current + proposed) after rounding and fees.", "",
           "| Rank | Symbol | MoS | Current weight | Proposed $ | Est. shares | Fee | Proposed weight | Binding constraint |",
           "|---|---|---|---|---|---|---|---|---|"]
     for l in p["lines"]:
@@ -275,6 +277,11 @@ def allocation_md(app: App, proposal: dict) -> str:
         md += ["Excluded candidates:", ""] + [f"- {e['symbol']}: {e['reason']}" for e in p["excluded"]]
     if p["notes"]:
         md += ["", "Notes:", ""] + [f"- {n}" for n in p["notes"]]
+    if p.get("validated"):
+        md += ["", "Decisions re-validated at the cutoff (current policy and evidence):", ""] + [
+            f"- {v['symbol']}: {v['action']} / purchases {v['purchase_eligibility']} — {v['recommendation_id']} "
+            f"({'equivalent earlier review reused' if v['reused_equivalent'] else 'new review'} as of {v['recommendation_as_of']})"
+            for v in p["validated"]]
     md += ["", "Record your decision with `eqm decide --allocation <id> ACCEPT|REJECT|OVERRIDE`. "
                "After trading, record the actual fills with `eqm ledger add` or a CSV import."]
     return "\n".join(md) + "\n"

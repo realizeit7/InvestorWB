@@ -1,6 +1,6 @@
 # Market context — 2026-09-30
 
-Snapshot `mks_a324e1b6dc5347e5959c` as of 2026-09-30T22:00:00.000000Z. Deterministic, point-in-time; referenced by company reviews.
+Snapshot `mks_254b93150aa940728466` as of 2026-09-30T22:00:00.000000Z. Deterministic, point-in-time; referenced by company reviews.
 
 ## Broad market (reference ETFs and indices)
 
