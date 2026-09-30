@@ -16,6 +16,10 @@
 A SEC request without an email-shaped contact in the User-Agent is refused with HTTP 403. The Yahoo adapter can be replaced
 by a licensed provider by implementing `PriceProvider.fetch`.
 
+Market, economic and positioning sources (FRED, FINRA short interest / short-sale volume, reference ETFs, VIX, futures, and the
+unavailable options/ETF-flow data) are documented in **[SOURCES.md](SOURCES.md)** with availability, cost, licensing,
+coverage, publication delay, revisions, history, interpretation limits and their role (decision vs context).
+
 ## Three timestamps per document
 
 1. **Fiscal period end** (`fiscal_period_end`, fact `period_end`).

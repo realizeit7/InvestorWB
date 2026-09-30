@@ -357,3 +357,15 @@ def test_paper_variants_for_prospective_comparison(app, demo):
         store_fetch(app, sec(demo, sym), PriceFetch([Bar(date(2026, 10, 1), D("10"), open=D("10"))]), "fixture")
     assert paper_execute_allocation(app, prop.id, books["augmented"], "augmented") == ["ZZNEW"]
     assert sorted(paper_execute_allocation(app, prop.id, books["baseline"], "baseline")) == ["ZZADD", "ZZNEW"]
+
+
+def test_drafted_refinancing_claim_verifies_with_multiple_debt_facts(app, demo):
+    from equity_monitor.research.fundamentals import add_fact
+    iss, s = demo["securities"]["ZZHLD"]["issuer_id"], sec(demo, "ZZHLD")
+    add_fact(app, iss, "current_debt", 120_000_000, start=None, end=date(2026, 6, 30),
+             public_at=datetime(2026, 8, 15, 20, 5, tzinfo=UTC), accession="FIXTURE-CD")
+    prof = draft_default_profile(app, s)
+    vid = create_profile(app, s, prof, change_reason="with current debt", label="FIXTURE")
+    ver = {v["factor"]: v["status"] for v in __import__("json").loads(
+        app.conn.execute("SELECT verification_json FROM exposure_profile_version WHERE id=?", (vid,)).fetchone()[0])}
+    assert ver["REFINANCING"] == "VERIFIED"

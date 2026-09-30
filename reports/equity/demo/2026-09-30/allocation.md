@@ -16,10 +16,10 @@
 
 Excluded candidates:
 
+- ZZHLD: latest action HOLD
+- ZZTRM: latest action TRIM
 - ZZREV: latest action REVIEW
 - ZZEXT: latest action EXIT
-- ZZTRM: latest action TRIM
-- ZZHLD: latest action HOLD
 - ZZNEW: ADD but purchases PAUSED: ADVERSE_REFINANCING_HIGH_EXPOSURE (reassess 2026-10-30)
 
 Notes:

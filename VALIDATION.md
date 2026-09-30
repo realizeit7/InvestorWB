@@ -5,7 +5,7 @@ This report covers **software acceptance only**. Nothing here is evidence of inv
 
 ## 1. Automated tests
 
-`uv run pytest` → **80 passed, 0 failed** (≈3 s). The tests use synthetic fixtures and hand-computed expectations and
+`uv run pytest` → **99 passed, 0 failed** (≈11 s). The tests use synthetic fixtures and hand-computed expectations and
 need no network, API key or paid inference.
 
 | spec §18 item | covered by (tests/…) |
@@ -74,3 +74,36 @@ string belongs in `config/user.yaml`.
 - Historical point-in-time universe and delisted securities: not available (no paid provider), so no historical claims.
 - Your real holdings, tax status, limits and contribution plan: not supplied; all personalized output is PREVIEW.
 - Performance evaluation was exercised on fixtures only; there is no live record.
+
+## 4. v1.1 market-context amendment (2026-09-30)
+
+`tests/test_market.py` (19 tests) plus updated monitoring/dashboard/fixture tests. Requirement → test:
+
+| requirement | test |
+|---|---|
+| irrelevant events do not alter recommendations (oil shock, energy selloff, broad selloff for a software company: same recommendation id, action and eligibility) | `test_irrelevant_events_do_not_alter_recommendations` |
+| overlapping evidence is not counted independently (8-K + short interest + short volume + headline + price move = one cluster, one pause) | `test_overlapping_company_evidence_is_one_development` |
+| same market risk not counted twice (RATES+REFINANCING from one flag = one chain, one pause, one WACC proposal; market beta once at portfolio level) | `test_same_market_risk_is_not_counted_twice` |
+| missing data stays explicit (missing 10y/2y with HIGH rate exposure → UNKNOWN → PAUSED; no profile → PAUSED) | `test_missing_data_is_unknown_not_safe`, `test_no_approved_exposure_profile_pauses` |
+| changed decisions traceable to sources and policy versions | `test_changed_decisions_are_traceable`, `test_reviews_share_one_snapshot` |
+| HOLD + PAUSED coexist; pause has reason, reassess condition/date; allocation skips paused names; baseline comparison recorded | `test_adverse_development_on_high_exposure_pauses_but_does_not_sell` |
+| strength is not a buy signal; weakness never liquidates; market-stress pause is opt-in | `test_favorable_development_is_not_a_buy_signal`, `test_market_weakness_never_liquidates_and_stress_pause_is_opt_in` |
+| high short interest → research only, never sell | `test_high_short_interest_is_research_not_sell` |
+| interpretation guards (short-sale volume ≠ short interest, volume ≠ flows, IV ≠ probability, futures OI/prices ≠ forecasts, options activity ≠ intent) | `test_interpretation_guards` |
+| market context never bypasses limits | `test_market_context_never_bypasses_limits` |
+| exposure evidence or assumption label; unique factors; verified fact citations | `test_exposure_needs_evidence_or_assumption_label` |
+| publication times and revisions point-in-time | `test_series_point_in_time_and_revisions` |
+| provider parsers & publication-lag rules offline | `test_provider_parsers_offline` |
+| LLM explanations are context only; unknown observation references rejected | `test_llm_explanations_are_context_only` |
+| baseline vs augmented paper variants (FROZEN policy, next-open fills) | `test_paper_variants_for_prospective_comparison` |
+
+Live checks (2026-09-30, `scripts/e2e_market_context.py AAPL`): 19 reference instruments (SPY, QQQ, 11 sector ETFs, VIX, VIX3M,
+TLT, HYG, CL=F, HG=F) and 13 FRED series loaded; FINRA short interest (AAPL, settlement 2026-09-15) and Reg SHO short-sale volume
+loaded; real snapshot flags RATES_UP (10y +0.51pp/1m) and OIL_UP (WTI +29%/3m), WTI marked STALE (last obs 8 days old); the rate
+flag linked to Apple's LOW refinancing exposure → NO_CHANGE, oil → context (no exposure path). Found and fixed live: FRED silently
+stalls requests whose User-Agent lacks a contact email (the job hung for minutes) → FRED now uses the configured contact string,
+fails fast without one, and has a 15 s timeout; approving an exposure profile no longer counts as reviewing a company filing; the drafted refinancing claim now cites each filed debt figure (a computed total could not verify).
+
+Not run: single-stock options, ETF flows/holdings (no reliable free source), CFTC positioning (deferred), ALFRED vintages (needs a
+FRED key), LLM cluster explanations against a real model (no key; tested with a fixture model), prospective baseline-vs-augmented
+outcomes (no live record yet).

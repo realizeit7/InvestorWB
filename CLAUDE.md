@@ -10,3 +10,5 @@ Personal long-only fundamental investing research + portfolio monitor. It never 
 - Every threshold lives in `config/policy.yaml` / `config/models.py`; document changes in POLICY.md.
 - Label outputs ACTUAL / PAPER / FIXTURE / ILLUSTRATIVE / HYPOTHETICAL and PREVIEW. No performance claims from fixtures.
 - Tests must stay offline and credential-free: `uv run pytest`.
+- Market/sector/economic data acts only through approved exposure profiles and clustered chains; it may pause or block
+  purchases or raise research, never create ADD/TRIM/EXIT or relax limits. Respect `market/sources.py` data-class rules.

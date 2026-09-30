@@ -32,7 +32,9 @@ research ─► PIT fundamentals ─► screening ─► thesis versions + evide
 valuation ─► FCFF DCF, scenarios, sensitivity, reverse DCF ─► immutable versions + approvals
 decisions ─► pure policy engine ─► recommendations (immutable) ─► allocator ─► owner decisions (separate)
 monitoring ─► scheduler ─► collect ─► detect events ─► alerts (inbox) ─► outbox ─► webhook (opt-in)
-evaluation ─► contribution-matched benchmarks, TWR/MWR, drawdown, paper execution, process metrics
+market ─► source catalog + data-class rules ─► PIT series (FRED/FINRA/prices) ─► shared snapshot
+       ─► exposure profiles (versioned) ─► observations ─► clusters ─► chains ─► current conditions (eligibility)
+evaluation ─► contribution-matched benchmarks, TWR/MWR, drawdown, paper execution, process metrics, baseline vs augmented
 reporting/dashboard ─► Markdown/HTML reports, JSON exports, local web UI (read-mostly)
 ```
 
@@ -57,6 +59,8 @@ Analytical services never import the UI or a specific LLM provider. The LLM laye
 | 12 | stdlib WSGI dashboard + CSRF token, bound to 127.0.0.1 | no web framework needed for a personal tool |
 | 13 | One external adapter: generic JSON webhook with idempotency key | works with most chat/notification relays; disabled by default |
 | 14 | Yahoo chart as default price source, clearly labelled unofficial | free, works today; replaceable via `PriceProvider` |
+| 16 | Market information acts only through approved exposure profiles and clusters; it can pause/block purchases or raise research, never create ADD/TRIM/EXIT | avoids treating co-movement or positioning data as signals; keeps decisions traceable |
+| 17 | FRED graph CSV (no key) with estimated release times; revisions stored as new rows | free and reachable; limits documented (current vintage only) |
 | 15 | Anthropic adapter uses the official SDK, structured JSON output, adaptive thinking (effort `high`), server-side refusal fallback on by default (`llm.use_server_fallbacks`) | per Claude API guidance; strict local re-validation regardless |
 
 ## 4. Persistent entities (spec §17 → tables)
@@ -72,7 +76,10 @@ valuation version / scenarios & assumptions → `valuation_version` (inputs_json
 policy version → `policy_version`; recommendation → `recommendation`; allocation proposal → `allocation_proposal`; user
 decision → `user_decision`; job run → `job_run`; detected event → `detected_event`; alert → `alert`, `alert_status_log`;
 delivery attempt → `delivery_outbox`, `delivery_attempt`; benchmark snapshot → `benchmark_snapshot`; paper execution →
-`paper_execution`; evaluation result → `evaluation_result`; cost record → `cost_record`, `llm_call`; audit → `audit_log`.
+`paper_execution`; evaluation result → `evaluation_result`; cost record → `cost_record`, `llm_call`; audit → `audit_log`. v1.1: market series/observations → `market_series`, `market_observation` (revisions as new rows);
+shared snapshot → `market_snapshot` (immutable); exposure profile → `exposure_profile_version`, `exposure_approval`; external
+research → `external_observation`; research tasks → `research_task`; alert usefulness → `alert_feedback`; recommendation gains
+`purchase_eligibility`, `baseline_eligibility`, `market_snapshot_id`, `exposure_version_id`.
 
 ## 5. Unresolved owner settings (never invented)
 

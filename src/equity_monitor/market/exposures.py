@@ -160,7 +160,9 @@ def draft_default_profile(app: App, security_id: str, as_of: datetime | None = N
             mag = "HIGH" if (lev is not None and lev > 3) or (cov is not None and cov < 4) or ebit <= 0 else \
                   "MEDIUM" if (lev is not None and lev > 1.5) else "LOW"
             cits = [Citation(fact_id=f.fact_id) for f in (oi[-1], ltd, cd) if f is not None and f.fact_id]
-            txt = f"Reported debt is {debt:,.0f} USD against operating income of {ebit:,.0f} USD"
+            parts = [f"operating income {ebit:,.0f} USD"] + \
+                [f"{lbl} {f.value:,.0f} USD" for lbl, f in (("long-term debt", ltd), ("current debt", cd)) if f and f.value]
+            txt = "Filed figures: " + "; ".join(parts)   # each number is a filed fact (a computed total would not verify)
             exposures.append(Exposure(factor="REFINANCING", direction="NEGATIVE", magnitude=mag,
                                       mechanism="maturing debt must be refinanced at prevailing yields and spreads; "
                                                 f"net debt/EBIT {lev:.2f}" if lev is not None else "maturing debt refinanced at prevailing rates",

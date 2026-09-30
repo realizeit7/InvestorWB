@@ -38,8 +38,9 @@ Check: `eqm jobs status` (last/next run; a due-but-not-run instance is shown as 
 - Each job instance has key `<job>@<scheduled time UTC>`; re-running a finished instance is a no-op; a crashed/failed
   instance is retried up to 3 attempts; a RUNNING instance older than 2 h is treated as interrupted.
 - Only the latest missed instance of each job runs after downtime (no replay storm).
-- `daily_refresh`: prices → SEC filing index (+ facts when a 10-K/10-Q appears) → recommendations → events/alerts →
-  delivery. Failures end the job PARTIAL with a HEALTH alert.
+- `daily_refresh`: prices → SEC filing index (+ facts when a 10-K/10-Q appears) → market context (reference ETFs/indices/futures,
+  FRED series, FINRA short interest/short-sale volume, shared snapshot) → recommendations with purchase eligibility →
+  events/alerts → delivery. Failures end the job PARTIAL with a HEALTH alert; missing market inputs appear as MISSING/UNKNOWN.
 - `eqm jobs run daily_refresh --force` re-runs the latest instance manually.
 
 ## Notifications
@@ -76,6 +77,9 @@ holdings). Suggested: nightly cron `eqm backup create` + weekly copy elsewhere; 
 | REVIEW with `FILINGS_NOT_CHECKED` | the daily job has not run in 36 h or SEC failed: `eqm jobs status`, `eqm health` |
 | REVIEW with `STALE_PRICE` / `DATA_REFRESH_FAILED` | provider down or symbol changed: `eqm prices refresh --symbols X`; consider the CSV provider |
 | HTTP 403 from SEC | set a User-Agent with an email address |
+| FRED series MISSING / "FRED needs a User-Agent" | set `sec_user_agent` (FRED stalls requests without a contact email) |
+| Purchases PAUSED `NO_APPROVED_EXPOSURE_PROFILE` | `eqm exposure draft/create/approve SYMBOL` |
+| Purchases PAUSED `UNREVIEWED_MATERIAL_EVENT` | read the filing; record a decision (`eqm decide`) or re-approve thesis/valuation |
 | HTTP 429 from Yahoo | wait; the adapter retries with backoff; failures stay visible |
 | `UNSUPPORTED_CORPORATE_ACTION` | record the actual outcome (reverse/replace or new OPENING_POSITION with basis), then `eqm reconcile --resolve <id> --note ...` |
 | `NEGATIVE_CASH` | add the missing deposit or opening cash balance |
