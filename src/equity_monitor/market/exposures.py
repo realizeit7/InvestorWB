@@ -194,7 +194,9 @@ def create_profile(app: App, security_id: str, profile: ExposureProfile, *, chan
     for e in profile.exposures:
         checks = [verify_claim(app, c, issuer_id, as_of) for c in e.evidence] if issuer_id else []
         status = "ASSUMPTION" if e.basis == "ANALYST_ASSUMPTION" else \
-            ("VERIFIED" if checks and all(c.status in ("VERIFIED", "NOT_REQUIRED") for c in checks) else "UNVERIFIED")
+            "FAILED" if any(c.status == "FAILED" for c in checks) else \
+            "VERIFIED" if checks and all(c.status in ("VERIFIED", "NOT_REQUIRED") for c in checks) else \
+            "SOURCE_MATCHED" if any(c.status == "SOURCE_MATCHED" for c in checks) else "UNVERIFIED"
         verification.append({"factor": e.factor, "status": status,
                              "details": [d for c in checks for d in c.details]})
     content = profile.model_dump(mode="json")
@@ -209,7 +211,21 @@ def create_profile(app: App, security_id: str, profile: ExposureProfile, *, chan
     return vid
 
 
-def approve_profile(app: App, version_id: str, approver: str = "owner", note: str = "") -> None:
+def approve_profile(app: App, version_id: str, approver: str = "owner", note: str = "",
+                    acknowledge_unverified: bool = False) -> None:
+    """EVIDENCED exposures whose evidence FAILED block approval; ones only SOURCE_MATCHED/UNVERIFIED need
+    ``acknowledge_unverified=True`` (recorded in the note). ANALYST_ASSUMPTION exposures are labelled as such."""
+    r = one(app.conn, "SELECT verification_json FROM exposure_profile_version WHERE id=?", (version_id,))
+    ver = from_json(r["verification_json"]) if r else []
+    failed = [v["factor"] for v in ver if v["status"] == "FAILED"]
+    if failed:
+        raise ValueError("exposure evidence failed verification for: " + ", ".join(failed) + "; create a corrected version")
+    weak = [f"{v['factor']} [{v['status']}]" for v in ver if v["status"] in ("SOURCE_MATCHED", "UNVERIFIED")]
+    if weak and not acknowledge_unverified:
+        raise ValueError("exposure evidence is not substantively verified for: " + ", ".join(weak)
+                         + "; review it, then pass acknowledge_unverified=True (CLI: --acknowledge-unverified)")
+    if weak:
+        note = (note + " | " if note else "") + "acknowledged unverified evidence: " + ", ".join(weak)
     insert(app.conn, "exposure_approval", {"id": new_id("exa"), "exposure_version_id": version_id, "approved_at": app.now_iso(),
                                            "approver": approver, "note": note}, or_ignore=True)
     app.audit("exposure.approved", "exposure_profile_version", version_id, {"note": note})

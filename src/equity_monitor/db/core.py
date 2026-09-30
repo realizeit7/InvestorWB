@@ -43,10 +43,17 @@ def migrate(conn: sqlite3.Connection, clock: Clock = SYSTEM_CLOCK) -> list[str]:
     for name, sql in _migration_files():
         if name in done:
             continue
+        # Table rebuilds (SQLite cannot alter a CHECK) must run with foreign keys off, or dropping the old table would
+        # cascade/raise; integrity is re-checked with foreign_key_check before committing.
+        rebuild = "-- migrate: foreign_keys=off" in sql
+        if rebuild:
+            conn.execute("PRAGMA foreign_keys = OFF")
         conn.execute("BEGIN")
         try:
             for stmt in _split_sql(sql):
                 conn.execute(stmt)
+            if rebuild and conn.execute("PRAGMA foreign_key_check").fetchall():
+                raise sqlite3.IntegrityError(f"migration {name} left foreign-key violations")
             conn.execute(
                 "INSERT INTO schema_migration(name, applied_at) VALUES (?, ?)",
                 (name, iso_utc(clock.now())),
@@ -55,6 +62,9 @@ def migrate(conn: sqlite3.Connection, clock: Clock = SYSTEM_CLOCK) -> list[str]:
         except Exception:
             conn.execute("ROLLBACK")
             raise
+        finally:
+            if rebuild:
+                conn.execute("PRAGMA foreign_keys = ON")
         applied.append(name)
     return applied
 

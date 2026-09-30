@@ -11,7 +11,7 @@ from datetime import datetime
 
 from ..app import App
 from ..db.core import insert, one
-from ..research.evidence import Citation, ClaimIn, verify_claim
+from ..research.evidence import VERIFIER_VERSION, Citation, ClaimIn, verify_claim
 from ..util import iso_utc, new_id
 
 
@@ -28,7 +28,10 @@ def add_external_observation(app: App, security_id: str, *, source_name: str, te
     cid = new_id("clm")
     insert(app.conn, "claim", {"id": cid, "owner_type": "EXTERNAL", "owner_id": security_id, "text": text,
                                "claim_type": "FACT" if status == "VERIFIED" else "OPINION", "verification": status,
-                               "verification_detail": "; ".join(v.details) if v else "no issuer", "created_at": app.now_iso()})
+                               "verification_detail": "; ".join(v.details) if v else "no issuer",
+                               "citation_status": v.citation_status if v else None,
+                               "support_status": v.support_status if v else None, "verifier_version": VERIFIER_VERSION,
+                               "created_at": app.now_iso()})
     oid = new_id("ext")
     insert(app.conn, "external_observation", {"id": oid, "security_id": security_id, "sector": None, "level": "COMPANY",
                                               "source_name": source_name, "url": url, "text": text,

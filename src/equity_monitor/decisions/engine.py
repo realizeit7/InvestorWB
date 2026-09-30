@@ -82,6 +82,7 @@ class DecisionInputs:
     nav: Decimal | None
     position_value: Decimal | None
     unreviewed_critical_events: list[str] = field(default_factory=list)
+    thesis_evidence_issues: list[str] = field(default_factory=list)   # FACT claims whose citation contradicts/fails them
     previous_action: str | None = None
 
 
@@ -169,6 +170,9 @@ def decide(inp: DecisionInputs, rp: RecommendationPolicy, pp: PortfolioPolicy) -
     if inp.thesis_version_id is None and rp.require_thesis_approval:
         reasons.append("NO_APPROVED_THESIS")
         missing.append("no approved thesis")
+    if inp.thesis_evidence_issues:
+        reasons.append("THESIS_EVIDENCE_FAILED")
+        missing += inp.thesis_evidence_issues
     if inp.valuation_id is None:
         reasons.append("NO_VALUATION")
         missing.append("no valuation")

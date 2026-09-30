@@ -137,6 +137,9 @@ def gather_inputs(app: App, portfolio_id: str, security_id: str, as_of: datetime
         bull=val.bull if val else None, base_meaningful=bool(val and val.base_meaningful), position_weight=iw,
         sector=sector, sector_weight=sw, nav=view.nav, position_value=h.market_value if h else None,
         unreviewed_critical_events=crit, previous_action=prev["action"] if prev else None,
+        thesis_evidence_issues=[f"thesis FACT claim failed verification: {c['text'][:120]}"
+                                for c in (thesis.claims if thesis else [])
+                                if c["claim_type"] == "FACT" and c["verification"] == "FAILED"],
     )
     ctx = {"prev": dict(prev) if prev else None, "valuation": val, "thesis": thesis, "session": session,
            "filings_check": dict(chk) if chk else None, "view": view, "last_review": last_review, "ref": ref}

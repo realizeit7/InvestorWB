@@ -289,7 +289,7 @@ def cmd_thesis(args):
         print(Path("config/thesis.example.yaml").read_text())
         return
     if args.action == "approve":
-        th.approve_version(app, args.version_id, note=args.note or "")
+        th.approve_version(app, args.version_id, note=args.note or "", acknowledge_unverified=args.acknowledge_unverified)
         print("approved")
         return
     sid = _sid(app, args.symbol)
@@ -555,7 +555,7 @@ def cmd_exposure(args):
     from .market import exposures as ex
     app = _app(args)
     if args.action == "approve":
-        ex.approve_profile(app, args.version_id, note=args.note or "")
+        ex.approve_profile(app, args.version_id, note=args.note or "", acknowledge_unverified=args.acknowledge_unverified)
         print("approved")
         return
     sid = _sid(app, args.symbol)
@@ -703,6 +703,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--note")
     s.add_argument("--condition-id")
     s.add_argument("--state", choices=["TRIGGERED", "NOT_TRIGGERED", "AMBIGUOUS"])
+    s.add_argument("--acknowledge-unverified", action="store_true",
+                   help="approve although some FACT claims are only SOURCE_MATCHED/UNVERIFIED (listed by `thesis show`)")
     s.set_defaults(fn=cmd_thesis)
 
     s = sub.add_parser("watchlist", help="set watchlist status")
@@ -800,6 +802,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--reason")
     s.add_argument("--version-id")
     s.add_argument("--note")
+    s.add_argument("--acknowledge-unverified", action="store_true",
+                   help="approve although some EVIDENCED exposures are only SOURCE_MATCHED/UNVERIFIED")
     s.set_defaults(fn=cmd_exposure)
 
     s = sub.add_parser("research", help="open research tasks raised by observations")

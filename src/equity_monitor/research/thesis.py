@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from ..app import App
 from ..db.core import all_rows, insert, one, transaction
 from ..util import D, dstr, from_json, iso_utc, new_id, stable_hash, to_json
-from .evidence import ClaimIn, verify_claim
+from .evidence import VERIFIER_VERSION, ClaimIn, verify_claim
 
 COMPARATORS = (">=", "<=", ">", "<")
 
@@ -120,7 +120,9 @@ def create_version(app: App, security_id: str, content: ThesisContent, *, change
             cid = new_id("clm")
             insert(app.conn, "claim", {"id": cid, "owner_type": "THESIS_VERSION", "owner_id": vid, "text": c.text,
                                        "claim_type": c.claim_type, "verification": v.status,
-                                       "verification_detail": "; ".join(v.details) or None, "created_at": app.now_iso()})
+                                       "verification_detail": "; ".join(v.details) or None,
+                                       "citation_status": v.citation_status, "support_status": v.support_status,
+                                       "verifier_version": VERIFIER_VERSION, "created_at": app.now_iso()})
             for cit in c.citations:
                 ok = any((vc.get("passage_id") == cit.passage_id and cit.passage_id) or
                          (vc.get("fact_id") == cit.fact_id and cit.fact_id) for vc in v.valid_citations)
@@ -152,9 +154,28 @@ def _metric_key(concept: str | None, metric: str | None) -> str | None:
     return f"{concept}:{metric or 'value'}"
 
 
-def approve_version(app: App, version_id: str, approver: str = "owner", note: str = "") -> None:
+class ThesisEvidenceError(ValueError):
+    """A thesis cannot be approved while its FACT claims fail or are not substantively verified (unless acknowledged)."""
+
+
+def approve_version(app: App, version_id: str, approver: str = "owner", note: str = "",
+                    acknowledge_unverified: bool = False) -> None:
+    """Approve a thesis version. FACT claims that FAILED (broken citation, contradicted or unsupported) block approval:
+    correct them in a new version. FACT claims that are only SOURCE_MATCHED (citation intact, content not checked) or
+    UNVERIFIED need ``acknowledge_unverified=True``; the acknowledged claims are recorded in the approval note."""
     if one(app.conn, "SELECT 1 FROM thesis_approval WHERE thesis_version_id=?", (version_id,)):
         return
+    claims = all_rows(app.conn, "SELECT text, verification FROM claim WHERE owner_type='THESIS_VERSION' AND owner_id=? "
+                                "AND claim_type='FACT'", (version_id,))
+    failed = [c["text"] for c in claims if c["verification"] == "FAILED"]
+    if failed:
+        raise ThesisEvidenceError("FACT claims failed verification; create a corrected version: " + " | ".join(failed))
+    weak = [f"[{c['verification']}] {c['text']}" for c in claims if c["verification"] in ("SOURCE_MATCHED", "UNVERIFIED")]
+    if weak and not acknowledge_unverified:
+        raise ThesisEvidenceError("FACT claims are not substantively verified (review them, then pass "
+                                  "acknowledge_unverified=True / --acknowledge-unverified): " + " | ".join(weak))
+    if weak:
+        note = (note + " | " if note else "") + "acknowledged unverified claims: " + " | ".join(weak)
     insert(app.conn, "thesis_approval", {"id": new_id("tap"), "thesis_version_id": version_id,
                                          "approved_at": app.now_iso(), "approver": approver, "note": note})
     app.audit("thesis.approved", "thesis_version", version_id, {"note": note})

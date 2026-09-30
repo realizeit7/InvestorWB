@@ -145,3 +145,167 @@ def test_legacy_debt_concepts_are_remapped_by_source_tag(tmp_path):
     assert got == {"LongTermDebt": "long_term_debt_total", "LongTermDebtNoncurrent": "long_term_debt_noncurrent",
                    "LongTermDebtCurrent": "long_term_debt_current", "DebtCurrent": "debt_current",
                    "ShortTermBorrowings": "short_term_borrowings"}
+
+
+# ------------------------------------------------------------------ #1 citation integrity vs substantive support
+from equity_monitor.data.sec import store_passages
+from equity_monitor.db.core import insert
+from equity_monitor.fixtures import AS_OF, build_demo
+from equity_monitor.research.evidence import Citation, ClaimIn, verify_claim, with_llm_assessment
+
+SRC = ("Net revenue increased 12% to $4.2 billion in fiscal 2025 from $3.75 billion in fiscal 2024. "
+       "Operating income was $610 million. Net loss from discontinued operations was $(40) million. "
+       "The company has no material debt.")
+
+
+def _doc(app, issuer_id, text, doc_id="doc_r1", fpe="2025-12-31", public_at="2026-02-20T21:00:00.000000Z"):
+    insert(app.conn, "source_document", {"id": doc_id, "provider": "FIXTURE", "doc_type": "10-K", "issuer_id": issuer_id,
+                                         "accession_no": doc_id, "source_url": None, "title": "t", "fiscal_period_end": fpe,
+                                         "filed_date": public_at[:10], "public_at": public_at, "public_at_basis": "PROVIDED",
+                                         "retrieved_at": public_at, "raw_object_id": None, "content_hash": None,
+                                         "parser_version": None, "trust": "FIXTURE", "items": None, "limitations": None})
+    store_passages(app, doc_id, text)
+    return f"{doc_id}#p0"
+
+
+def _v(app, iss, text, quote, pid):
+    return verify_claim(app, ClaimIn(text=text, claim_type="FACT", citations=[Citation(passage_id=pid, quote=quote)]),
+                        iss, AS_OF)
+
+
+@pytest.fixture
+def cited(app):
+    iss = get_or_create_issuer(app.conn, app.now_iso(), name="EvCo", cik="930")
+    return iss, _doc(app, iss, SRC)
+
+
+def test_confirmed_numeric_claim_is_verified_on_every_field(app, cited):
+    iss, pid = cited
+    v = _v(app, iss, "Revenue grew 12% to $4.2 billion in fiscal 2025", "increased 12% to $4.2 billion", pid)
+    assert v.status == "VERIFIED" and v.citation_status == "SOURCE_MATCHED" and v.support_status == "CONFIRMED"
+    # the quote is judged in its full sentence: the period comes from the sentence, not the fragment
+    assert _v(app, iss, "Revenue was $3.75 billion in 2024", "from $3.75 billion", pid).status == "VERIFIED"
+
+
+@pytest.mark.parametrize("claim,why", [
+    ("Revenue decreased 12% to $4.2 billion in fiscal 2025", "direction"),                # contradiction
+    ("Revenue grew 12% to $4.2 trillion in fiscal 2025", "value/scale"),                   # scale mismatch
+    ("Revenue grew 12% to $4.2 million in fiscal 2025", "value/scale"),
+    ("Revenue grew 12% to $4.2 billion in fiscal 2024", "period"),                         # wrong period
+    ("Revenue grew 30% to $4.2 billion", "value/scale"),                                   # wrong number
+])
+def test_contradicted_claims_fail(app, cited, claim, why):
+    iss, pid = cited
+    v = _v(app, iss, claim, "increased 12% to $4.2 billion", pid)
+    assert v.status == "FAILED" and v.citation_status == "SOURCE_MATCHED" and v.support_status == "CONTRADICTED"
+    assert any(why in d for d in v.details), v.details
+
+
+def test_sign_change_fails(app, cited):
+    iss, pid = cited
+    v = _v(app, iss, "Net income from discontinued operations was $40 million", "was $(40) million", pid)
+    assert v.status == "FAILED" and any("sign" in d for d in v.details), v.details
+    assert _v(app, iss, "Net loss was $40 million", "was $(40) million", pid).status == "VERIFIED"
+
+
+def test_unrelated_and_free_text_claims_are_never_verified(app, cited):
+    iss, pid = cited
+    unrelated = _v(app, iss, "The company is insolvent.", SRC, pid)
+    assert unrelated.status == "SOURCE_MATCHED" and unrelated.support_status == "NOT_CHECKABLE"
+    # a valid citation plus a confirmed number does not verify the free-text causal part of a claim
+    mixed = _v(app, iss, "Revenue grew 12% because customers switched from a competitor", "increased 12%", pid)
+    assert mixed.status == "SOURCE_MATCHED" and any("free-text" in d for d in mixed.details)
+    # a number that appears in the source but under another metric is not confirmation
+    other_metric = _v(app, iss, "Operating income grew 12%", "increased 12%", pid)
+    assert other_metric.status != "VERIFIED"
+    # the old digit-substring shortcut is gone: '4' is not supported by '$4.2 billion'
+    assert _v(app, iss, "Revenue was $4 billion", "increased 12% to $4.2 billion", pid).status == "FAILED"
+
+
+def test_fact_citations_check_metric_and_period(app):
+    iss = get_or_create_issuer(app.conn, app.now_iso(), name="FactCo", cik="931")
+    add_fact(app, iss, "revenue", 1_000_000_000, start=date(2025, 1, 1), end=date(2025, 12, 31), public_at=PUB,
+             accession="f-2025", fiscal_year=2025, fiscal_period="FY")
+    fid = app.conn.execute("SELECT id FROM financial_fact WHERE issuer_id=?", (iss,)).fetchone()["id"]
+
+    def fv(text):
+        return verify_claim(app, ClaimIn(text=text, claim_type="FACT", citations=[Citation(fact_id=fid)]), iss, AS_OF)
+    assert fv("Revenue was $1.0 billion in fiscal 2025").status == "VERIFIED"
+    assert fv("Revenue was $1.0 billion in fiscal 2023").status == "FAILED"          # wrong period
+    assert fv("Revenue was $1.0 million").status == "FAILED"                          # scale
+    assert fv("Operating income was $1.0 billion").status != "VERIFIED"              # wrong metric
+
+
+def test_llm_support_opinion_never_upgrades(app, cited):
+    iss, pid = cited
+    v = _v(app, iss, "The company is insolvent.", SRC, pid)
+    assert with_llm_assessment(v, True).status == "SOURCE_MATCHED"
+    ok = _v(app, iss, "Revenue grew 12% to $4.2 billion in fiscal 2025", "increased 12% to $4.2 billion", pid)
+    assert with_llm_assessment(ok, False).status == "SOURCE_MATCHED"
+
+
+def _thesis_with(app, sid, claims):
+    from equity_monitor.research.thesis import ThesisContent, create_version, current_version
+    base = current_version(app, sid).content
+    content = ThesisContent.model_validate({**base, "evidence": [c.model_dump() for c in claims]})
+    return create_version(app, sid, content, change_reason="repair test", as_of=AS_OF)
+
+
+def test_thesis_approval_respects_verification(app):
+    from equity_monitor.research.thesis import ThesisEvidenceError, approve_version
+    app.clock.set(AS_OF)
+    d = build_demo(app)
+    sid, iss = d["securities"]["ZZHLD"]["security_id"], d["securities"]["ZZHLD"]["issuer_id"]
+    pid = _doc(app, iss, SRC, doc_id="doc_zz", public_at="2026-08-01T21:00:00.000000Z")
+    bad = _thesis_with(app, sid, [ClaimIn(text="Revenue decreased 12%", claim_type="FACT",
+                                          citations=[Citation(passage_id=pid, quote="increased 12%")])])
+    with pytest.raises(ThesisEvidenceError, match="failed verification"):
+        approve_version(app, bad, acknowledge_unverified=True)
+    weak = _thesis_with(app, sid, [ClaimIn(text="The company has no material debt", claim_type="FACT",
+                                           citations=[Citation(passage_id=pid, quote="no material debt")])])
+    with pytest.raises(ThesisEvidenceError, match="not substantively verified"):
+        approve_version(app, weak)
+    approve_version(app, weak, acknowledge_unverified=True)
+    note = app.conn.execute("SELECT note FROM thesis_approval WHERE thesis_version_id=?", (weak,)).fetchone()["note"]
+    assert "SOURCE_MATCHED" in note
+
+
+def test_approved_thesis_with_failed_claim_is_review(app):
+    from equity_monitor.decisions.recommend import generate, get
+    app.clock.set(AS_OF)
+    d = build_demo(app)
+    sid, iss = d["securities"]["ZZADD"]["security_id"], d["securities"]["ZZADD"]["issuer_id"]
+    assert get(app, generate(app, d["portfolio_id"], sid))["action"] == "ADD"
+    pid = _doc(app, iss, SRC, doc_id="doc_zz", public_at="2026-08-01T21:00:00.000000Z")
+    bad = _thesis_with(app, sid, [ClaimIn(text="Revenue decreased 12%", claim_type="FACT",
+                                          citations=[Citation(passage_id=pid, quote="increased 12%")])])
+    # an approval recorded before this gate existed (legacy data) must not let a contradicted claim act
+    insert(app.conn, "thesis_approval", {"id": "tap_legacy", "thesis_version_id": bad, "approved_at": app.now_iso(),
+                                         "approver": "owner", "note": "legacy"})
+    r = get(app, generate(app, d["portfolio_id"], sid))
+    assert r["action"] == "REVIEW" and "THESIS_EVIDENCE_FAILED" in r["reason_codes"]
+
+
+def test_legacy_verified_claims_are_downgraded_to_source_matched():
+    import sqlite3
+    from equity_monitor.db.core import _migration_files, _split_sql
+    conn = sqlite3.connect(":memory:", isolation_level=None)
+    conn.execute("PRAGMA foreign_keys = ON")
+    files = _migration_files()
+    for name, sql in files:
+        if name.startswith("0004"):
+            break
+        for stmt in _split_sql(sql):
+            conn.execute(stmt)
+    conn.execute("INSERT INTO claim VALUES ('c1','THESIS_VERSION','v','t','FACT','VERIFIED',NULL,'x')")
+    conn.execute("INSERT INTO evidence_link(id, claim_id, quote, supports, verified) VALUES ('e1','c1','q',1,1)")
+    from equity_monitor.db.core import migrate
+    conn.execute("CREATE TABLE IF NOT EXISTS schema_migration (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL)")
+    conn.executemany("INSERT INTO schema_migration VALUES (?, 'x')", [(n,) for n, _ in files if n < "0004"])
+    conn.row_factory = sqlite3.Row
+    migrate(conn)
+    row = conn.execute("SELECT verification, citation_status, support_status FROM claim WHERE id='c1'").fetchone()
+    assert tuple(row) == ("SOURCE_MATCHED", "SOURCE_MATCHED", "LEGACY")
+    assert conn.execute("SELECT verified FROM evidence_link WHERE id='e1'").fetchone()[0] == 0
+    assert conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+    assert [r[2] for r in conn.execute("PRAGMA foreign_key_list(evidence_link)") if r[3] == "claim_id"] == ["claim"]

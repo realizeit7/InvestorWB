@@ -162,7 +162,7 @@ def performance(app: App, portfolio_id: str, start: date, end: date, benchmarks:
 
 
 def process_metrics(app: App) -> dict:
-    fact_claims = one(app.conn, "SELECT COUNT(*) AS n, SUM(CASE WHEN verification IN ('FAILED','UNVERIFIED') THEN 1 ELSE 0 END) AS bad "
+    fact_claims = one(app.conn, "SELECT COUNT(*) AS n, SUM(CASE WHEN verification <> 'VERIFIED' THEN 1 ELSE 0 END) AS bad "
                                 "FROM claim WHERE claim_type='FACT'")
     stale_codes = ("MISSING_PRICE", "STALE_PRICE", "FILINGS_NOT_CHECKED", "FINANCIALS_OVERDUE", "DATA_REFRESH_FAILED",
                    "NEW_FINANCIALS_SINCE_VALUATION", "VALUATION_STALE")
