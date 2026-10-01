@@ -5,7 +5,7 @@ This report covers **software acceptance only**. Nothing here is evidence of inv
 
 ## 1. Automated tests
 
-`uv run pytest` → **99 passed, 0 failed** (≈11 s) at v1.0/v1.1; **137 passed, 0 failed** (≈13 s) after the §5 correctness repair; **150 passed, 0 failed** (≈23 s) after the §6 follow-up repair; **159 passed, 0 failed** (≈23 s) after the §7 repair. The tests use synthetic fixtures and hand-computed expectations and
+`uv run pytest` → **99 passed, 0 failed** (≈11 s) at v1.0/v1.1; **137 passed, 0 failed** (≈13 s) after the §5 correctness repair; **150 passed, 0 failed** (≈23 s) after the §6 follow-up repair; **159 passed, 0 failed** (≈23 s) after the §7 repair; **175 passed, 0 failed** (≈17 s) after §8. The tests use synthetic fixtures and hand-computed expectations and
 need no network, API key or paid inference.
 
 | spec §18 item | covered by (tests/…) |
@@ -187,3 +187,58 @@ at their creation (exposure evidence affects purchase eligibility, not the ADD a
 evidence). Claims are re-verified only when a version is re-approved or reviewed, not automatically. Not re-run: live
 feeds, LLM calls, notification delivery, scheduling. Passing tests establish software behaviour, not investment
 performance; no predictive model or walk-forward backtest exists in this repository.
+
+## 8. Review of a1a330d + supervised-pilot readiness (2026-10-01)
+
+Full offline suite: **175 passed, 0 failed** (`uv run pytest`, no network or credentials). 16 new tests in
+`tests/test_repairs.py` (76 in that file). Against a1a330d all 16 fail — 3 on behaviour (profile snapshots carried no verifier version; `SCHG`
+was the first benchmark; the stale-run test ended at attempt 5 instead of 1), the rest because the APIs they exercise did
+not exist. The two
+review findings were therefore also reproduced **behaviourally** with `scripts/repro_review_a1a330d.py`, which uses only
+APIs present on both commits:
+
+| # | finding | a1a330d (actual output) | after (actual output) | tests |
+|---|---|---|---|---|
+| P1 | exposure approval trusts an obsolete verification snapshot | approved legacy profile whose claim ("Revenue decreased to $4 billion", source says increased) fails under ev-4: purchases **ELIGIBLE**, no pause; an unapproved legacy profile is **approved** | **PAUSED** (`EXPOSURE_EVIDENCE_FAILED`); approval **refused** ("failed verification"); legacy evidence that still verifies is re-checked automatically and needs no human; unresolved evidence pauses (`EXPOSURE_EVIDENCE_REVIEW_REQUIRED`) until an acknowledged check of the exact statuses; profile versions and approvals unchanged, re-checks are append-only `exposure_evidence_check` rows (migration 0009) | `test_obsolete_exposure_approval_cannot_support_purchases`, `test_legacy_exposure_approval_requires_correction_or_review`, `test_legacy_exposure_evidence_that_still_verifies_needs_no_human`, `test_new_profiles_record_their_verifier_version` |
+| P2 | LLM budget is not a cap | unpriced model, $100 budget: **3 requests sent, $0 counted**; $0.01 budget: **1 request sent, $0.24 counted** | **0 requests sent** in both cases (refused before sending); paid calls need a budget and known pricing; worst-case reservation in an exclusive transaction (a second process cannot reuse the same remainder); settlement to actual usage or full reservation when unknown; unknown earlier spend blocks. Documented as a conservative pre-authorization limit, not a provider-enforced cap | `test_unpriced_model_is_refused_before_sending`, `test_paid_calls_need_a_budget_and_a_worst_case_reservation`, `test_settlement_reconciles_actual_usage_and_keeps_unknowns_charged`, `test_fallbacks_reserve_the_most_expensive_model_twice`, `test_concurrent_processes_cannot_spend_the_same_remaining_budget`, `test_unknown_legacy_llm_cost_blocks_paid_calls` |
+
+Pilot-readiness features (tests): side-account scope — TAX_DEFERRED (401(k)) portfolios get no company recommendations or
+allocations and jobs skip them (`test_retirement_portfolio_gets_no_company_recommendations`); SPY primary
+contribution-matched benchmark (`test_sp500_is_the_primary_contribution_matched_benchmark`); `eqm setup check` never prints
+secrets (`test_setup_check_reports_presence_without_printing_secrets`); explicit `--env-file`
+(`test_env_file_is_explicit_and_existing_variables_win`); owner-initiated `eqm alerts test` sends nothing unless enabled +
+authorized (`test_alert_test_sends_nothing_without_authorization`).
+
+### Live pilot actually run (separate data home, placeholder SEC contact `InvestorWB-dev devtest@example.com`, no LLM)
+
+`scripts/live_pilot.sh <home>` on a fresh home, with the example CSVs as an ILLUSTRATIVE HYPOTHETICAL side account
+(SCHG/MSFT/KO, not the owner's holdings). All 16 commands exited 0:
+
+| step | actual result |
+|---|---|
+| SEC EDGAR | MSFT 81 filings, 4,480 facts; KO 145 filings, 3,830 facts |
+| Yahoo prices | MSFT, KO, SPY, SCHG, VTI ok, latest 2026-09-30 |
+| market context | 19 reference instruments, FRED, FINRA short interest + short-sale volume; no failures; snapshot built |
+| broker snapshot reconciliation | 2 discrepancies recorded from the example files (KO quantity, cash) — ledger unchanged, KO → REVIEW |
+| review | MSFT and KO REVIEW (no approved thesis/valuation), PREVIEW labels |
+| allocation | nothing purchasable; $3,228.50 stays cash (expected without owner approvals) |
+| performance (illustrative, 2026-01-02 → 2026-09-30) | primary benchmark SPY; portfolio TWR 7.58%, SPY contribution-matched end value $9,911 vs NAV $9,516 — **illustrative data only, not evidence of anything** |
+| scheduler pass + health | daily_refresh, weekly_digest, monthly_allocation SUCCESS; health OK |
+
+`scripts/pilot_ops_check.py <home>` (nothing leaves the machine):
+
+| check | actual result |
+|---|---|
+| restart/recovery | `kill -9` during `jobs run daily_refresh` left the run RUNNING; immediate restart → IN_PROGRESS (no duplicate); retry after the 2-hour stale window (simulated clock) → SUCCESS, "previous attempt interrupted"; `eqm serve` started/stopped twice → no new rows of any kind |
+| delivery mechanics | `eqm alerts test` with a LOCAL receiver on 127.0.0.1 → 1 POST, `Idempotency-Key` set, title "InvestorWB test notification"; re-delivery sent nothing |
+| backup → restore | archive created; restore into a new home: checksums verified, `integrity_check` ok, row counts of 10 key tables identical |
+
+Found by the restart test and fixed: repeated forced re-runs exhausted the retry counter, so a genuinely interrupted run
+then stayed RUNNING forever without any health warning. Forced re-runs of a completed instance now start at attempt 1, a
+run that gives up is marked FAILED with the reason, and health warns about RUNNING rows older than the stale window
+(`test_interrupted_job_is_retried_then_failed_visibly_and_forced_reruns_reset_attempts`).
+
+**Not run (owner action required; not reported as done):** the owner-authorized notification to the owner's real
+destination and receipt on the phone; LLM authentication and a live call; days of always-on scheduling on the owner's
+machine; reconciliation of real holdings; prospective paper tracking. See docs/PILOT_CHECKLIST.md. Passing tests and a
+successful pilot establish software behaviour, not investment performance.

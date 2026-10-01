@@ -146,3 +146,17 @@ paper-book valuation uses the previous close for untraded positions.
 Tests: 9 new (suite 159 passed). Details and before/after: [VALIDATION.md §7](VALIDATION.md). Remaining limitations: exposure
 profiles keep their creation-time verification snapshot; re-verification runs on re-approval/review, not automatically;
 the certifiable claim wording remains narrow (POLICY §10).
+
+## Review of a1a330d and supervised-pilot readiness (2026-10-01)
+
+| area | what changed |
+|---|---|
+| P1 exposure evidence | Verification snapshots record the verifier version; approval re-checks evidence under the current verifier; an approved profile checked by an older verifier is re-checked before it supports purchases (FAILED/unresolved → purchases paused, never a sale); append-only `exposure_evidence_check` (migration 0009). |
+| P2 LLM spend | `llm/budget.py`: budget + known pricing required for paid calls; worst-case reservation before sending (exclusive transaction); settlement to actual usage; unknown cost blocks. Not a provider-enforced cap. |
+| scope | TAX_DEFERRED (401(k)) portfolios: no company recommendations or allocations; side account only. |
+| benchmark | SPY (S&P 500) is the primary contribution-matched benchmark; SCHG, VTI kept. |
+| setup | `eqm setup check` (owner inputs, integrations; secrets as present/absent), `eqm --env-file`, `eqm alerts test`, RUNNING-row recovery fix. |
+| pilot | `scripts/live_pilot.sh`, `scripts/pilot_ops_check.py`; checklist in [docs/PILOT_CHECKLIST.md](docs/PILOT_CHECKLIST.md). |
+
+Tests: 175 passed. Live pilot, restart/recovery, local delivery mechanics and backup/restore were run (VALIDATION.md §8).
+Owner-authorized notification, LLM live call, multi-day scheduling and real-holdings reconciliation are **not** run.

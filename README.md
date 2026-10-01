@@ -9,6 +9,10 @@ reports a long-term action plus a separate **purchase eligibility** (ELIGIBLE / 
 
 **It never trades.** Recommendations never modify holdings; you place orders yourself and record the fills.
 
+**Scope.** Research for the monthly side account only; portfolios with `TAX_DEFERRED` accounts (e.g. a 401(k)) get no
+individual-company recommendations. Primary comparison: a contribution-matched S&P 500 (SPY) benchmark. Start with
+`uv run eqm setup check`.
+
 **Research status.** Rules-based screening, DCF valuation and market-context conditions only. Price attribution is
 descriptive, not a predictor; there is no predictive-model training and no walk-forward backtest pipeline. Paper and
 performance tools measure a frozen policy prospectively and establish no edge.
@@ -26,6 +30,7 @@ policy and supply your settings. Fixture and illustrative outputs are labelled a
 | [docs/DESIGN.md](docs/DESIGN.md) | repository audit, architecture, decisions, entities |
 | [VALIDATION.md](VALIDATION.md) | what was actually run and tested |
 | [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) | what works, what is illustrative, what needs you |
+| [docs/PILOT_CHECKLIST.md](docs/PILOT_CHECKLIST.md) | supervised first use: owner inputs, implemented features, untested integrations |
 
 ## Setup
 

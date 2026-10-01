@@ -88,8 +88,14 @@ def run_instance(app: App, spec: JobSpec, scheduled_for: datetime, handler: Hand
         if st == "RUNNING" and app.now() - parse_utc(row["started_at"]) < STALE_AFTER:
             return {"job": spec.name, "status": "IN_PROGRESS", "run_id": row["id"]}
         if st in ("FAILED", "RUNNING") and row["attempt"] >= MAX_ATTEMPTS and not force:
+            if st == "RUNNING":
+                # an interrupted run that will not be retried must not look like it is still running
+                app.conn.execute("UPDATE job_run SET status='FAILED', finished_at=?, error=? WHERE id=?",
+                                 (app.now_iso(), f"interrupted {row['attempt']} time(s); gave up — check the cause, then "
+                                  f"`eqm jobs run {spec.name} --force`", row["id"]))
             return {"job": spec.name, "status": "GAVE_UP", "run_id": row["id"]}
-        attempt = row["attempt"] + 1
+        # a deliberate forced re-run of a completed instance is a fresh run, not another retry
+        attempt = 1 if (force and st in ("SUCCESS", "PARTIAL", "SKIPPED")) else row["attempt"] + 1
         app.conn.execute("UPDATE job_run SET status='RUNNING', started_at=?, finished_at=NULL, attempt=?, error=? WHERE id=?",
                          (app.now_iso(), attempt, "previous attempt interrupted" if st == "RUNNING" else row["error"], row["id"]))
         run_id = row["id"]

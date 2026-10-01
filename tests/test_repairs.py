@@ -1423,3 +1423,33 @@ def test_alert_test_sends_nothing_without_authorization(app):
     assert app.conn.execute("SELECT COUNT(*) FROM delivery_outbox").fetchone()[0] == 0
     deliver_pending(app)
     assert app.conn.execute("SELECT COUNT(*) FROM delivery_attempt").fetchone()[0] == 0
+
+
+def test_interrupted_job_is_retried_then_failed_visibly_and_forced_reruns_reset_attempts(app):
+    from equity_monitor.monitoring import scheduler as sch
+    from equity_monitor.monitoring.health import system_health
+    app.clock.set(AS_OF)
+    spec = sch.DEFAULT_JOBS[0]
+    when = sch.latest_due(spec, app.now())
+
+    def boom(a, rid, w):
+        raise KeyboardInterrupt                      # stands in for kill -9 (row left RUNNING)
+    ok = lambda a, rid, w: {"ok": True}
+    assert sch.run_instance(app, spec, when, ok)["status"] == "SUCCESS"
+    for _ in range(3):                               # deliberate forced re-runs do not use up retry attempts
+        assert sch.run_instance(app, spec, when, ok, force=True)["status"] == "SUCCESS"
+    with pytest.raises(KeyboardInterrupt):
+        sch.run_instance(app, spec, when, boom, force=True)
+    row = app.conn.execute("SELECT status, attempt FROM job_run WHERE job_name=?", (spec.name,)).fetchone()
+    assert tuple(row) == ("RUNNING", 1)
+    assert sch.run_instance(app, spec, when, ok)["status"] == "IN_PROGRESS"           # immediate restart: no duplicate
+    app.clock.set(AS_OF + timedelta(hours=3))
+    assert any("RUNNING since" in w for w in system_health(app)["warnings"])           # visible while stuck
+    for _ in range(2):
+        with pytest.raises(KeyboardInterrupt):
+            sch.run_instance(app, spec, when, boom)
+        app.clock.set(app.now() + timedelta(hours=3))
+    assert sch.run_instance(app, spec, when, ok)["status"] == "GAVE_UP"
+    row = app.conn.execute("SELECT status, error FROM job_run WHERE job_name=?", (spec.name,)).fetchone()
+    assert row[0] == "FAILED" and "gave up" in row[1]                                  # was: RUNNING forever, no warning
+    assert any("FAILED" in w for w in system_health(app)["warnings"])

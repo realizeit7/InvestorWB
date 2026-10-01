@@ -25,6 +25,11 @@ def system_health(app: App) -> dict:
             warnings.append(f"job {j['job']} finished PARTIAL at {lr['finished_at']} (some refreshes failed)")
         if j["latest_due_not_run"]:
             warnings.append(f"job {j['job']} was due at {j['latest_due_not_run']} but has not run — is the scheduler running?")
+    from .scheduler import STALE_AFTER
+    for r in all_rows(app.conn, "SELECT job_name, started_at, attempt FROM job_run WHERE status='RUNNING' AND started_at<?",
+                      (iso_utc(now - STALE_AFTER),)):
+        warnings.append(f"job {r['job_name']} has been RUNNING since {r['started_at']} (attempt {r['attempt']}): the process "
+                        "was probably interrupted; the next scheduler pass retries it")
     last = one(app.conn, "SELECT MAX(started_at) AS t FROM job_run")["t"]
     if last is None:
         warnings.append("scheduler has never run: monitoring is NOT active (start `eqm serve` or a cron entry)")
