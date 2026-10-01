@@ -12,19 +12,29 @@ Rules:
   the issuer/sector limits measured on the paper book.
 - ``paper_execute`` executes only TRIM (sell down to the recommendation's documented ``target_weight``; for a sector
   breach, the amount needed to meet the sector limit) and EXIT (sell everything).
-- Each (proposal, variant, paper portfolio) and each recommendation executes at most once; ledger rows and the
-  execution record are written in one transaction.
+- Execution state = every fill already recorded in the paper book through the execution session (including earlier
+  fills of the SAME session), valued only with prices known at the open: the previous close, or the recorded fill
+  price for a security already traded that session. Never the session's own close.
+- One allocation execution per paper book per session: once a proposal (variant) has executed, any other proposal or
+  variant filling on that session in the same book is refused (it neither adds to nor replaces the first). Use one
+  book per variant. Sells (TRIM/EXIT) for that
+  session are sized on the state that includes any earlier fills.
+- Each (proposal, variant, paper portfolio) executes at most once; each recommendation executes at most once PER paper
+  portfolio (so the augmented and baseline books can both execute it). Ledger rows and the execution record are
+  written in one transaction.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+from datetime import date
 from decimal import ROUND_DOWN, ROUND_UP, Decimal
 
 from ..app import App
 from ..data import calendar as cal
-from ..data.prices import bar_on
+from ..data.prices import bar_on, price_on_or_before
 from ..data.securities import find_security, security_ref
-from ..db.core import insert, one, transaction
+from ..db.core import all_rows, insert, one, transaction
 from ..ledger.store import NewEvent, accounts_of, portfolio_kind, record_events
 from ..ledger.views import portfolio_view
 from ..util import D, dstr, from_json, new_id, parse_utc, to_json
@@ -69,6 +79,49 @@ def _size(qty: Decimal, fractional: bool, rounding=ROUND_DOWN) -> Decimal:
     return qty.to_integral_value(rounding=rounding) if not fractional else qty.quantize(Decimal("0.000001"), rounding=rounding)
 
 
+@dataclass
+class BookState:
+    """Paper-book state for an execution session: quantities/cash include every fill recorded through ``session``;
+    values use only open-time information (previous close, or that session's recorded fill price)."""
+    session: date
+    cash: Decimal
+    available_cash: Decimal
+    nav: Decimal | None
+    shares: dict[str, Decimal] = field(default_factory=dict)
+    value: dict[str, Decimal] = field(default_factory=dict)
+    issuer_value: dict[str, Decimal] = field(default_factory=dict)
+    sector_value: dict[str, Decimal] = field(default_factory=dict)
+    unpriced: list[str] = field(default_factory=list)
+
+
+def _book_state(app: App, paper_portfolio_id: str, account_id: str, session: date) -> BookState:
+    view = portfolio_view(app, paper_portfolio_id, session)          # quantities + cash only; its closes are NOT used
+    prev = cal.previous_session(session)
+    st = BookState(session, view.cash, view.available_cash, None)
+    for h in view.holdings:
+        if h.shares <= 0:
+            continue
+        fill = one(app.conn, "SELECT price FROM ledger_event WHERE account_id=? AND security_id=? AND trade_date=? AND "
+                             "event_type IN ('BUY','SELL') ORDER BY seq DESC LIMIT 1",
+                   (account_id, h.security_id, session.isoformat()))
+        if fill is not None:
+            px = D(fill["price"])
+        else:
+            pc = price_on_or_before(app, h.security_id, prev)
+            px = pc[1] if pc else None
+        if px is None:
+            st.unpriced.append(h.symbol)
+            continue
+        v = h.shares * px
+        ref = security_ref(app.conn, h.security_id)
+        ik, sk = ref.issuer_id or h.security_id, ref.sector or "Unknown"
+        st.shares[h.security_id], st.value[h.security_id] = h.shares, v
+        st.issuer_value[ik] = st.issuer_value.get(ik, ZERO) + v
+        st.sector_value[sk] = st.sector_value.get(sk, ZERO) + v
+    st.nav = None if st.unpriced else st.cash + sum(st.value.values(), ZERO)
+    return st
+
+
 def paper_execute(app: App, recommendation_id: str, paper_portfolio_id: str) -> str | None:
     """Execute a TRIM or EXIT recommendation in a paper book. Returns the execution id, or None when there is
     nothing to do (HOLD/REVIEW, no position, already executed, fill bar not available yet)."""
@@ -82,8 +135,9 @@ def paper_execute(app: App, recommendation_id: str, paper_portfolio_id: str) -> 
     if rec["action"] not in ("TRIM", "EXIT"):
         return None
     policy_id = _bind_policy(app, rec["policy_version_id"], "recommendation")
-    if one(app.conn, "SELECT 1 FROM paper_execution WHERE recommendation_id=?", (recommendation_id,)):
-        return None
+    if one(app.conn, "SELECT 1 FROM paper_execution WHERE recommendation_id=? AND paper_portfolio_id=?",
+           (recommendation_id, paper_portfolio_id)):
+        return None      # already executed in THIS paper book (other books execute it independently)
     d = fill_session(rec["created_at"])
     bar = bar_on(app, rec["security_id"], d)
     if bar is None or bar["open"] is None:
@@ -91,31 +145,32 @@ def paper_execute(app: App, recommendation_id: str, paper_portfolio_id: str) -> 
     pol, paper = app.policy.portfolio, app.policy.paper
     slip = paper.slippage_bps / Decimal(10000)
     px = D(bar["open"]) * (1 - slip)
-    view = portfolio_view(app, paper_portfolio_id, cal.previous_session(d))   # information known before the open
-    h = view.holding(rec["security_id"])
-    if h is None or h.shares <= 0:
+    st = _book_state(app, paper_portfolio_id, acct, d)
+    sid = rec["security_id"]
+    held = st.shares.get(sid, ZERO)
+    if held <= 0:
         return None
     if rec["action"] == "EXIT":
-        qty, basis = h.shares, "EXIT: sell the whole position"
+        qty, basis = held, "EXIT: sell the whole position"
     else:
+        if st.nav is None:
+            return None      # book cannot be valued with open-time prices: nothing is sized on a guess
         trade = (from_json(rec["payload_json"]).get("proposed_trade") or {})
-        ref = security_ref(app.conn, rec["security_id"])
-        # value the book with this security at the fill price
-        nav = (view.nav or ZERO) - (h.market_value or ZERO) + h.shares * px
-        issuer_val = (view.issuer_weights.get(ref.issuer_id or rec["security_id"], ZERO) * (view.nav or ZERO)
-                      - (h.market_value or ZERO) + h.shares * px)
+        ref = security_ref(app.conn, sid)
+        # value the traded security at the fill price
+        adj = held * px - st.value[sid]
+        nav = st.nav + adj
+        issuer_val = st.issuer_value[ref.issuer_id or sid] + adj
         if trade.get("target_weight") is not None:
             tw = D(trade["target_weight"])
             sell_value = issuer_val - tw * nav
             basis = f"TRIM to documented target weight {tw}"
         else:
-            sector_val = view.sector_weights.get(ref.sector or "Unknown", ZERO) * (view.nav or ZERO) \
-                - (h.market_value or ZERO) + h.shares * px
-            sell_value = sector_val - pol.max_sector_weight * nav
+            sell_value = st.sector_value[ref.sector or "Unknown"] + adj - pol.max_sector_weight * nav
             basis = f"TRIM to sector limit {pol.max_sector_weight}"
-        if view.nav is None or sell_value <= 0:
+        if sell_value <= 0:
             return None
-        qty = min(h.shares, _size(sell_value / px, pol.fractional_shares, ROUND_UP))
+        qty = min(held, _size(sell_value / px, pol.fractional_shares, ROUND_UP))
     fee = paper.fee_per_trade_usd
     with transaction(app.conn):
         res = record_events(app, acct, [NewEvent("SELL", d, rec["security_id"], quantity=qty,
@@ -157,11 +212,20 @@ def paper_execute_allocation(app: App, proposal_id: str, paper_portfolio_id: str
         raise PaperError("proposal lines lack recommendation provenance; create a new proposal")
     elig_col = "purchase_eligibility" if variant == "augmented" else "baseline_eligibility"
     d = fill_session(prop["created_at"])
+    other = one(app.conn, "SELECT proposal_id, variant FROM paper_allocation_execution WHERE paper_portfolio_id=? AND "
+                          "fill_session_date=?", (paper_portfolio_id, d.isoformat()))
+    if other:
+        raise PaperError(f"proposal {other['proposal_id']} ({other['variant']}) already executed in this paper book for "
+                         f"session {d}; one allocation per paper book per session (different proposals or variants "
+                         "filling on the same session are mutually exclusive)")
     pol, paper = app.policy.portfolio, app.policy.paper
     slip = paper.slippage_bps / Decimal(10000)
-    view = portfolio_view(app, paper_portfolio_id, cal.previous_session(d))
-    nav = view.nav if view.nav is not None else view.cash
-    cash_left = view.available_cash
+    st = _book_state(app, paper_portfolio_id, acct, d)
+    if st.nav is None:
+        raise PaperError(f"paper book cannot be valued with open-time prices (no prior close for {', '.join(st.unpriced)})")
+    # limits are sized against NAV net of every fee this execution could charge, so fees cannot push a weight over
+    nav = st.nav - paper.fee_per_trade_usd * len(raw)
+    cash_left = st.available_cash
     issuer_add: dict[str, Decimal] = {}
     sector_add: dict[str, Decimal] = {}
     events, fills, skipped = [], [], []
@@ -185,8 +249,8 @@ def paper_execute_allocation(app: App, proposal_id: str, paper_portfolio_id: str
         ik, sk = ref.issuer_id or sid, ref.sector or "Unknown"
         rooms = {"PROPOSED_AMOUNT": amount, "CASH": cash_left - paper.fee_per_trade_usd}
         if nav and nav > 0:
-            rooms["ISSUER_LIMIT"] = pol.max_issuer_weight * nav - view.issuer_weights.get(ik, ZERO) * nav - issuer_add.get(ik, ZERO)
-            rooms["SECTOR_LIMIT"] = pol.max_sector_weight * nav - view.sector_weights.get(sk, ZERO) * nav - sector_add.get(sk, ZERO)
+            rooms["ISSUER_LIMIT"] = pol.max_issuer_weight * nav - st.issuer_value.get(ik, ZERO) - issuer_add.get(ik, ZERO)
+            rooms["SECTOR_LIMIT"] = pol.max_sector_weight * nav - st.sector_value.get(sk, ZERO) - sector_add.get(sk, ZERO)
         bind = min(rooms, key=lambda k: rooms[k])
         qty = _size(max(ZERO, rooms[bind]) / px, pol.fractional_shares)
         cost = qty * px

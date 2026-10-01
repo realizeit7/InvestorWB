@@ -759,3 +759,220 @@ def test_monthly_allocation_revalidation_alerts_changed_eligibility(app):
     handlers(JobContext(price_provider=prov, refresh_market_series=False))["monthly_allocation"](app, None, app.now())
     titles = [a["title"] for a in _alerts(app)]
     assert "ZZNEW: purchases ELIGIBLE → PAUSED" in titles          # the allocation's re-review is not silent
+
+
+# ================================================================== follow-up review of af00fc1
+# ------------------------------------------------------------------ R1 relationships between quantities
+FROM_TO = "Revenue increased from $3 billion to $4 billion in 2025."
+CMP = "Revenue was $4.2 billion in fiscal 2025 compared with $3.75 billion in fiscal 2024, an increase of 12%."
+
+
+@pytest.fixture
+def rel(app):
+    iss = get_or_create_issuer(app.conn, app.now_iso(), name="RelCo", cik="940")
+    return iss, {"ft": _doc(app, iss, FROM_TO, doc_id="doc_ft"), "cmp": _doc(app, iss, CMP, doc_id="doc_cmp")}
+
+
+def _rv(app, rel, key, claim):
+    iss, pids = rel
+    return _v(app, iss, claim, FROM_TO if key == "ft" else CMP, pids[key])
+
+
+def test_swapped_from_to_values_fail(app, rel):
+    v = _rv(app, rel, "ft", "Revenue increased from $4 billion to $3 billion in 2025.")   # was VERIFIED
+    assert v.status == "FAILED" and any("inconsistent" in d for d in v.details)
+    v2 = _rv(app, rel, "ft", "Revenue went from $4 billion to $3 billion in 2025.")       # no direction word
+    assert v2.status == "FAILED" and v2.support_status == "CONTRADICTED"
+    assert _rv(app, rel, "ft", FROM_TO).status == "VERIFIED"
+
+
+def test_comparison_value_presented_as_current_result_fails(app, rel):
+    v = _rv(app, rel, "ft", "Revenue was $3 billion in 2025.")                            # was VERIFIED
+    assert v.status == "FAILED" and any("value/scale" in d for d in v.details)
+    assert _rv(app, rel, "ft", "Revenue was $4 billion in 2025.").status == "VERIFIED"
+    assert _rv(app, rel, "cmp", "Revenue was $3.75 billion in fiscal 2025.").status == "FAILED"
+
+
+def test_prior_and_current_periods(app, rel):
+    # a comparison value with its own stated period is that period's level
+    assert _rv(app, rel, "cmp", "Revenue was $3.75 billion in fiscal 2024.").status == "VERIFIED"
+    assert _rv(app, rel, "cmp", "Revenue was $4.2 billion in fiscal 2024.").status == "FAILED"
+    # the source never states which period "$3 billion" belongs to: not verifiable as 2024 revenue
+    assert _rv(app, rel, "ft", "Revenue in 2024 was $3 billion.").status == "SOURCE_MATCHED"
+
+
+def test_levels_versus_changes(app, rel):
+    assert _rv(app, rel, "cmp", "Revenue increased 12% to $4.2 billion in fiscal 2025.").status == "VERIFIED"
+    assert _rv(app, rel, "cmp", "Revenue was $4.2 billion in fiscal 2025, up 12%.").status == "VERIFIED"
+    assert _rv(app, rel, "cmp", "Revenue increased by $4.2 billion in fiscal 2025.").status == "SOURCE_MATCHED"  # level as change
+    assert _rv(app, rel, "ft", "Revenue grew $3 billion in 2025.").status == "SOURCE_MATCHED"                 # prior as change
+    assert _rv(app, rel, "cmp", "Revenue was 12% in fiscal 2025.").status != "VERIFIED"                       # change as level
+    # wording whose relationship cannot be determined is never verified
+    v = _rv(app, rel, "ft", "Revenue, $4 billion in 2025.")
+    assert v.status == "SOURCE_MATCHED" and any("relationship" in d for d in v.details)
+
+
+def test_relationship_failures_reach_the_approval_gates(app):
+    from equity_monitor.research.thesis import ThesisEvidenceError, approve_version
+    app.clock.set(AS_OF)
+    d = build_demo(app)
+    sid, iss = d["securities"]["ZZHLD"]["security_id"], d["securities"]["ZZHLD"]["issuer_id"]
+    pid = _doc(app, iss, FROM_TO, doc_id="doc_rel", public_at="2026-08-01T21:00:00.000000Z")
+    swapped = _thesis_with(app, sid, [ClaimIn(text="Revenue increased from $4 billion to $3 billion in 2025.",
+                                              claim_type="FACT", citations=[Citation(passage_id=pid, quote=FROM_TO)])])
+    with pytest.raises(ThesisEvidenceError, match="failed verification"):
+        approve_version(app, swapped, acknowledge_unverified=True)
+    vague = _thesis_with(app, sid, [ClaimIn(text="Revenue in 2024 was $3 billion.", claim_type="FACT",
+                                            citations=[Citation(passage_id=pid, quote=FROM_TO)])])
+    with pytest.raises(ThesisEvidenceError, match="not substantively verified"):
+        approve_version(app, vague)
+
+
+# ------------------------------------------------------------------ R2 execution state across proposals in one session
+def _weights(app, pf):
+    from equity_monitor.data.securities import security_ref
+    rows = app.conn.execute("SELECT e.security_id, e.event_type, e.quantity, e.price, e.fees, e.amount FROM ledger_event e "
+                            "JOIN account a ON a.id=e.account_id WHERE a.portfolio_id=? ORDER BY e.seq", (pf,)).fetchall()
+    cash, shares, px = Dec(0), {}, {}
+    for r in rows:
+        if r["event_type"] == "DEPOSIT":
+            cash += Dec(r["amount"])
+        elif r["event_type"] in ("BUY", "SELL"):
+            q, p, f = Dec(r["quantity"]), Dec(r["price"]), Dec(r["fees"] or 0)
+            sign = 1 if r["event_type"] == "BUY" else -1
+            cash -= sign * q * p + f
+            shares[r["security_id"]] = shares.get(r["security_id"], Dec(0)) + sign * q
+            px[r["security_id"]] = p
+    nav = cash + sum(shares[s] * px[s] for s in shares)
+    iw = {}
+    for s, q in shares.items():
+        k = security_ref(app.conn, s).issuer_id
+        iw[k] = iw.get(k, Dec(0)) + q * px[s] / nav
+    return cash, iw
+
+
+@pytest.mark.parametrize("order", [(0, 1), (1, 0)])
+def test_two_proposals_in_one_session_cannot_breach_limits(app, order):
+    d = _frozen_demo(app)
+    props = [propose(app, d["portfolio_id"]), propose(app, d["portfolio_id"])]
+    assert props[0].id != props[1].id
+    _open_bars(app, d, ("ZZADD", "ZZNEW"))
+    book, _ = _paper_book(app, "shared", "2026-09-01,DEPOSIT,,,,3000\n")
+    first, second = (props[i] for i in order)
+    assert paper_execute_allocation(app, first.id, book, "augmented")
+    with pytest.raises(PaperError, match="mutually exclusive"):
+        paper_execute_allocation(app, second.id, book, "augmented")          # was: bought both again (19.994% each)
+    assert paper_execute_allocation(app, first.id, book, "augmented")        # same-proposal idempotency preserved
+    cash, iw = _weights(app, book)
+    assert cash >= 0 and all(w <= Dec("0.10") for w in iw.values()), iw
+    with pytest.raises(PaperError, match="mutually exclusive"):               # the other variant in the same book, too
+        paper_execute_allocation(app, first.id, book, "baseline")
+
+
+def test_execution_state_includes_same_session_fills_at_open_time_prices(app):
+    from equity_monitor.evaluation.paper import _book_state
+    d = _frozen_demo(app)
+    sid = d["securities"]["ZZADD"]["security_id"]
+    book, acct = _paper_book(app, "state", "2026-09-01,DEPOSIT,,,,3000\n")
+    store_fetch(app, sid, PriceFetch([Bar(FILL, Dec("100"), open=Dec("10"))]), "fixture")   # close 100: must not be used
+    record_events(app, acct, [NewEvent("BUY", FILL, sid, quantity=Dec(20), price=Dec(10), fees=Dec(0), external_id="early")],
+                  allow_negative_cash=False)
+    st = _book_state(app, book, acct, FILL)
+    assert st.shares[sid] == 20 and st.value[sid] == Dec(200) and st.nav == Dec(3000)
+    assert st.issuer_value[d["securities"]["ZZADD"]["issuer_id"]] == Dec(200)
+
+
+def test_paper_book_limits_aggregate_share_classes_with_fees(app):
+    app.clock.set(AS_OF)
+    d = build_demo(app)
+    issuer, a_sid, b_sid = _add_share_class(app, d)
+    app.policy = Policy(status="FROZEN")
+    app.policy = app.policy.model_copy(update={"paper": app.policy.paper.model_copy(update={"fee_per_trade_usd": Dec("5")})})
+    prop = propose(app, d["portfolio_id"])
+    assert "ZZADD" in {l.symbol for l in prop.lines if l.amount > 0}
+    _open_bars(app, d, ("ZZADD", "ZZNEW"))
+    store_fetch(app, b_sid, PriceFetch([Bar(FILL, Dec("10"), open=Dec("10"))]), "fixture")
+    # earlier in the SAME session the book bought 9% of NAV in the other share class (at that session's open)
+    book, acct = _paper_book(app, "classes", "2026-09-01,DEPOSIT,,,,3000\n")
+    record_events(app, acct, [NewEvent("BUY", FILL, b_sid, quantity=Dec(27), price=Dec(10), fees=Dec(0),
+                                       external_id="classB")], allow_negative_cash=False)
+    paper_execute_allocation(app, prop.id, book, "augmented")
+    import json
+    row = app.conn.execute("SELECT fills_json, skipped_json FROM paper_allocation_execution WHERE paper_portfolio_id=?",
+                           (book,)).fetchone()
+    fills, skipped = json.loads(row[0]), json.loads(row[1])
+    # issuer room left is 10% x 3,000 - 270 = 30 (< $50 minimum): the share class is not bought again
+    assert "ZZADD" not in {f["symbol"] for f in fills}                         # was: ~$300 more (19% issuer weight)
+    assert any(s_["symbol"] == "ZZADD" and "ISSUER_LIMIT" in s_["reason"] for s_ in skipped)
+    cash, iw = _weights(app, book)
+    assert cash >= 0 and iw[issuer] <= Dec("0.10") and all(w <= Dec("0.10") for w in iw.values())
+
+
+# ------------------------------------------------------------------ R3 sell identity is per paper portfolio
+def _two_books_holding(app, d, sym, qty, px):
+    return {n: _paper_book(app, n, f"2026-09-01,DEPOSIT,,,,6000\n2026-09-02,BUY,{sym},{qty},{px},\n")[0]
+            for n in ("augmented", "baseline")}
+
+
+@pytest.mark.parametrize("sym,action", [("ZZTRM", "TRIM"), ("ZZEXT", "EXIT")])
+def test_sell_recommendation_executes_once_in_each_paper_book(app, sym, action):
+    d = _frozen_demo(app)
+    sid = d["securities"][sym]["security_id"]
+    rec = get(app, generate(app, d["portfolio_id"], sid))
+    assert rec["action"] == action
+    books = _two_books_holding(app, d, sym, 100, 40)
+    store_fetch(app, sid, PriceFetch([Bar(FILL, Dec("40"), open=Dec("40"))]), "fixture")
+    ids = {n: paper_execute(app, rec["id"], p) for n, p in books.items()}
+    assert all(ids.values()) and ids["augmented"] != ids["baseline"]          # was: baseline returned None
+    left = {n: portfolio_view(app, p, FILL).holding(sid) for n, p in books.items()}
+    if action == "EXIT":
+        assert all(h is None or h.shares == 0 for h in left.values())
+    else:
+        assert left["augmented"].shares == left["baseline"].shares < 100
+    for p in books.values():                                                   # never twice in either book
+        assert paper_execute(app, rec["id"], p) is None
+    assert app.conn.execute("SELECT COUNT(*) FROM paper_execution WHERE recommendation_id=?", (rec["id"],)).fetchone()[0] == 2
+
+
+def test_paper_execution_scope_migration_preserves_rows(monkeypatch, tmp_path):
+    import sqlite3
+    from equity_monitor.app import memory_app
+    from equity_monitor.db import core
+    from equity_monitor.util import Clock
+    orig = core._migration_files
+    monkeypatch.setattr(core, "_migration_files", lambda: [f for f in orig() if f[0] < "0006"])
+    app = memory_app(clock=Clock(AS_OF), home=tmp_path)                       # schema as of af00fc1
+    d = build_demo(app)
+    app.policy = Policy(status="FROZEN")
+    sid = d["securities"]["ZZTRM"]["security_id"]
+    rec = generate(app, d["portfolio_id"], sid)
+    books = _two_books_holding(app, d, "ZZTRM", 100, 40)
+    store_fetch(app, sid, PriceFetch([Bar(FILL, Dec("40"), open=Dec("40"))]), "fixture")
+    first = paper_execute(app, rec, books["augmented"])
+    with pytest.raises(sqlite3.IntegrityError):                                 # old global UNIQUE(recommendation_id)
+        paper_execute(app, rec, books["baseline"])
+    monkeypatch.setattr(core, "_migration_files", orig)
+    assert core.migrate(app.conn)[0] == "0006_paper_scope.sql"
+    assert [tuple(r) for r in app.conn.execute("SELECT id, paper_portfolio_id FROM paper_execution")] == \
+        [(first, books["augmented"])]                                           # existing record preserved
+    assert paper_execute(app, rec, books["baseline"])
+    assert paper_execute(app, rec, books["baseline"]) is None
+
+
+def test_claims_verified_by_previous_verifier_are_downgraded(monkeypatch, tmp_path):
+    from equity_monitor.app import memory_app
+    from equity_monitor.db import core
+    from equity_monitor.util import Clock
+    orig = core._migration_files
+    monkeypatch.setattr(core, "_migration_files", lambda: [f for f in orig() if f[0] < "0007"])
+    app = memory_app(clock=Clock(AS_OF), home=tmp_path)
+    for cid, ver, vv in (("c_ev2", "VERIFIED", "ev-2"), ("c_ev3", "VERIFIED", "ev-3"), ("c_fail", "FAILED", "ev-2")):
+        insert(app.conn, "claim", {"id": cid, "owner_type": "THESIS_VERSION", "owner_id": "v", "text": "t",
+                                   "claim_type": "FACT", "verification": ver, "verification_detail": None,
+                                   "citation_status": "SOURCE_MATCHED", "support_status": "CONFIRMED" if ver == "VERIFIED" else "CONTRADICTED",
+                                   "verifier_version": vv, "created_at": "t"})
+    monkeypatch.setattr(core, "_migration_files", orig)
+    core.migrate(app.conn)
+    got = {r[0]: (r[1], r[2]) for r in app.conn.execute("SELECT id, verification, support_status FROM claim")}
+    assert got == {"c_ev2": ("SOURCE_MATCHED", "LEGACY"), "c_ev3": ("VERIFIED", "CONFIRMED"),
+                   "c_fail": ("FAILED", "CONTRADICTED")}

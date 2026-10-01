@@ -33,7 +33,7 @@ from ..app import App
 from ..db.core import one
 from ..util import iso_utc
 
-VERIFIER_VERSION = "ev-2"
+VERIFIER_VERSION = "ev-3"
 VERIFIED, SOURCE_MATCHED, UNVERIFIED, FAILED, NOT_REQUIRED = "VERIFIED", "SOURCE_MATCHED", "UNVERIFIED", "FAILED", "NOT_REQUIRED"
 
 
@@ -141,11 +141,13 @@ class Quantity:
     year: int | None = None
     quarter: int | None = None
     negated: bool = False
+    role: str | None = None          # LEVEL (value for the stated/current period) | PRIOR (from/comparison value)
+                                     # | CHANGE (change amount or rate) | None (relationship not determinable)
 
     def describe(self) -> str:
         per = f"{'Q%d ' % self.quarter if self.quarter else ''}{self.year or ''}".strip()
-        return (f"{self.metric or '?metric'} {self.direction or ''} {self.value}{' ' + self.unit if self.unit else ''}"
-                f"{' ' + per if per else ''}").replace("  ", " ")
+        return (f"{self.role or '?role'} {self.metric or '?metric'} {self.direction or ''} {self.value}"
+                f"{' ' + self.unit if self.unit else ''}{' ' + per if per else ''}").replace("  ", " ")
 
 
 def _quantities(text: str) -> list[Quantity]:
@@ -200,6 +202,30 @@ def _clauses(text: str) -> list[tuple[int, int]]:
     return spans
 
 
+# Supported (certifiable) grammar — the narrow claim format. Each number's ROLE is read from the words directly before it:
+#   LEVEL : "<metric> was/were/is/of/at/to/reached/totaled X", "<metric>: X", "<metric> X" (filed-figure lists)
+#   PRIOR : "from X", "compared with/to X", "versus X", "vs X", "against X"
+#           (a PRIOR value followed by its own period — "from $3.75 billion in 2024" — is the LEVEL for that period)
+#   CHANGE: "<direction verb> X" ("increased 12%", "fell $50 million"), "by X", "up/down X", "an increase/decline of X"
+# Anything else has no determinable role and can never be VERIFIED (SOURCE_MATCHED, review required).
+_ROLE_PRIOR = re.compile(r"\b(?:from|compared (?:with|to)|versus|vs\.?|against|relative to)\s*$")
+_ROLE_CHANGE = re.compile(rf"\b(?:by|{_UP}|{_DOWN}|(?:{_UP}|{_DOWN}|change)\s+of)\s*$")
+_ROLE_LEVEL = re.compile(r"(?:\b(?:to|was|were|is|are|of|at|reached|reaching|totaled|totalled|totaling|totalling|"
+                         r"amounted to|stood at|came in at)|:)\s*$")
+_PERIOD_LINK = re.compile(r"^\s*(?:in|for|during|of)?\s*$")
+
+
+def _role(pre: str, metric_end_at_tail: bool) -> str | None:
+    pre = re.sub(r"[\s$]+$", "", pre)
+    if _ROLE_PRIOR.search(pre):
+        return "PRIOR"
+    if _ROLE_CHANGE.search(pre):
+        return "CHANGE"
+    if _ROLE_LEVEL.search(pre) or metric_end_at_tail:
+        return "LEVEL"
+    return None
+
+
 def parse_statements(text: str, default_year: int | None = None) -> list[Quantity]:
     """Assign metric, direction, sign and period to every quantity in normalized ``text``."""
     text = norm_text(text)
@@ -220,6 +246,20 @@ def parse_statements(text: str, default_year: int | None = None) -> list[Quantit
             periods.append((m.start(), m.end(), yr, q))
             taken.append((m.start(), m.end()))
     clauses = _clauses(text)
+    used_periods: set[int] = set()
+    prev_end: dict[tuple[int, int], int] = {}
+    for q in qs:
+        a, b = next(((s, e) for s, e in clauses if s <= q.start < e), (0, len(text)))
+        lo_q = max(a, prev_end.get((a, b), a))
+        prev_end[(a, b)] = q.end
+        tail_metric = any(lo_q <= m[0] and re.fullmatch(r"[\s$:(]*", text[m[1]:q.start]) for m in metrics)
+        q.role = _role(text[lo_q:q.start], tail_metric)
+        if q.role == "PRIOR":
+            # a comparison value with its own explicit period is the level for that period
+            nxt = next((p for p in periods if q.end <= p[0] < b and _PERIOD_LINK.match(text[q.end:p[0]])), None)
+            if nxt is not None:
+                q.role, q.year, q.quarter = "LEVEL", nxt[2], nxt[3]
+                used_periods.add(nxt[0])
     for q in qs:
         a, b = next(((s, e) for s, e in clauses if s <= q.start < e), (0, len(text)))
         before = [m for m in metrics if a <= m[0] and m[1] <= q.start]
@@ -235,13 +275,30 @@ def parse_statements(text: str, default_year: int | None = None) -> list[Quantit
         ds = [d for d in dirs if lo <= d[0] < q.start]
         q.direction = ds[-1][1] if ds else None
         q.negated = bool(_NEG_RE.search(text[lo:q.start]))
-        near = [p for p in periods if a <= p[0] < b and not (p[0] <= q.start < p[1])]
+        if q.year is not None or q.quarter is not None:
+            continue                       # explicit period already attached (PRIOR -> LEVEL above)
+        if q.role == "PRIOR":
+            continue                       # the comparison period is not stated: unknown, never the current period
+        near = [p for p in periods if a <= p[0] < b and not (p[0] <= q.start < p[1]) and p[0] not in used_periods]
         if near:
             p = min(near, key=lambda p: (min(abs(p[0] - q.end), abs(q.start - p[1])), p[0] < q.start))
             q.year, q.quarter = p[2], p[3]
         elif default_year:
             q.year = default_year
     return qs
+
+
+def _inconsistent(stmts: list[Quantity]) -> str | None:
+    """A claim whose own from/to values contradict its stated direction ("increased from 4 to 3")."""
+    for lv in stmts:
+        if lv.role != "LEVEL":
+            continue
+        for pr in stmts:
+            if pr.role == "PRIOR" and pr.metric == lv.metric and pr.unit == lv.unit and pr.start < lv.start + 200:
+                d = lv.direction or pr.direction
+                if (d == "UP" and lv.value < pr.value) or (d == "DOWN" and lv.value > pr.value):
+                    return f"claim is internally inconsistent: {d} from {pr.value} to {lv.value} for {lv.metric}"
+    return None
 
 
 def _close(a: Decimal, b: Decimal, tol: Decimal = TOL) -> bool:
@@ -271,13 +328,16 @@ def _same_metric(a: str | None, b: str | None) -> bool:
 
 
 def _check(c: Quantity, sources: list[Quantity], tol: Decimal = TOL) -> tuple[str, str]:
-    """Return (CONFIRMED|CONTRADICTED|UNSUPPORTED|UNCONFIRMED, reason) for one claim statement."""
+    """Return (CONFIRMED|CONTRADICTED|UNSUPPORTED|UNCONFIRMED, reason) for one claim statement. A statement is
+    confirmed only against a source statement with the same metric AND the same role (level / prior / change);
+    a number that merely appears elsewhere under the metric is not support."""
     same_metric = [s for s in sources if _same_metric(c.metric, s.metric) and _units_compatible(c.unit, s.unit)]
-    for s in same_metric:
+    same_role = [s for s in same_metric if c.role is not None and s.role == c.role]
+    for s in same_role:
         if (_close(c.value, s.value, tol) and _periods(c, s) == "ok" and c.negated == s.negated
-                and (c.direction is None or c.direction == s.direction)):
+                and (c.role != "CHANGE" or c.direction is None or c.direction == s.direction)):
             return "CONFIRMED", f"'{c.token}' matches source '{s.token}' ({s.describe()})"
-    for s in same_metric:
+    for s in same_role:
         per = _periods(c, s)
         if per == "conflict" and _close(abs(c.value), abs(s.value), tol):
             return "CONTRADICTED", f"period: claim {c.describe()} vs source {s.describe()}"
@@ -285,19 +345,25 @@ def _check(c: Quantity, sources: list[Quantity], tol: Decimal = TOL) -> tuple[st
             continue
         if _close(-c.value, s.value, tol) and c.value != 0:
             return "CONTRADICTED", f"sign: claim {c.value} vs source {s.value} for {c.metric}"
-        if _close(c.value, s.value, tol) and c.direction and s.direction and c.direction != s.direction:
+        if c.role == "CHANGE" and _close(c.value, s.value, tol) and c.direction and s.direction and c.direction != s.direction:
             return "CONTRADICTED", f"direction: claim says {c.direction}, source says {s.direction} for {c.metric}"
-        if (c.direction is None or s.direction is None or c.direction == s.direction) and c.unit == s.unit \
-                and not _close(c.value, s.value, tol) and not any(_close(c.value, o.value, tol) for o in same_metric):
-            return "CONTRADICTED", f"value/scale: claim {c.token} ({c.value}) vs source {s.token} ({s.value}) for {c.metric}"
+        if (c.role != "CHANGE" or c.direction is None or s.direction is None or c.direction == s.direction) \
+                and c.unit == s.unit and not _close(c.value, s.value, tol) \
+                and not any(_close(c.value, o.value, tol) and _periods(c, o) == "ok" for o in same_role):
+            return "CONTRADICTED", (f"value/scale: claim {c.describe()} vs source {s.describe()}"
+                                    + (" (from/to or prior/current values swapped?)" if c.role in ("LEVEL", "PRIOR") else ""))
     near = [s for s in sources if _close(abs(c.value), abs(s.value), tol) and _units_compatible(c.unit, s.unit)]
     if not near:
         return "UNSUPPORTED", f"number '{c.token}' is not supported by the cited evidence"
     if c.metric is None:
         return "UNCONFIRMED", f"'{c.token}' appears in the source but the claim names no checkable metric"
+    if c.role is None:
+        return "UNCONFIRMED", (f"'{c.token}': its relationship (current level, prior/comparison value or change) cannot "
+                               "be determined from the wording; review required")
     s = near[0]
-    why = "metric" if not _same_metric(c.metric, s.metric) else ("period" if _periods(c, s) != "ok" else
-                                                 "direction" if c.direction != s.direction else "negation/sign")
+    why = "metric" if not _same_metric(c.metric, s.metric) else \
+        ("role (level vs prior/comparison vs change)" if s.role != c.role else
+         "period" if _periods(c, s) != "ok" else "direction" if c.direction != s.direction else "negation/sign")
     return "UNCONFIRMED", f"'{c.token}' appears in the source but its {why} could not be confirmed ({s.describe()})"
 
 
@@ -331,7 +397,7 @@ def _fact_quantity(f) -> Quantity:
     concept = f["concept"]
     unit = {"USD": "USD", "shares": "shares"}.get(f["unit"], None)
     fp = f["fiscal_period"] or ""
-    return Quantity(f"fact {concept}={f['value']}", Decimal(f["value"]), unit, 0, 0, metric=concept,
+    return Quantity(f"fact {concept}={f['value']}", Decimal(f["value"]), unit, 0, 0, metric=concept, role="LEVEL",
                     year=f["fiscal_year"] or int(f["period_end"][:4]),
                     quarter=int(fp[1]) if len(fp) == 2 and fp[0] == "Q" and fp[1].isdigit() else None)
 
@@ -401,6 +467,10 @@ def verify_claim(app: App, claim: ClaimIn, issuer_id: str, as_of: datetime) -> V
     if failed:
         return Verification(FAILED, details, valid, citation_status=FAILED)
     stmts = parse_statements(claim.text)
+    incons = _inconsistent(stmts)
+    if incons:
+        return Verification(FAILED, details + [incons], valid, SOURCE_MATCHED, "CONTRADICTED",
+                            [{"statement": q.describe(), "result": "CONTRADICTED", "reason": incons} for q in stmts])
     tol = app.policy.recommendation.claim_value_tolerance
     results = [(q, *_check(q, sources, tol)) for q in stmts]
     recs = [{"statement": q.describe(), "result": r, "reason": why} for q, r, why in results]
