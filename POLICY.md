@@ -153,15 +153,23 @@ quality and value scores are averaged separately; a score is withheld when compl
   - Purchases only through an allocation proposal, per variant: augmented lines need `purchase_eligibility = ELIGIBLE`,
     baseline lines `baseline_eligibility = ELIGIBLE`, both with action ADD under the proposal's policy/cutoff. Each line
     is capped by the proposal amount, the paper book's available cash (fees included), and issuer/sector limits measured
-    on the paper book; `fractional_shares` and `min_trade_usd` apply. Paper execution **never borrows**: the ledger
+    on the paper book against NAV net of every fee the execution could charge; `fractional_shares` and `min_trade_usd`
+    apply.
+  - **Execution state** = every fill already recorded in the paper book through the execution session, including
+    earlier fills of the same session, valued only with open-time prices (previous close, or the recorded fill price
+    for a security already traded that session) — never the session's own close. Sells (TRIM/EXIT) use the same state.
+  - **One allocation per paper book per session**: once a proposal/variant has executed for a session, any other
+    proposal or variant filling on that session in that book is refused (enforced in code and by a database
+    trigger); it neither adds to nor replaces the first. Use one paper book per variant. Paper execution **never borrows**: the ledger
     rejects any paper batch that would take cash below zero (`allow_negative_cash=False`). Broker imports keep negative
     cash as a reconciliation issue.
   - Direct recommendation execution: TRIM sells down to the recommendation's documented `proposed_trade.target_weight`
     (issuer weight in the paper book at the fill price, shares rounded up so the weight ends at or below the target;
     sector breaches without a target sell to the sector limit); EXIT sells the whole position. ADD is refused here.
-  - Each (proposal, variant, paper portfolio) and each recommendation executes at most once; ledger rows and the
-    execution record (`paper_allocation_execution` / `paper_execution`, with fills, skips and policy version) are written
-    in one transaction.
+  - Each (proposal, variant, paper portfolio) executes at most once, and each sell recommendation at most once **per
+    paper portfolio** (`UNIQUE(recommendation_id, paper_portfolio_id)`, migration 0006), so the augmented and baseline
+    books both execute it. Ledger rows and the execution record (`paper_allocation_execution` / `paper_execution`, with
+    fills, skips and policy version) are written in one transaction.
 
 ## 8. Monitoring
 
@@ -261,9 +269,24 @@ Two separate checks, stored separately on every claim (`citation_status`, `suppo
    and a passage quote appears verbatim. A broken citation ⇒ `FAILED`. An intact citation proves only that the quote is
    real: `SOURCE_MATCHED`.
 2. **Substantive support** — the claim is parsed into quantitative statements (metric, value, scale, unit, sign,
-   direction, period) and each is compared with the statements in the full source sentence(s) around the quote, or with
+   direction, period and **role**) and each is compared with the statements in the full source sentence(s) around the quote, or with
    the cited facts (concept, value within `recommendation.claim_value_tolerance` = 0.5%, fiscal year/quarter). A periodic filing's fiscal period is the default
    period of its unlabelled figures.
+
+**Roles and the certifiable claim format** (verifier `ev-3`). A number's role is read from the words directly before it:
+
+| role | wording | example |
+|---|---|---|
+| LEVEL — value for the stated period | was / were / is / of / at / to / reached / totaled X; "<metric>: X"; "<metric> X" | "Revenue was $4.2 billion in fiscal 2025" |
+| PRIOR — starting or comparison value | from X; compared with/to X; versus / vs / against X | "…from $3 billion…" |
+| CHANGE — amount or rate of change | increased/decreased/rose/fell… X; by X; up/down X; an increase/decline of X | "up 12%" |
+
+A statement is supported only by a source statement with the same metric **and the same role** (plus value, unit, sign,
+period, and direction for changes). A PRIOR value counts as the LEVEL of a period only when the source states that
+period right after it ("from $3.75 billion in fiscal 2024"); otherwise its period is unknown and it is never treated as
+the current result. A claim whose own from/to values contradict its direction ("increased from $4 billion to $3
+billion") FAILS. Numbers whose role cannot be read, and figures the source does not state (e.g. a change amount derived
+by subtraction), are never VERIFIED. Only this narrow format can be certified; any other prose stays SOURCE_MATCHED.
 
 | status | meaning | can drive decisions |
 |---|---|---|
@@ -278,7 +301,8 @@ UNVERIFIED ones (recorded in the approval note); the engine returns REVIEW (`THE
 with FAILED FACT claims; exposure-profile approval refuses FAILED evidence and requires acknowledgement for unverified
 evidence; external observations and news claims act only when VERIFIED. An LLM's opinion that a claim is supported is
 recorded as a note and never raises a status (`with_llm_assessment`). Migration 0004 downgraded claims verified by the
-former quote/number matcher to SOURCE_MATCHED (`support_status = LEGACY`).
+former quote/number matcher to SOURCE_MATCHED (`support_status = LEGACY`); migration 0007 did the same for claims verified
+by `ev-2`, which checked numbers independently of their roles.
 
 Limits: the parser uses a fixed metric vocabulary (revenue, operating/net income, cash flow, capex, debt concepts, cash,
 margins, EPS, shares, equity, assets); other phrasing stays SOURCE_MATCHED. It does not understand causal or comparative
@@ -306,3 +330,6 @@ incomplete debt total as unknown (leverage metrics withheld).
   by the fixed horizon), `recommendation.claim_value_tolerance` (0.005, was a module constant). The
   former "recommendation ≤ 7 days old" allocation rule was removed (replaced by re-validation at the cutoff). No other
   threshold changed. Adding keys changes the policy content hash, so a FROZEN policy must be re-frozen.
+- **2026-10-01 follow-up repair** (review of af00fc1): §10 quantity roles and the certifiable claim format (verifier
+  ev-3; ev-2 VERIFIED claims downgraded); §7 paper execution state includes same-session fills at open-time prices, one
+  allocation per paper book per session, paper limits net of fees, sell identity per paper portfolio. No threshold changed.

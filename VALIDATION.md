@@ -5,7 +5,7 @@ This report covers **software acceptance only**. Nothing here is evidence of inv
 
 ## 1. Automated tests
 
-`uv run pytest` → **99 passed, 0 failed** (≈11 s) at v1.0/v1.1; **137 passed, 0 failed** (≈13 s) after the §5 correctness repair. The tests use synthetic fixtures and hand-computed expectations and
+`uv run pytest` → **99 passed, 0 failed** (≈11 s) at v1.0/v1.1; **137 passed, 0 failed** (≈13 s) after the §5 correctness repair; **150 passed, 0 failed** (≈23 s) after the §6 follow-up repair. The tests use synthetic fixtures and hand-computed expectations and
 need no network, API key or paid inference.
 
 | spec §18 item | covered by (tests/…) |
@@ -143,3 +143,23 @@ The system does rules-based screening, DCF valuation and market-context conditio
 descriptive (association), not a predictor. There is **no predictive-model training and no walk-forward backtest
 pipeline** in this repository. The paper-execution and performance tools measure what a frozen policy would have done
 prospectively; they establish no edge, and no fixture output is performance evidence.
+
+## 6. Follow-up repair of af00fc1 (2026-10-01)
+
+The three remaining findings were reproduced on af00fc1 with `scripts/repro_review_af00fc1.py`, then covered by 13 new
+tests in `tests/test_repairs.py` (50 in that file; full suite **150 passed, 0 failed**, offline, no credentials). The 12
+tests for R1–R3 were run against af00fc1: **all 12 fail there** (11 on behaviour; one imports the new `_book_state`
+helper) and pass now; the 38 tests from §5 still pass on both. The 13th test covers the ev-2 claim downgrade migration.
+
+| # | finding | before (af00fc1) | after | tests |
+|---|---|---|---|---|
+| R1 | claim verifier accepts reversed relationships | source "Revenue increased from $3 billion to $4 billion in 2025": "…from **$4 billion to $3 billion**…" VERIFIED; "Revenue was **$3 billion** in 2025" VERIFIED | FAILED (internally inconsistent / value contradicted) and FAILED (comparison value is not the 2025 level); the correct claims stay VERIFIED; unreadable roles and unstated prior periods are SOURCE_MATCHED; thesis approval blocks or requires acknowledgement accordingly | `test_swapped_from_to_values_fail`, `test_comparison_value_presented_as_current_result_fails`, `test_prior_and_current_periods`, `test_levels_versus_changes`, `test_relationship_failures_reach_the_approval_gates`, `test_claims_verified_by_previous_verifier_are_downgraded` |
+| R2 | two proposals in one session breach paper limits | two proposals into one $3,000 book: both bought ZZADD and ZZNEW, each issuer **19.994%** (limit 10%) | the second proposal (or the other variant) is refused as mutually exclusive, in either order; issuers 9.996%; same-proposal reruns still idempotent; execution state includes same-session fills valued at open-time prices (a $100 close is ignored for a $10 open fill); paper limits net of fees (a same-session holding of the other share class leaves $30 of issuer room, so nothing more is bought) | `test_two_proposals_in_one_session_cannot_breach_limits[both orders]`, `test_execution_state_includes_same_session_fills_at_open_time_prices`, `test_paper_book_limits_aggregate_share_classes_with_fees` |
+| R3 | sell executed in one book suppresses the other | ZZTRM TRIM: augmented sold (6.001 left), baseline **not executed** (100 left) | both books execute (6.001 left in each), neither twice; EXIT likewise; migration 0006 keeps existing rows and moves uniqueness to (recommendation, paper portfolio) | `test_sell_recommendation_executes_once_in_each_paper_book[TRIM/EXIT]`, `test_paper_execution_scope_migration_preserves_rows` |
+
+Found while testing R2 and fixed here: paper fees could push a paper-book weight slightly over its limit (10.02%), because
+limits were sized before fees reduced NAV. They are now sized against NAV net of the maximum fees.
+
+Not re-run: live data feeds, LLM calls, notification delivery, persistent scheduling. Passing tests establish software
+behaviour, not profitability. There is still no predictive-model training/validation pipeline or walk-forward backtest;
+that is a separate research-validation milestone.

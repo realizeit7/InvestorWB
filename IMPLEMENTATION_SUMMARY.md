@@ -119,3 +119,19 @@ Remaining limitations: the claim parser covers a fixed English metric vocabulary
 real issuers need `eqm sec sync` to populate the new debt concepts; paper TRIM/limit sizing uses the paper book valued at
 the previous close with the traded security at the fill price; episode grouping by (start date, codes) is a heuristic for
 shared causes; exposure-profile versions created before the repair keep their original verification snapshot.
+
+## Follow-up repair of af00fc1 (2026-10-01)
+
+Three remaining HIGH findings reproduced and fixed with 13 regression tests (suite 150 passed; details in
+[VALIDATION.md §6](VALIDATION.md)):
+
+| # | what changed |
+|---|---|
+| R1 | Claim numbers carry a role (current level, prior/comparison value, change); support needs same metric and role; a comparison value is a period's level only with its own stated period; self-contradictory from/to claims fail; unreadable roles stay SOURCE_MATCHED. Verifier `ev-3`; migration 0007 downgrades claims verified by `ev-2`. The certifiable claim format is documented in POLICY §10. |
+| R2 | Paper execution state includes all fills through the execution session at open-time prices; one allocation per paper book per session (code + trigger); paper limits sized net of fees. |
+| R3 | Paper sell identity is (recommendation, paper portfolio) — migration 0006 rebuilds `paper_execution` preserving rows — so augmented and baseline books both execute a TRIM/EXIT once. |
+
+Remaining limitations: claims outside the documented wording (and figures the source does not state, such as derived
+change amounts) are never VERIFIED and need a human; claims verified earlier must be re-created to be verified under
+ev-3; a second proposal for an already-executed session must wait for the next session or use another paper book; the
+paper-book valuation uses the previous close for untraded positions.
