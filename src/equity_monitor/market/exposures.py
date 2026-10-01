@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ..app import App
 from ..db.core import all_rows, insert, one
-from ..research.evidence import Citation, ClaimIn, verify_claim
+from ..research.evidence import VERIFIER_VERSION, Citation, ClaimIn, verify_claim
 from ..research.fundamentals import FactView, cash_total, debt_total
 from ..util import from_json, iso_utc, new_id, stable_hash, to_json
 from .series import REFERENCE_ETFS, SECTOR_ETFS
@@ -182,6 +182,74 @@ def draft_default_profile(app: App, security_id: str, as_of: datetime | None = N
                            notes="DRAFT generated from filings and sector heuristics; review every item before approval.")
 
 
+def _verify_exposures(app: App, profile: ExposureProfile, issuer_id: str | None, as_of: datetime) -> list[dict]:
+    out = []
+    for e in profile.exposures:
+        checks = [verify_claim(app, c, issuer_id, as_of) for c in e.evidence] if issuer_id else []
+        status = "ASSUMPTION" if e.basis == "ANALYST_ASSUMPTION" else \
+            "FAILED" if any(c.status == "FAILED" for c in checks) else \
+            "VERIFIED" if checks and all(c.status in ("VERIFIED", "NOT_REQUIRED") for c in checks) else \
+            "SOURCE_MATCHED" if any(c.status == "SOURCE_MATCHED" for c in checks) else "UNVERIFIED"
+        out.append({"factor": e.factor, "status": status, "verifier_version": VERIFIER_VERSION,
+                    "details": [d for c in checks for d in c.details]})
+    return out
+
+
+def _evidenced(ver: list[dict]) -> list[dict]:
+    return [v for v in ver if v["status"] != "ASSUMPTION"]
+
+
+def recheck_evidence(app: App, version_id: str, *, acknowledged: bool = False, reviewer: str | None = None,
+                     note: str | None = None) -> list[dict]:
+    """Re-verify a profile version's evidence under the CURRENT verifier (at the version's evidence cutoff) and record
+    the result as a new, append-only check row. The profile version itself is never modified."""
+    r = one(app.conn, "SELECT v.*, s.issuer_id FROM exposure_profile_version v JOIN security s ON s.id=v.security_id "
+                      "WHERE v.id=?", (version_id,))
+    prof = ExposureProfile.model_validate(from_json(r["content_json"]))
+    as_of = datetime.fromisoformat(r["evidence_as_of"].replace("Z", "+00:00"))
+    ver = _verify_exposures(app, prof, r["issuer_id"], as_of)
+    insert(app.conn, "exposure_evidence_check", {
+        "id": new_id("exc"), "exposure_version_id": version_id, "checked_at": app.now_iso(),
+        "verifier_version": VERIFIER_VERSION, "verification_json": to_json(ver), "acknowledged": int(acknowledged),
+        "reviewer": reviewer, "note": note})
+    return ver
+
+
+def evidence_status(app: App, version_id: str, as_of: str | None = None, *, recheck: bool = True) -> tuple[str, list[str]]:
+    """Whether an approved profile may support purchase eligibility at ``as_of``:
+    OK | FAILED | REVIEW_REQUIRED, with the factors concerned. The stored snapshot counts only if the current verifier
+    produced it; otherwise the latest current-verifier check at or before ``as_of`` is used, and (when ``recheck`` and
+    the decision is at the present time) a new check is run. Unresolved items need an acknowledged check whose statuses
+    equal the current ones."""
+    r = one(app.conn, "SELECT verification_json, created_at FROM exposure_profile_version WHERE id=?", (version_id,))
+    stored = from_json(r["verification_json"])
+    if not _evidenced(stored):
+        return "OK", []                                       # assumption-only profile: nothing to verify
+    cutoff = as_of or app.now_iso()
+    checks = all_rows(app.conn, "SELECT * FROM exposure_evidence_check WHERE exposure_version_id=? AND verifier_version=? "
+                                "AND checked_at<=? ORDER BY checked_at, rowid", (version_id, VERIFIER_VERSION, cutoff))
+    if all(v.get("verifier_version") == VERIFIER_VERSION for v in _evidenced(stored)) and r["created_at"] <= cutoff:
+        current = stored
+    elif checks:
+        current = from_json(checks[-1]["verification_json"])
+    elif recheck and cutoff >= app.now_iso():
+        current = recheck_evidence(app, version_id)
+    else:
+        return "REVIEW_REQUIRED", [f"{v['factor']}: evidence not checked by verifier {VERIFIER_VERSION}"
+                                   for v in _evidenced(stored)]
+    failed = [f"{v['factor']} [FAILED]" for v in current if v["status"] == "FAILED"]
+    if failed:
+        return "FAILED", failed
+    weak = {v["factor"]: v["status"] for v in current if v["status"] in ("SOURCE_MATCHED", "UNVERIFIED")}
+    if not weak:
+        return "OK", []
+    acked = [{v["factor"]: v["status"] for v in from_json(c["verification_json"]) if v["status"] != "ASSUMPTION"}
+             for c in checks if c["acknowledged"]]
+    if any(all(a.get(f) == st for f, st in weak.items()) for a in acked):
+        return "OK", []
+    return "REVIEW_REQUIRED", [f"{f} [{st}]" for f, st in weak.items()]
+
+
 def create_profile(app: App, security_id: str, profile: ExposureProfile, *, change_reason: str, author: str = "USER",
                    label: str = "ACTUAL", as_of: datetime | None = None) -> str:
     as_of = as_of or app.now()
@@ -190,15 +258,7 @@ def create_profile(app: App, security_id: str, profile: ExposureProfile, *, chan
                (security_id,))
     if prev and not change_reason.strip():
         raise ValueError("a change reason is required for every new exposure-profile version")
-    verification = []
-    for e in profile.exposures:
-        checks = [verify_claim(app, c, issuer_id, as_of) for c in e.evidence] if issuer_id else []
-        status = "ASSUMPTION" if e.basis == "ANALYST_ASSUMPTION" else \
-            "FAILED" if any(c.status == "FAILED" for c in checks) else \
-            "VERIFIED" if checks and all(c.status in ("VERIFIED", "NOT_REQUIRED") for c in checks) else \
-            "SOURCE_MATCHED" if any(c.status == "SOURCE_MATCHED" for c in checks) else "UNVERIFIED"
-        verification.append({"factor": e.factor, "status": status,
-                             "details": [d for c in checks for d in c.details]})
+    verification = _verify_exposures(app, profile, issuer_id, as_of)
     content = profile.model_dump(mode="json")
     vid = new_id("exv")
     insert(app.conn, "exposure_profile_version", {
@@ -213,10 +273,14 @@ def create_profile(app: App, security_id: str, profile: ExposureProfile, *, chan
 
 def approve_profile(app: App, version_id: str, approver: str = "owner", note: str = "",
                     acknowledge_unverified: bool = False) -> None:
-    """EVIDENCED exposures whose evidence FAILED block approval; ones only SOURCE_MATCHED/UNVERIFIED need
-    ``acknowledge_unverified=True`` (recorded in the note). ANALYST_ASSUMPTION exposures are labelled as such."""
-    r = one(app.conn, "SELECT verification_json FROM exposure_profile_version WHERE id=?", (version_id,))
-    ver = from_json(r["verification_json"]) if r else []
+    """Approve an exposure-profile version. Its evidence is first re-checked under the CURRENT verifier (the stored
+    snapshot may come from an older one). FAILED evidence blocks approval (create a corrected version); SOURCE_MATCHED /
+    UNVERIFIED evidence needs ``acknowledge_unverified=True``, recorded as an acknowledged check of those exact statuses.
+    Re-running on an already approved version records a fresh check/review; it never succeeds silently over FAILED or
+    unacknowledged evidence. ANALYST_ASSUMPTION exposures are labelled as such and need no evidence."""
+    stored = from_json(one(app.conn, "SELECT verification_json FROM exposure_profile_version WHERE id=?",
+                           (version_id,))["verification_json"])
+    ver = recheck_evidence(app, version_id) if _evidenced(stored) else stored
     failed = [v["factor"] for v in ver if v["status"] == "FAILED"]
     if failed:
         raise ValueError("exposure evidence failed verification for: " + ", ".join(failed) + "; create a corrected version")
@@ -225,6 +289,7 @@ def approve_profile(app: App, version_id: str, approver: str = "owner", note: st
         raise ValueError("exposure evidence is not substantively verified for: " + ", ".join(weak)
                          + "; review it, then pass acknowledge_unverified=True (CLI: --acknowledge-unverified)")
     if weak:
+        recheck_evidence(app, version_id, acknowledged=True, reviewer=approver, note=note or "acknowledged at approval")
         note = (note + " | " if note else "") + "acknowledged unverified evidence: " + ", ".join(weak)
     insert(app.conn, "exposure_approval", {"id": new_id("exa"), "exposure_version_id": version_id, "approved_at": app.now_iso(),
                                            "approver": approver, "note": note}, or_ignore=True)

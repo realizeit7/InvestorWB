@@ -25,7 +25,7 @@ from ..research.screening import ScreenInput, exclusion
 from ..research.thesis import current_version, latest_assessment, record_assessment
 from ..util import from_json, iso_utc, new_id, parse_utc, stable_hash, to_json
 from ..valuation.store import latest_valuation
-from ..market.exposures import current_profile
+from ..market.exposures import current_profile, evidence_status
 from ..market.impacts import analyze
 from ..market.snapshot import snapshot_as_of
 from .conditions import assess as assess_conditions, baseline as baseline_eligibility
@@ -182,7 +182,9 @@ def generate(app: App, portfolio_id: str, security_id: str, as_of: datetime | No
                       as_of=as_of, snapshot=snapshot, profile=profile, last_review_at=ctx["last_review"],
                       valuation=ctx["valuation"])
     cash_unrec = any(i["issue_type"] == "NEGATIVE_CASH" for i in ctx["view"].open_issues)
+    prof_ev = evidence_status(app, profile[0], iso_utc(as_of)) if profile else ("OK", [])
     cc = assess_conditions(inp, d, app.policy.portfolio, app.policy.market, impacts, has_profile=profile is not None,
+                           profile_evidence=prof_ev,
                            cash_unreconciled=cash_unrec, today=as_of.date())
     base_elig = baseline_eligibility(inp, d, app.policy.portfolio, cash_unrec, as_of.date())
     hashed = {k: v for k, v in asdict(inp).items() if k != "previous_action"}

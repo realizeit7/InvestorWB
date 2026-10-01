@@ -48,7 +48,7 @@ class CurrentConditions:
 
 
 def assess(inp: DecisionInputs, d: Decision, pp: PortfolioPolicy, mp: MarketPolicy, impacts, *, has_profile: bool,
-           cash_unreconciled: bool, today: date) -> CurrentConditions:
+           cash_unreconciled: bool, today: date, profile_evidence: tuple[str, list[str]] = ("OK", [])) -> CurrentConditions:
     blocks: list[str] = []
     if d.action in ("REVIEW", "TRIM", "EXIT"):
         blocks.append(f"long-term action is {d.action}")
@@ -82,6 +82,15 @@ def assess(inp: DecisionInputs, d: Decision, pp: PortfolioPolicy, mp: MarketPoli
                                 "economic/sector sensitivities are UNKNOWN without an approved exposure profile",
                                 "approve an exposure profile (`eqm exposure draft/approve`)",
                                 today + timedelta(days=mp.pause_reassess_days)))
+        elif has_profile and profile_evidence[0] != "OK" and mp.require_exposure_profile_for_purchase:
+            # an approval of evidence the current verifier rejects or has not resolved cannot support purchases
+            failed = profile_evidence[0] == "FAILED"
+            pauses.append(Pause("EXPOSURE_EVIDENCE_FAILED" if failed else "EXPOSURE_EVIDENCE_REVIEW_REQUIRED",
+                                "approved exposure profile evidence " + ("fails" if failed else "is unresolved under")
+                                + " the current verifier: " + "; ".join(profile_evidence[1]),
+                                "create a corrected exposure profile" if failed else
+                                "review the evidence and re-approve (`eqm exposure approve --version-id ... "
+                                "--acknowledge-unverified`)", today + timedelta(days=mp.pause_reassess_days)))
     eligibility = "BLOCKED" if blocks else ("PAUSED" if pauses else "ELIGIBLE")
     return CurrentConditions(eligibility, blocks, pauses, research, unknowns, ctx, n_dev, n_obs)
 

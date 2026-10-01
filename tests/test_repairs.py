@@ -1,10 +1,13 @@
 """Regression tests for the correctness-repair milestone (review of a2d0ef8). Each test fails on the defective
 behaviour it names."""
 
+import json
 from datetime import date, datetime, timezone
 from decimal import Decimal as Dec
 
 import pytest
+
+from equity_monitor.util import iso_utc
 
 from equity_monitor.config.models import ValuationDefaults
 from equity_monitor.data.securities import get_or_create_issuer
@@ -941,7 +944,7 @@ def test_paper_execution_scope_migration_preserves_rows(monkeypatch, tmp_path):
     from equity_monitor.util import Clock
     orig = core._migration_files
     # schema as of af00fc1 (+ the independent 0008 table that current code reads)
-    monkeypatch.setattr(core, "_migration_files", lambda: [f for f in orig() if f[0] < "0006" or f[0] == "0008_evidence_review.sql"])
+    monkeypatch.setattr(core, "_migration_files", lambda: [f for f in orig() if f[0] < "0006" or f[0] >= "0008"])
     app = memory_app(clock=Clock(AS_OF), home=tmp_path)
     d = build_demo(app)
     app.policy = Policy(status="FROZEN")
@@ -1143,3 +1146,92 @@ def test_legacy_ev3_claim_reverifies_on_reapproval(monkeypatch, tmp_path):
     assert app.conn.execute("SELECT verification FROM claim WHERE owner_id=?", (vid,)).fetchone()[0] == "VERIFIED"
     assert evidence_review_pending(app, vid) == []
     assert get(app, generate(app, d["portfolio_id"], sid))["action"] == "ADD"
+
+
+# ================================================================== review of a1a330d
+# ------------------------------------------------------------------ P1 exposure evidence re-checked under the current verifier
+def _legacy_profile(app, d, sym, claim_text, *, approve=True, src=UP_SRC, ver_status="VERIFIED"):
+    """Insert a profile version the way pre-repair code stored it: a verification snapshot with no verifier version."""
+    from equity_monitor.market.exposures import Exposure, current_profile
+    from equity_monitor.util import stable_hash, to_json
+    sid, iss = d["securities"][sym]["security_id"], d["securities"][sym]["issuer_id"]
+    pid = _doc(app, iss, src, doc_id=f"doc_exp_{sym}", public_at="2026-08-01T21:00:00.000000Z")
+    prev_id, prof, prev_ver = current_profile(app, sid)
+    prof = prof.with_exposure(Exposure(factor="CONSUMER_SPENDING", direction="POSITIVE", magnitude="LOW",
+                                       mechanism="demand-driven revenue", basis="EVIDENCED",
+                                       evidence=[ClaimIn(text=claim_text, claim_type="FACT",
+                                                         citations=[Citation(passage_id=pid, quote=src)])]))
+    ver = [{"factor": e.factor, "status": ("ASSUMPTION" if e.basis == "ANALYST_ASSUMPTION" else ver_status), "details": []}
+           for e in prof.exposures]
+    content = prof.model_dump(mode="json")
+    n = app.conn.execute("SELECT MAX(version_no) FROM exposure_profile_version WHERE security_id=?", (sid,)).fetchone()[0]
+    vid = f"exv_legacy_{sym}"
+    insert(app.conn, "exposure_profile_version", {
+        "id": vid, "security_id": sid, "version_no": n + 1, "prev_version_id": prev_id, "content_json": to_json(content),
+        "content_hash": stable_hash(content), "verification_json": to_json(ver), "change_reason": "legacy",
+        "author": "USER", "label": "FIXTURE", "evidence_as_of": app.now_iso(), "created_at": app.now_iso()})
+    if approve:
+        insert(app.conn, "exposure_approval", {"id": f"exa_legacy_{sym}", "exposure_version_id": vid,
+                                               "approved_at": app.now_iso(), "approver": "owner", "note": ""})
+    return sid, vid
+
+
+def test_obsolete_exposure_approval_cannot_support_purchases(app):
+    from equity_monitor.market.exposures import evidence_status
+    app.clock.set(AS_OF)
+    d = build_demo(app)
+    sid, vid = _legacy_profile(app, d, "ZZADD", "Revenue decreased to $4 billion in 2025.")
+    assert evidence_status(app, vid)[0] == "FAILED"                            # current verifier rejects the evidence
+    r = get(app, generate(app, d["portfolio_id"], sid, force=True))
+    assert r["exposure_version_id"] == vid
+    assert r["purchase_eligibility"] == "PAUSED"                                # was: ELIGIBLE on the stale snapshot
+    assert "EXPOSURE_EVIDENCE_FAILED" in [p["code"] for p in r["payload"]["current_conditions"]["pauses"]]
+    assert r["action"] == "ADD" and r["payload"]["proposed_trade"] is None      # long-term view unchanged; nothing sold
+    assert "ZZADD" not in {l.symbol for l in propose(app, d["portfolio_id"]).lines if l.amount > 0}
+    # history intact: the legacy snapshot and approval are unchanged, the re-check is a new row
+    assert json.loads(app.conn.execute("SELECT verification_json FROM exposure_profile_version WHERE id=?",
+                                       (vid,)).fetchone()[0])[-1]["status"] == "VERIFIED"
+    assert app.conn.execute("SELECT COUNT(*) FROM exposure_approval WHERE exposure_version_id=?", (vid,)).fetchone()[0] == 1
+    assert app.conn.execute("SELECT COUNT(*) FROM exposure_evidence_check WHERE exposure_version_id=?", (vid,)).fetchone()[0] >= 1
+    with pytest.raises(Exception):
+        app.conn.execute("DELETE FROM exposure_evidence_check")
+
+
+def test_legacy_exposure_approval_requires_correction_or_review(app):
+    from equity_monitor.market.exposures import approve_profile, evidence_status
+    app.clock.set(AS_OF)
+    d = build_demo(app)
+    _, failed_vid = _legacy_profile(app, d, "ZZADD", "Revenue decreased to $4 billion in 2025.", approve=False)
+    with pytest.raises(ValueError, match="failed verification"):               # was: approved on the stale snapshot
+        approve_profile(app, failed_vid)
+    sid, weak_vid = _legacy_profile(app, d, "ZZNEW", "Revenue in 2024 was $3 billion.")   # approved, unresolved
+    assert evidence_status(app, weak_vid)[0] == "REVIEW_REQUIRED"
+    r = get(app, generate(app, d["portfolio_id"], sid, force=True))
+    assert "EXPOSURE_EVIDENCE_REVIEW_REQUIRED" in [p["code"] for p in r["payload"]["current_conditions"]["pauses"]]
+    with pytest.raises(ValueError, match="not substantively verified"):
+        approve_profile(app, weak_vid)                                          # existing approval does not satisfy it
+    app.clock.set(AS_OF + timedelta(minutes=5))
+    approve_profile(app, weak_vid, acknowledge_unverified=True, note="checked the 2024 figure in the prior 10-K")
+    assert evidence_status(app, weak_vid) == ("OK", [])
+    assert evidence_status(app, weak_vid, iso_utc(AS_OF), recheck=False)[0] == "REVIEW_REQUIRED"   # point in time
+    assert get(app, generate(app, d["portfolio_id"], sid))["purchase_eligibility"] == "ELIGIBLE"
+
+
+def test_legacy_exposure_evidence_that_still_verifies_needs_no_human(app):
+    from equity_monitor.market.exposures import evidence_status
+    app.clock.set(AS_OF)
+    d = build_demo(app)
+    sid, vid = _legacy_profile(app, d, "ZZADD", "Revenue increased to $4 billion in 2025.")
+    assert evidence_status(app, vid) == ("OK", [])                              # automatic re-check under ev-4
+    assert get(app, generate(app, d["portfolio_id"], sid, force=True))["purchase_eligibility"] == "ELIGIBLE"
+    row = app.conn.execute("SELECT verifier_version, acknowledged FROM exposure_evidence_check WHERE exposure_version_id=?",
+                           (vid,)).fetchone()
+    assert tuple(row) == ("ev-4", 0)
+
+
+def test_new_profiles_record_their_verifier_version(app):
+    app.clock.set(AS_OF)
+    d = build_demo(app)
+    ver = json.loads(app.conn.execute("SELECT verification_json FROM exposure_profile_version v JOIN exposure_approval a "
+                                      "ON a.exposure_version_id=v.id LIMIT 1").fetchone()[0])
+    assert all(v["verifier_version"] == "ev-4" for v in ver)
