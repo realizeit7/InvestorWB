@@ -201,6 +201,7 @@ def performance(app: App, portfolio_id: str, start: date, end: date, benchmarks:
         "realized_gain": end_view.realized_gain, "unrealized_gain": unrealized, "dividends": end_view.dividends,
         "fees": end_view.fees, "turnover": (gross / avg_nav) if avg_nav else None, "trade_count": len(trades),
         "research_costs": costs, "unknown_cost_records": unknown_cost, "nav_reconciliation": recon, "benchmarks": bench,
+        "primary_benchmark": benchmarks[0] if benchmarks else None,
         "caveat": "A short live record cannot establish skill. No alpha claim is made.",
     }
 

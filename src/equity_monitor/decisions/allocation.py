@@ -37,7 +37,7 @@ from ..data.securities import security_ref
 from ..db.core import all_rows, insert, one
 from ..ledger.views import portfolio_view
 from ..util import dstr, from_json, iso_utc, new_id, parse_utc, to_json
-from .recommend import generate, get, is_preview
+from .recommend import generate, get, is_preview, require_company_scope
 
 ZERO = Decimal(0)
 
@@ -91,6 +91,7 @@ def _screen_score(app: App, security_id: str) -> Decimal | None:
 
 def propose(app: App, portfolio_id: str, *, as_of: datetime | None = None, hypothetical_contribution: Decimal | None = None,
             conditional_sale_proceeds: Decimal | None = None) -> Proposal:
+    require_company_scope(app, portfolio_id)
     as_of = as_of or app.now()
     if as_of > app.now():
         raise ValueError(f"allocation cutoff {iso_utc(as_of)} is in the future")

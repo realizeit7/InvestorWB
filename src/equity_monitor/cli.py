@@ -408,6 +408,16 @@ def cmd_alerts(args):
     elif args.action in ("useful", "not-useful"):
         from .monitoring.alerts import record_feedback
         record_feedback(app, args.alert_id, args.action == "useful", args.note)
+    elif args.action == "test":
+        from .monitoring.alerts import create_test_alert, enabled_channels
+        aid = create_test_alert(app)
+        print(f"test alert {aid} created in the local inbox")
+        if not enabled_channels(app):
+            print("external delivery is OFF (needs notifications.webhook_enabled + webhook_authorized + "
+                  f"{app.settings.notifications.webhook_url_env}); nothing was sent")
+            return
+        print("delivery result:", deliver_pending(app))
+        print("Check your device, then: eqm alerts ack " + aid + " --note received")
 
 
 def cmd_health(args):
@@ -595,6 +605,22 @@ def cmd_evaluate(args):
     _print(compare(app, _pf(app, args.portfolio)))
 
 
+def cmd_setup(args):
+    from .setup_check import setup_check
+    app = _app(args)
+    r = setup_check(app, args.settings)
+    if args.json:
+        _print(r)
+        return
+    print(f"InvestorWB setup check — data home {r['home']}")
+    for area in ("owner", "integration"):
+        print(f"\n{'Owner inputs' if area == 'owner' else 'Integrations'}:")
+        for i in r["items"]:
+            if i["area"] == area:
+                print(f"  [{i['status']:<7}] {i['item']}: {i['detail']}")
+    print(f"\n{r['missing']} item(s) MISSING. {r['note']}")
+
+
 def cmd_paper(args):
     from .evaluation.paper import paper_execute_allocation
     app = _app(args)
@@ -607,6 +633,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--home", default=os.environ.get("EQM_HOME", "var"), help="data directory (default ./var or $EQM_HOME)")
     p.add_argument("--policy", default=None, help="policy YAML (default config/policy.yaml if present)")
     p.add_argument("--settings", default=None, help="user settings YAML (default config/user.yaml if present)")
+    p.add_argument("--env-file", default=None, help="load KEY=VALUE lines into the environment first (existing variables "
+                                                     "win; values are never printed). The app never reads .env implicitly")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("init", help="create DB and copy example config").set_defaults(fn=cmd_init)
@@ -743,7 +771,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(fn=cmd_serve)
 
     s = sub.add_parser("alerts", help="local inbox and delivery")
-    s.add_argument("action", choices=["list", "show", "ack", "snooze", "deliver", "requeue", "useful", "not-useful"])
+    s.add_argument("action", choices=["list", "show", "ack", "snooze", "deliver", "requeue", "useful", "not-useful", "test"])
     s.add_argument("alert_id", nargs="?")
     s.add_argument("--days", type=int, default=7)
     s.add_argument("--note")
@@ -822,6 +850,11 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--variant", choices=["augmented", "baseline"], required=True)
     s.set_defaults(fn=cmd_paper)
 
+    s = sub.add_parser("setup", help="setup check: owner inputs, integrations, PREVIEW status (no secrets printed)")
+    s.add_argument("action", choices=["check"])
+    s.add_argument("--json", action="store_true")
+    s.set_defaults(fn=cmd_setup)
+
     s = sub.add_parser("policy", help="show or approve the decision policy")
     s.add_argument("action", choices=["show", "approve"])
     s.add_argument("--note")
@@ -830,6 +863,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    # load --env-file BEFORE building the parser so EQM_HOME etc. from the file apply to defaults
+    for i, a in enumerate(argv):
+        if a == "--env-file" and i + 1 < len(argv) or a.startswith("--env-file="):
+            from .envfile import load_env_file
+            load_env_file(argv[i + 1] if a == "--env-file" else a.split("=", 1)[1])
+            break
     args = build_parser().parse_args(argv)
     args.fn(args)
     return 0

@@ -115,3 +115,14 @@ def record_feedback(app: App, alert_id: str, useful: bool, note: str | None = No
     """Owner rates an alert's usefulness (for prospective alert-quality evaluation)."""
     insert(app.conn, "alert_feedback", {"id": new_id("afb"), "alert_id": alert_id, "useful": int(useful), "note": note,
                                         "at": app.now_iso()})
+
+
+def create_test_alert(app: App) -> str:
+    """An explicit, owner-initiated TEST alert (never generated automatically). It is delivered externally only if
+    webhook delivery is enabled AND authorized AND the URL variable is present — same rules as every alert."""
+    aid = create_alert(app, f"test:{new_id('t')}", "TEST", "InvestorWB test notification",
+                       "This is an owner-requested delivery test. No investment information is included. "
+                       "If you received this on your device, delivery works; confirm receipt with "
+                       "`eqm alerts ack <id> --note received`.", severity="INFO")
+    app.audit("alerts.test_created", "alert", aid, {})
+    return aid

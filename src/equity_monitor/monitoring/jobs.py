@@ -51,7 +51,14 @@ def _tracked(app: App, portfolio_ids: list[str]) -> list[str]:
     for p in portfolio_ids:
         sids |= {h.security_id for h in portfolio_view(app, p, cal.latest_completed_session(app.now())).holdings}
     sids |= {r["security_id"] for r in all_rows(app.conn, "SELECT security_id FROM watchlist_entry WHERE status IN ('APPROVED','RESEARCH')")}
+    from ..data.securities import register_security
+    for b in app.settings.benchmarks:                 # contribution-matched benchmarks need daily prices too
+        sids.add(register_security(app.conn, app.now_iso(), b, security_type="ETF"))
     return sorted(sids)
+
+
+def _research_portfolios(app: App, pids: list[str]) -> list[str]:
+    return [p for p in pids if rec_mod.company_research_scope(app, p)[0]]
 
 
 def daily_refresh(app: App, run_id: str, scheduled_for: datetime, ctx: JobContext | None = None) -> dict:
@@ -120,7 +127,7 @@ def daily_refresh(app: App, run_id: str, scheduled_for: datetime, ctx: JobContex
     failures += detail["market"].pop("failures")
     # 3. analyze: recommendations for every portfolio
     changed = []
-    for p in pids:
+    for p in _research_portfolios(app, pids):          # retirement portfolios: monitored, never company-reviewed
         before = {r["id"] for r in all_rows(app.conn, "SELECT id FROM recommendation WHERE portfolio_id=?", (p,))}
         changed += decision_change_events(app, p, rec_mod.review_portfolio(app, p), before, run_id)
     # 4. alerts
@@ -269,7 +276,7 @@ def monthly_allocation(app: App, run_id: str, scheduled_for: datetime, ctx: JobC
     ctx = ctx or JobContext()
     out = {}
     pids = _portfolios(app, ctx)
-    for p in pids:
+    for p in _research_portfolios(app, pids):
         before = {r["id"] for r in all_rows(app.conn, "SELECT id FROM recommendation WHERE portfolio_id=?", (p,))}
         prop = propose(app, p, as_of=app.now())
         # allocation re-validates every candidate; a changed decision it records is alerted like a daily change

@@ -169,9 +169,32 @@ def _changes(app: App, inp: DecisionInputs, d: Decision, ctx: dict, security_id:
     }
 
 
+class OutOfScope(ValueError):
+    """Individual-company recommendations are not produced for this portfolio (e.g. a 401(k))."""
+
+
+def company_research_scope(app: App, portfolio_id: str) -> tuple[bool, str]:
+    """InvestorWB researches the side account only. A portfolio holding any account whose tax status is listed in
+    ``no_company_research_tax_statuses`` (default TAX_DEFERRED, e.g. a 401(k)) is out of scope for company
+    recommendations and allocation; it can still be imported, reconciled and benchmarked."""
+    bad = all_rows(app.conn, "SELECT name, tax_status FROM account WHERE portfolio_id=?", (portfolio_id,))
+    hits = [f"{r['name']} ({r['tax_status']})" for r in bad if r["tax_status"] in app.settings.no_company_research_tax_statuses]
+    if hits:
+        return False, ("no individual-company recommendations for retirement accounts: " + ", ".join(hits)
+                       + " (InvestorWB researches the side account only)")
+    return True, ""
+
+
+def require_company_scope(app: App, portfolio_id: str) -> None:
+    ok, why = company_research_scope(app, portfolio_id)
+    if not ok:
+        raise OutOfScope(why)
+
+
 def generate(app: App, portfolio_id: str, security_id: str, as_of: datetime | None = None,
              view: PortfolioView | None = None, force: bool = False) -> str:
     """Create a recommendation (or return the previous id if nothing in the inputs changed)."""
+    require_company_scope(app, portfolio_id)
     as_of = as_of or app.now()
     inp, ctx = gather_inputs(app, portfolio_id, security_id, as_of, view)
     d = decide(inp, app.policy.recommendation, app.policy.portfolio)

@@ -192,7 +192,11 @@ class UserSettings(_Strict):
     llm: LLMSettings = LLMSettings()
     risk: RiskSettings = RiskSettings()
     active_portfolio: str | None = None
-    benchmarks: list[str] = Field(default_factory=lambda: ["SCHG", "VTI"])
+    # contribution-matched comparisons; the FIRST is primary (S&P 500 via SPY for the side account)
+    benchmarks: list[str] = Field(default_factory=lambda: ["SPY", "SCHG", "VTI"])
+    # tax statuses whose portfolios get NO individual-company recommendations or allocations (e.g. a 401(k));
+    # they can still be imported, reconciled and benchmarked
+    no_company_research_tax_statuses: list[str] = Field(default_factory=lambda: ["TAX_DEFERRED"])
 
 
 def load_policy(path: str | Path | None) -> Policy:

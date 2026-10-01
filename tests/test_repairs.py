@@ -1342,3 +1342,84 @@ def test_unknown_legacy_llm_cost_blocks_paid_calls(app):
     with pytest.raises(BudgetExceeded, match="UNKNOWN cost"):
         call(app, p, _req(), {})
     assert p.sent == 0
+
+
+# ================================================================== supervised-pilot readiness
+def test_retirement_portfolio_gets_no_company_recommendations(app):
+    from equity_monitor.decisions.recommend import OutOfScope, company_research_scope
+    app.clock.set(AS_OF)
+    d = build_demo(app)
+    k401 = create_portfolio(app, "401k", "ACTUAL")
+    create_account(app, k401, "plan", tax_status="TAX_DEFERRED")
+    sid = d["securities"]["ZZADD"]["security_id"]
+    assert company_research_scope(app, k401)[0] is False
+    with pytest.raises(OutOfScope, match="retirement"):
+        generate(app, k401, sid)
+    with pytest.raises(OutOfScope):
+        propose(app, k401)
+    assert company_research_scope(app, d["portfolio_id"]) == (True, "")        # the side account is in scope
+    from equity_monitor.data.prices import FixturePriceProvider
+    from equity_monitor.monitoring.jobs import JobContext, daily_refresh
+    prov = FixturePriceProvider({})
+    daily_refresh(app, None, app.now(), JobContext(price_provider=prov, refresh_market_series=False,
+                                                   portfolios=["401k", portfolio_name(app, d["portfolio_id"])]))
+    assert app.conn.execute("SELECT COUNT(*) FROM recommendation WHERE portfolio_id=?", (k401,)).fetchone()[0] == 0
+
+
+def portfolio_name(app, pid):
+    return app.conn.execute("SELECT name FROM portfolio WHERE id=?", (pid,)).fetchone()[0]
+
+
+def test_sp500_is_the_primary_contribution_matched_benchmark(app, bm):
+    from equity_monitor.config.models import UserSettings
+    assert UserSettings().benchmarks[0] == "SPY"
+    pf = bm("side", "2026-03-02,DEPOSIT,1000\n")
+    rep = performance(app, pf, date(2026, 3, 2), date(2026, 3, 6), benchmarks=["BM", "SPY_MISSING"])
+    assert rep["primary_benchmark"] == "BM" and "error" in rep["benchmarks"]["SPY_MISSING"]
+
+
+def test_setup_check_reports_presence_without_printing_secrets(app, monkeypatch, capsys):
+    from equity_monitor.cli import main
+    secret = "sk-ant-THIS-MUST-NOT-APPEAR-123"
+    monkeypatch.setenv("ANTHROPIC_API_KEY", secret)
+    monkeypatch.setenv("EQM_WEBHOOK_URL", "https://hooks.example.invalid/SECRET-PATH-456")
+    cfg = app.home / "user.yaml"
+    cfg.write_text("sec_user_agent: 'Test Owner owner@example.com'\nllm:\n  provider: anthropic\n"
+                   "notifications:\n  webhook_enabled: true\n  webhook_authorized: false\n")
+    main(["--home", str(app.home / "h"), "--settings", str(cfg), "setup", "check"])
+    out = capsys.readouterr().out
+    assert secret not in out and "SECRET-PATH" not in out and "owner@example.com" not in out
+    assert "ANTHROPIC_API_KEY: present" in out and "EQM_WEBHOOK_URL=present" in out
+    assert "[MISSING] LLM budget" in out and "[MISSING] monthly contribution" in out and "PREVIEW" in out
+
+
+def test_env_file_is_explicit_and_existing_variables_win(tmp_path, monkeypatch, capsys):
+    from equity_monitor.cli import main
+    from equity_monitor.envfile import load_env_file
+    f = tmp_path / "eqm.env"
+    f.write_text("# comment\nexport EQM_TEST_A='alpha value'\nEQM_TEST_B=\"beta\"\nEQM_HOME=" + str(tmp_path / "home") + "\n")
+    monkeypatch.setenv("EQM_TEST_B", "kept")
+    monkeypatch.delenv("EQM_TEST_A", raising=False)
+    monkeypatch.delenv("EQM_HOME", raising=False)
+    loaded = load_env_file(f)
+    import os
+    assert os.environ["EQM_TEST_A"] == "alpha value" and os.environ["EQM_TEST_B"] == "kept"
+    assert "EQM_TEST_B" not in loaded
+    monkeypatch.delenv("EQM_HOME", raising=False)
+    main(["--env-file", str(f), "setup", "check"])                        # EQM_HOME from the file sets the data home
+    out = capsys.readouterr().out
+    assert str(tmp_path / "home") in out and "alpha value" not in out
+    (tmp_path / "bad.env").write_text("NOT A VALID LINE with secret\n")
+    with pytest.raises(ValueError) as e:
+        load_env_file(tmp_path / "bad.env")
+    assert "secret" not in str(e.value)
+
+
+def test_alert_test_sends_nothing_without_authorization(app):
+    from equity_monitor.monitoring.alerts import create_test_alert
+    from equity_monitor.monitoring.delivery import deliver_pending
+    aid = create_test_alert(app)
+    assert app.conn.execute("SELECT kind FROM alert WHERE id=?", (aid,)).fetchone()[0] == "TEST"
+    assert app.conn.execute("SELECT COUNT(*) FROM delivery_outbox").fetchone()[0] == 0
+    deliver_pending(app)
+    assert app.conn.execute("SELECT COUNT(*) FROM delivery_attempt").fetchone()[0] == 0
