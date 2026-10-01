@@ -17,6 +17,7 @@ from ..db.core import all_rows, insert, one
 from ..research.evidence import ClaimIn, verify_claim
 from ..research.thesis import ThesisContent
 from ..util import dstr, iso_utc, new_id, stable_hash, to_json
+from . import budget
 from .base import FixtureLLM, LLMProvider, LLMRequest, LLMUnavailable, NoLLM
 
 SYSTEM_PROMPT = """You are a research assistant for a long-term fundamental investor.
@@ -63,19 +64,25 @@ def render_passages(passages: list[dict], max_chars: int = 60000) -> str:
 
 
 def month_spend(app: App) -> Decimal:
-    month = app.now().strftime("%Y-%m")
-    r = one(app.conn, "SELECT COALESCE(SUM(CAST(amount_usd AS REAL)),0) AS s FROM cost_record WHERE category='LLM' "
-                      "AND substr(occurred_at,1,7)=?", (month,))
-    return Decimal(str(r["s"]))
+    """Committed LLM spend this month: settled actuals + open worst-case reservations (+ legacy records)."""
+    return budget.committed(app)[0]
 
 
 def call(app: App, provider: LLMProvider, req: LLMRequest, redacted_inputs: dict) -> tuple[str, object | None]:
-    """Run one request, persist it, record cost. Returns (llm_call_id, raw parsed JSON or None)."""
-    budget = app.settings.llm.monthly_budget_usd
-    if budget is not None and month_spend(app) >= budget:
-        raise LLMUnavailable(f"monthly LLM budget ${budget} reached")
+    """Run one request, persist it, record cost. Returns (llm_call_id, raw parsed JSON or None).
+    Paid requests reserve their worst-case cost first and are refused if the budget cannot cover it (llm/budget.py)."""
+    reservation = budget.reserve(app, provider.name, provider.model, req)
     input_hash = stable_hash({"system": req.system, "user": req.user, "schema": req.json_schema})
-    resp = provider.complete(req)
+    try:
+        resp = provider.complete(req)
+    except LLMUnavailable:
+        if reservation:
+            budget.settle(app, reservation, None, None)
+        raise
+    except Exception:
+        if reservation:
+            budget.settle(app, reservation, None, None)
+        raise
     parsed, status, validation = None, resp.status, {}
     if resp.status == "OK":
         try:
@@ -84,6 +91,7 @@ def call(app: App, provider: LLMProvider, req: LLMRequest, redacted_inputs: dict
             status, validation = "INVALID", {"error": f"not JSON: {exc}"}
     cid = new_id("llm")
     cost = resp.cost_usd()
+    charged = budget.settle(app, reservation, resp, cid)
     insert(app.conn, "llm_call", {
         "id": cid, "provider": resp.provider, "model": resp.model, "prompt_version": req.prompt_version,
         "purpose": req.purpose, "input_hash": input_hash, "inputs_json": to_json(redacted_inputs),
@@ -93,7 +101,7 @@ def call(app: App, provider: LLMProvider, req: LLMRequest, redacted_inputs: dict
         "cost_usd": dstr(cost), "created_at": app.now_iso(),
     })
     insert(app.conn, "cost_record", {"id": new_id("cost"), "category": "LLM", "provider": resp.provider,
-                                     "amount_usd": dstr(cost), "estimated": 1,
+                                     "amount_usd": dstr(charged if reservation else cost), "estimated": 1,
                                      "units_json": to_json({"in": resp.input_tokens, "out": resp.output_tokens,
                                                             "model": resp.model}),
                                      "ref_id": cid, "occurred_at": app.now_iso()})

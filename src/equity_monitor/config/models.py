@@ -171,8 +171,10 @@ class LLMSettings(_Strict):
     model: str = "claude-opus-5-5"
     effort: Literal["low", "medium", "high", "xhigh", "max"] = "high"
     use_server_fallbacks: bool = True
-    monthly_budget_usd: Decimal | None = None
+    monthly_budget_usd: Decimal | None = None          # required for paid providers (no unlimited spending)
     max_output_tokens: int = 16000
+    price_input_per_mtok: Decimal | None = None        # explicit pricing for a model missing from the pricing table
+    price_output_per_mtok: Decimal | None = None
 
 
 class RiskSettings(_Strict):

@@ -66,7 +66,9 @@ holdings). Suggested: nightly cron `eqm backup create` + weekly copy elsewhere; 
 
 - SEC: `sec_user_agent: "Your Name you@example.com"` in `config/user.yaml` (not a secret, but personal).
 - LLM: `llm.provider: anthropic` + `uv sync --extra llm` + credentials the Anthropic SDK resolves (`ANTHROPIC_API_KEY`
-  or an `ant auth login` profile). Optional `llm.monthly_budget_usd` hard-stops spending.
+  or an `ant auth login` profile). `llm.monthly_budget_usd` is **required** for paid calls: each request reserves a
+  conservative worst-case cost before it is sent and is refused if that would exceed the budget (POLICY §12). It is
+  a pre-authorization limit, not a provider-enforced cap — also set a spending limit in the Anthropic console.
 - Webhook URL: environment variable only (`EQM_WEBHOOK_URL`), e.g. from a git-ignored `.env`.
 - `config/user.yaml`, `var/` and `.env` are git-ignored.
 

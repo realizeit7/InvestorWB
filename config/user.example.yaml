@@ -27,8 +27,10 @@ llm:
   model: claude-opus-5-5
   effort: high
   use_server_fallbacks: true    # server-side refusal fallback (beta header server-side-fallback-2026-07-01)
-  monthly_budget_usd: null      # hard stop for LLM spend when set
+  monthly_budget_usd: null      # REQUIRED for paid calls; worst-case reservation per request (not a provider-side cap)
   max_output_tokens: 16000
+  price_input_per_mtok: null    # only for a model missing from the pricing table (USD per million tokens)
+  price_output_per_mtok: null
 
 notifications:
   webhook_enabled: false        # external delivery stays OFF until you enable AND authorize it

@@ -1235,3 +1235,110 @@ def test_new_profiles_record_their_verifier_version(app):
     ver = json.loads(app.conn.execute("SELECT verification_json FROM exposure_profile_version v JOIN exposure_approval a "
                                       "ON a.exposure_version_id=v.id LIMIT 1").fetchone()[0])
     assert all(v["verifier_version"] == "ev-4" for v in ver)
+
+
+# ------------------------------------------------------------------ P2 conservative LLM spending control
+class _FakePaid:
+    """Credential-free stand-in for a paid provider; counts requests that actually reached it."""
+    name = "anthropic"
+
+    def __init__(self, model="claude-haiku-4-5", usage=(1000, 200), raise_exc=None):
+        self.model, self.usage, self.raise_exc, self.sent = model, usage, raise_exc, 0
+
+    def complete(self, req):
+        from equity_monitor.llm.base import LLMResponse
+        self.sent += 1
+        if self.raise_exc:
+            raise self.raise_exc
+        i, o = self.usage
+        return LLMResponse(self.name, self.model, '{"ok": true}', "OK", input_tokens=i, output_tokens=o)
+
+
+def _llm_app(app, **llm):
+    s = app.settings.llm.model_copy(update={"provider": "anthropic", "use_server_fallbacks": False, **llm})
+    app.settings = app.settings.model_copy(update={"llm": s})
+    return app
+
+
+def _req(max_out=1000, text="x" * 2000):
+    from equity_monitor.llm.base import LLMRequest
+    return LLMRequest("test", "v1", "system", text, {"type": "object"}, max_out)
+
+
+def test_unpriced_model_is_refused_before_sending(app):
+    from equity_monitor.llm.budget import BudgetExceeded
+    from equity_monitor.llm.service import call, month_spend
+    _llm_app(app, monthly_budget_usd=Dec("100"))
+    p = _FakePaid(model="claude-unknown-9")
+    for _ in range(3):
+        with pytest.raises(BudgetExceeded, match="no price"):                  # was: 3 calls sent, $0 counted
+            call(app, p, _req(), {})
+    assert p.sent == 0
+    _llm_app(app, monthly_budget_usd=Dec("100"), price_input_per_mtok=Dec("3"), price_output_per_mtok=Dec("15"))
+    call(app, p, _req(), {})                                                   # explicit pricing: allowed and counted
+    assert p.sent == 1 and month_spend(app) > 0
+
+
+def test_paid_calls_need_a_budget_and_a_worst_case_reservation(app):
+    from equity_monitor.llm.budget import BudgetExceeded, allowance
+    from equity_monitor.llm.service import call, month_spend
+    _llm_app(app, monthly_budget_usd=None)
+    p = _FakePaid(model="claude-opus-5-5")
+    with pytest.raises(BudgetExceeded, match="monthly_budget_usd"):
+        call(app, p, _req(), {})
+    _llm_app(app, monthly_budget_usd=Dec("0.01"))
+    worst, _ = allowance(app, "anthropic", "claude-opus-5-5", _req(max_out=16000))
+    assert worst > Dec("0.01")
+    with pytest.raises(BudgetExceeded, match="worst case"):                    # was: sent, estimated $0.24 later
+        call(app, p, _req(max_out=16000), {})
+    assert p.sent == 0 and month_spend(app) == 0
+
+
+def test_settlement_reconciles_actual_usage_and_keeps_unknowns_charged(app):
+    from equity_monitor.llm.budget import allowance
+    from equity_monitor.llm.service import call, month_spend
+    _llm_app(app, monthly_budget_usd=Dec("5"))
+    worst, _ = allowance(app, "anthropic", "claude-haiku-4-5", _req())
+    call(app, _FakePaid(usage=(1000, 200)), _req(), {})
+    actual = (Dec(1000) * 1 + Dec(200) * 5) / Dec(1_000_000)
+    assert month_spend(app) == actual < worst                                  # settled to actual usage
+    call(app, _FakePaid(usage=(None, None)), _req(), {})                       # usage unknown -> full reservation
+    assert month_spend(app) == actual + worst
+    with pytest.raises(RuntimeError):
+        call(app, _FakePaid(raise_exc=RuntimeError("network")), _req(), {})    # outcome unknown -> charged
+    assert month_spend(app) == actual + 2 * worst
+    assert app.conn.execute("SELECT COUNT(*) FROM llm_budget_entry WHERE kind='SETTLE'").fetchone()[0] == 3
+
+
+def test_fallbacks_reserve_the_most_expensive_model_twice(app):
+    from equity_monitor.llm.budget import allowance
+    _llm_app(app, monthly_budget_usd=Dec("5"))
+    plain, _ = allowance(app, "anthropic", "claude-haiku-4-5", _req())
+    _llm_app(app, monthly_budget_usd=Dec("5"), use_server_fallbacks=True)
+    fb, basis = allowance(app, "anthropic", "claude-haiku-4-5", _req())
+    assert fb >= plain * 2 * 10 and "fallback" in basis                        # haiku 1/5 vs highest 10/50
+
+
+def test_concurrent_processes_cannot_spend_the_same_remaining_budget(tmp_path):
+    from equity_monitor.app import open_app
+    from equity_monitor.llm.budget import BudgetExceeded, allowance, reserve
+    from equity_monitor.util import Clock
+    a1 = _llm_app(open_app(tmp_path, clock=Clock(AS_OF), policy_path=None, settings_path=None), monthly_budget_usd=Dec("1"))
+    a2 = _llm_app(open_app(tmp_path, clock=Clock(AS_OF), policy_path=None, settings_path=None), monthly_budget_usd=Dec("1"))
+    worst, _ = allowance(a1, "anthropic", "claude-opus-5-5", _req(max_out=30000))
+    assert Dec("0.5") < worst <= Dec("1")                                      # room for exactly one reservation
+    assert reserve(a1, "anthropic", "claude-opus-5-5", _req(max_out=30000))
+    with pytest.raises(BudgetExceeded, match="committed"):                     # second process sees the open reservation
+        reserve(a2, "anthropic", "claude-opus-5-5", _req(max_out=30000))
+
+
+def test_unknown_legacy_llm_cost_blocks_paid_calls(app):
+    from equity_monitor.llm.budget import BudgetExceeded
+    from equity_monitor.llm.service import call
+    _llm_app(app, monthly_budget_usd=Dec("100"))
+    insert(app.conn, "cost_record", {"id": "cost_legacy", "category": "LLM", "provider": "anthropic", "amount_usd": None,
+                                     "estimated": 1, "units_json": None, "ref_id": "llm_old", "occurred_at": app.now_iso()})
+    p = _FakePaid()
+    with pytest.raises(BudgetExceeded, match="UNKNOWN cost"):
+        call(app, p, _req(), {})
+    assert p.sent == 0

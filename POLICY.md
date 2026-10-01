@@ -312,7 +312,10 @@ silently: claims recorded by an older verifier are first re-verified under the c
 version's evidence cutoff); claims that now verify need nothing more, FAILED ones require a corrected version, and the
 rest require `--acknowledge-unverified`, which records a fresh review; the engine returns REVIEW (`THESIS_EVIDENCE_FAILED`) for an approved thesis
 with FAILED FACT claims; exposure-profile approval refuses FAILED evidence and requires acknowledgement for unverified
-evidence; external observations and news claims act only when VERIFIED. An LLM's opinion that a claim is supported is
+evidence — always re-checked under the current verifier first, and an approved profile whose evidence was checked by an
+older verifier is re-checked before it supports purchase eligibility (`EXPOSURE_EVIDENCE_FAILED` /
+`EXPOSURE_EVIDENCE_REVIEW_REQUIRED` pause purchases; nothing is sold; re-checks are append-only `exposure_evidence_check`
+rows); external observations and news claims act only when VERIFIED. An LLM's opinion that a claim is supported is
 recorded as a note and never raises a status (`with_llm_assessment`). Migration 0004 downgraded claims verified by the
 former quote/number matcher to SOURCE_MATCHED (`support_status = LEGACY`); migration 0007 did the same for claims verified
 by `ev-2`, which checked numbers independently of their roles, and migration 0008 for `ev-3`, which checked direction only
@@ -334,6 +337,19 @@ with missing components or an unreported item is labelled `ANALYST_JUDGMENT` (ne
 `eqm valuation approve` then requires `--accept-assumptions`, and the accepted flags are recorded. Screening treats an
 incomplete debt total as unknown (leverage metrics withheld).
 
+## 12. LLM spending control (`llm/budget.py`)
+
+Paid LLM calls (any provider other than `none`/`fixture`) are refused unless `llm.monthly_budget_usd` is set and the
+model's price is known (pricing table or explicit `llm.price_input_per_mtok` / `llm.price_output_per_mtok`). Before a
+request is sent, its worst-case cost is reserved in an exclusive SQLite transaction (concurrent processes cannot both use
+the same remaining budget): input tokens ≤ the request's UTF-8 bytes, output tokens ≤ `max_output_tokens` (which also
+caps thinking); with server-side fallbacks the highest known price is used and the amount doubled. The request is refused
+if committed spend (settled actuals + open reservations + legacy records) plus this reservation would exceed the budget,
+and while any earlier LLM cost this month is unknown. Afterwards the reservation is settled to the actual usage cost, or
+kept in full if usage/price is unknown or the call raised. Remaining overshoot risk: an outdated pricing table, charges
+outside token usage, or retries performed inside the SDK. This is a conservative pre-authorization limit, **not** a
+provider-enforced hard cap; also set a limit in the provider console.
+
 ## Change log
 
 - **2026-09-30 correctness repair** (review of a2d0ef8): §5 allocation re-validation at the cutoff and aggregate issuer
@@ -351,3 +367,6 @@ incomplete debt total as unknown (leverage metrics withheld).
   claims downgraded by migration 0008); approvals cover the evidence state they were given — downgraded or changed claims
   need a recorded evidence review (re-verified first) before the thesis supports new ADDs; never forces a sale. No
   threshold changed.
+- **2026-10-01 review of a1a330d**: §10 exposure-profile evidence is re-checked under the current verifier before
+  approval and before an approved profile supports purchase eligibility (pause, never a sale); §12 conservative LLM
+  spending control replaces the after-the-fact budget check. No threshold changed.
