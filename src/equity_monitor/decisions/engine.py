@@ -83,6 +83,8 @@ class DecisionInputs:
     position_value: Decimal | None
     unreviewed_critical_events: list[str] = field(default_factory=list)
     thesis_evidence_issues: list[str] = field(default_factory=list)   # FACT claims whose citation contradicts/fails them
+    thesis_evidence_review_pending: list[str] = field(default_factory=list)  # non-verified claims not reviewed in their
+    # current state (e.g. downgraded after approval): blocks new ADD only; never sells
     previous_action: str | None = None
 
 
@@ -245,6 +247,9 @@ def decide(inp: DecisionInputs, rp: RecommendationPolicy, pp: PortfolioPolicy) -
                             + (" (hysteresis exit band)" if inp.previous_action == "ADD" else ""))
     if rp.require_downside_review and not inp.downside_reviewed:
         add_blockers.append("downside scenario not reviewed")
+    if inp.thesis_evidence_review_pending:
+        add_blockers.append("thesis evidence needs a fresh review (`eqm thesis approve --acknowledge-unverified`): "
+                            + "; ".join(inp.thesis_evidence_review_pending[:3]))
     if inp.bear is None or inp.bear < inp.price * (1 - rp.max_bear_downside):
         add_blockers.append(f"bear-case downside exceeds {rp.max_bear_downside:.0%}")
     w = inp.position_weight or ZERO
@@ -283,7 +288,8 @@ def decide(inp: DecisionInputs, rp: RecommendationPolicy, pp: PortfolioPolicy) -
                              "note": "illustrative trim to half the target weight; owner decides size"})
 
     # ---------------- rule 6: HOLD
-    reasons = ["NO_ADD"] + (["NOT_HELD"] if not inp.held else [])
+    reasons = ["NO_ADD"] + (["NOT_HELD"] if not inp.held else []) + \
+        (["EVIDENCE_REVIEW_REQUIRED"] if inp.thesis_evidence_review_pending else [])
     return Decision(business, "HOLD", reasons,
                     ("Ownership remains reasonable but new money is not preferred: " if inp.held else
                      "Not an ADD candidate now: ") + "; ".join(add_blockers),

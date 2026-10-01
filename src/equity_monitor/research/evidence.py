@@ -33,7 +33,7 @@ from ..app import App
 from ..db.core import one
 from ..util import iso_utc
 
-VERIFIER_VERSION = "ev-3"
+VERIFIER_VERSION = "ev-4"
 VERIFIED, SOURCE_MATCHED, UNVERIFIED, FAILED, NOT_REQUIRED = "VERIFIED", "SOURCE_MATCHED", "UNVERIFIED", "FAILED", "NOT_REQUIRED"
 
 
@@ -327,6 +327,24 @@ def _same_metric(a: str | None, b: str | None) -> bool:
     return a is not None and b is not None and (a == b or b in METRIC_CONCEPTS.get(a, ()) or a in METRIC_CONCEPTS.get(b, ()))
 
 
+def _source_direction(c: Quantity, s: Quantity, sources: list[Quantity], tol: Decimal) -> tuple[str | None, str]:
+    """Direction the evidence supports for the claim's matched quantity: the source's own direction word, else the
+    comparison it states (a PRIOR value of the same metric, or a LEVEL of an earlier period, e.g. a cited prior-year
+    fact). Returns (UP|DOWN|None, basis)."""
+    if s.direction:
+        return s.direction, f"source says {s.direction}"
+    for o in sources:
+        if o is s or not _same_metric(c.metric, o.metric) or o.unit != s.unit or o.negated != s.negated:
+            continue
+        if s.role == "LEVEL" and (o.role == "PRIOR" or (o.role == "LEVEL" and o.year and s.year and o.year < s.year
+                                                         and (o.quarter or 0) == (s.quarter or 0))):
+            if not _close(s.value, o.value, tol):
+                return ("UP" if s.value > o.value else "DOWN"), f"source compares {o.value} -> {s.value}"
+        if s.role == "PRIOR" and o.role == "LEVEL" and not _close(s.value, o.value, tol):
+            return ("UP" if o.value > s.value else "DOWN"), f"source compares {s.value} -> {o.value}"
+    return None, "the cited evidence states no comparison for this figure"
+
+
 def _check(c: Quantity, sources: list[Quantity], tol: Decimal = TOL) -> tuple[str, str]:
     """Return (CONFIRMED|CONTRADICTED|UNSUPPORTED|UNCONFIRMED, reason) for one claim statement. A statement is
     confirmed only against a source statement with the same metric AND the same role (level / prior / change);
@@ -334,9 +352,17 @@ def _check(c: Quantity, sources: list[Quantity], tol: Decimal = TOL) -> tuple[st
     same_metric = [s for s in sources if _same_metric(c.metric, s.metric) and _units_compatible(c.unit, s.unit)]
     same_role = [s for s in same_metric if c.role is not None and s.role == c.role]
     for s in same_role:
-        if (_close(c.value, s.value, tol) and _periods(c, s) == "ok" and c.negated == s.negated
-                and (c.role != "CHANGE" or c.direction is None or c.direction == s.direction)):
-            return "CONFIRMED", f"'{c.token}' matches source '{s.token}' ({s.describe()})"
+        if _close(c.value, s.value, tol) and _periods(c, s) == "ok" and c.negated == s.negated:
+            if c.direction is None:
+                return "CONFIRMED", f"'{c.token}' matches source '{s.token}' ({s.describe()})"
+            # every asserted direction must be supported, whatever the role ("decreased TO $4 billion" included)
+            sd, basis = (s.direction, "source says " + str(s.direction)) if c.role == "CHANGE" else \
+                _source_direction(c, s, sources, tol)
+            if sd == c.direction:
+                return "CONFIRMED", f"'{c.token}' matches source '{s.token}' ({s.describe()}); direction {sd}: {basis}"
+            if sd is not None:
+                return "CONTRADICTED", f"direction: claim says {c.direction}, evidence says {sd} for {c.metric} ({basis})"
+            return "UNCONFIRMED", f"'{c.token}' matches, but its direction {c.direction} is not established: {basis}"
     for s in same_role:
         per = _periods(c, s)
         if per == "conflict" and _close(abs(c.value), abs(s.value), tol):

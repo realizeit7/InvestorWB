@@ -5,7 +5,7 @@ This report covers **software acceptance only**. Nothing here is evidence of inv
 
 ## 1. Automated tests
 
-`uv run pytest` → **99 passed, 0 failed** (≈11 s) at v1.0/v1.1; **137 passed, 0 failed** (≈13 s) after the §5 correctness repair; **150 passed, 0 failed** (≈23 s) after the §6 follow-up repair. The tests use synthetic fixtures and hand-computed expectations and
+`uv run pytest` → **99 passed, 0 failed** (≈11 s) at v1.0/v1.1; **137 passed, 0 failed** (≈13 s) after the §5 correctness repair; **150 passed, 0 failed** (≈23 s) after the §6 follow-up repair; **159 passed, 0 failed** (≈23 s) after the §7 repair. The tests use synthetic fixtures and hand-computed expectations and
 need no network, API key or paid inference.
 
 | spec §18 item | covered by (tests/…) |
@@ -163,3 +163,27 @@ limits were sized before fees reduced NAV. They are now sized against NAV net of
 Not re-run: live data feeds, LLM calls, notification delivery, persistent scheduling. Passing tests establish software
 behaviour, not profitability. There is still no predictive-model training/validation pipeline or walk-forward backtest;
 that is a separate research-validation milestone.
+
+## 7. Repair after the review of be46212 (2026-10-01)
+
+Both findings were reproduced on be46212 with `scripts/repro_review_be46212.py`, then covered by 9 new tests in
+`tests/test_repairs.py` (60 in that file). Full offline suite: **159 passed, 0 failed** (`uv run pytest`, no network or
+credentials). The 8 tests for P1a/P1b were run against be46212: **7 fail there** — 5 on behaviour (`VERIFIED` instead of
+FAILED/SOURCE_MATCHED, `ADD` instead of HOLD) and 2 because they import the new review functions; the 8th
+(`test_correct_and_direction_neutral_levels_still_verify`) passes on both by design, guarding against over-correction.
+The 9th covers re-verification of ev-3 claims. All 51 earlier repair tests still pass.
+
+| # | finding | before (be46212) | after | tests |
+|---|---|---|---|---|
+| P1a | contradictory direction on a level verified | source "Revenue increased from $3 billion to $4 billion in 2025": "Revenue **decreased** to $4 billion in 2025" VERIFIED; source "…decreased from $5 billion to $4 billion…": "Revenue **increased** to $4 billion" VERIFIED | both FAILED (direction contradicted by the stated comparison); "increased to $4 billion" and "was $4 billion" still VERIFIED; a direction with no comparison in the evidence is SOURCE_MATCHED; with XBRL facts, citing only the 2025 fact leaves "increased to" SOURCE_MATCHED, citing 2024 and 2025 verifies it, "decreased to" FAILS | `test_level_with_contradictory_direction_fails`, `test_correct_and_direction_neutral_levels_still_verify`, `test_direction_without_comparison_evidence_is_not_verified`, `test_direction_from_cited_prior_period_fact` |
+| P1b | downgraded evidence keeps its approval effective | legacy thesis with a swapped claim stored as ev-2 VERIFIED, approved; after migration 0007 the claim is SOURCE_MATCHED/LEGACY but the new recommendation is **ADD/ELIGIBLE** and `approve_version()` returns silently | new recommendation HOLD with `EVIDENCE_REVIEW_REQUIRED` (held position not sold, no trade proposed); allocation excludes it in both variants; re-approval re-verifies the claim under ev-4 → FAILED → `ThesisEvidenceError`, engine REVIEW (`THESIS_EVIDENCE_FAILED`), no review can be recorded; a legacy claim that is only SOURCE_MATCHED under ev-4 needs `--acknowledge-unverified`, which records a review against its current status (point in time; a later status change re-opens it) and restores ADD; a corrected, VERIFIED, newly approved version restores ADD and allocation; the old approval (empty note) and the old ADD recommendation remain unchanged | `test_downgraded_evidence_blocks_new_adds_without_selling`, `test_existing_approval_cannot_silently_satisfy_the_review`, `test_acknowledged_review_is_recorded_against_current_status`, `test_corrected_verified_thesis_restores_eligibility`, `test_legacy_ev3_claim_reverifies_on_reapproval`, `test_claims_verified_by_previous_verifier_are_downgraded` (updated for 0008) |
+
+Reproduction output after the repair:
+`[P1a] decreased-to vs increased source: FAILED; increased-to vs decreased source: FAILED; increased-to: VERIFIED; was: VERIFIED`
+`[P1b] claim SOURCE_MATCHED/LEGACY; approval still on record; new recommendation HOLD; approving again: ThesisEvidenceError`.
+
+Limits: the evidence-review gate covers thesis claims; exposure-profile versions keep the verification snapshot recorded
+at their creation (exposure evidence affects purchase eligibility, not the ADD action, and approval still refuses FAILED
+evidence). Claims are re-verified only when a version is re-approved or reviewed, not automatically. Not re-run: live
+feeds, LLM calls, notification delivery, scheduling. Passing tests establish software behaviour, not investment
+performance; no predictive model or walk-forward backtest exists in this repository.

@@ -62,9 +62,11 @@ it is `VERIFIED` only when every quantitative statement in it matches the cited 
 scale, unit, sign, direction and period and it contains no other free-text assertion (POLICY §10). Contradictions and
 numbers absent from the evidence are `FAILED`. Each number also has a role — current level, prior/comparison value or
 change — read from the words before it; it must match a source number with the same role, so swapped from/to values or a
-comparison value presented as the current result are not support (verifier `ev-3`). The parser covers a fixed vocabulary of financial metrics in English; any
+comparison value presented as the current result are not support; a direction ("decreased to …") must be backed by
+the source's own wording or a comparison it states (verifier `ev-4`). The parser covers a fixed vocabulary of financial metrics in English; any
 other phrasing, causal language or qualitative statements remain `SOURCE_MATCHED` (review required). Claims recorded
-before these rules (verifiers `legacy-1` and `ev-2`) were downgraded from VERIFIED to SOURCE_MATCHED; exposure-profile versions are
+before these rules (verifiers `legacy-1`, `ev-2` and `ev-3`) were downgraded from VERIFIED to SOURCE_MATCHED, and an approved thesis
+with downgraded claims supports new ADDs only after re-approval re-verifies them or a recorded evidence review; exposure-profile versions are
 immutable and keep the verification snapshot recorded at their creation.
 
 ## Freshness and quality gates

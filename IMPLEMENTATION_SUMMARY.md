@@ -135,3 +135,14 @@ Remaining limitations: claims outside the documented wording (and figures the so
 change amounts) are never VERIFIED and need a human; claims verified earlier must be re-created to be verified under
 ev-3; a second proposal for an already-executed session must wait for the next session or use another paper book; the
 paper-book valuation uses the previous close for untraded positions.
+
+## Repair after the review of be46212 (2026-10-01)
+
+| # | what changed |
+|---|---|
+| P1a | A direction asserted on any figure ("decreased to $4 billion") must be supported by the source's wording or a comparison it states (prior value, cited earlier-period fact); contradictions FAIL, missing comparisons stay SOURCE_MATCHED. Verifier `ev-4`. |
+| P1b | Approvals cover the evidence state they were given: non-verified FACT claims need an explicit, append-only evidence review of their current status (`thesis_evidence_review`, migration 0008) before the thesis supports new ADDs or allocations. Re-approval re-verifies claims from older verifiers first; FAILED claims need a corrected version. Pending reviews block ADD only (HOLD, `EVIDENCE_REVIEW_REQUIRED`) — never a sale. Migration 0008 also downgrades ev-3 VERIFIED claims. |
+
+Tests: 9 new (suite 159 passed). Details and before/after: [VALIDATION.md §7](VALIDATION.md). Remaining limitations: exposure
+profiles keep their creation-time verification snapshot; re-verification runs on re-approval/review, not automatically;
+the certifiable claim wording remains narrow (POLICY §10).

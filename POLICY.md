@@ -71,6 +71,8 @@ An LLM assessment can never verify an invalidation; it becomes AMBIGUOUS ⇒ REV
    `max_price_age_sessions` (1) completed sessions; filings not checked within `max_filing_check_age_hours` (36) or last
    check failed; latest financial period older than `max_financials_age_days` (200); no approved thesis; an approved
    thesis with a FACT claim that FAILED verification (`THESIS_EVIDENCE_FAILED`, §10); no valuation;
+   (an approved thesis whose non-verified claims lack a review of their current status only blocks ADD —
+   `EVIDENCE_REVIEW_REQUIRED`, §10 — it does not force REVIEW);
    valuation not approved; valuation older than `max_valuation_age_days` (400); financial statements published after the
    valuation's evidence cutoff; base value not meaningful; METRIC condition unevaluable; ambiguous/unverified invalidation;
    unreviewed verified CRITICAL event (e.g. 8-K items 1.03, 2.04, 3.01, 4.02, 5.01). Verified invalidations and limit
@@ -285,7 +287,10 @@ A statement is supported only by a source statement with the same metric **and t
 period, and direction for changes). A PRIOR value counts as the LEVEL of a period only when the source states that
 period right after it ("from $3.75 billion in fiscal 2024"); otherwise its period is unknown and it is never treated as
 the current result. A claim whose own from/to values contradict its direction ("increased from $4 billion to $3
-billion") FAILS. Numbers whose role cannot be read, and figures the source does not state (e.g. a change amount derived
+billion") FAILS. **Every asserted direction must be supported, whatever the role** (verifier `ev-4`): "decreased to $4
+billion" needs evidence that the metric fell — the source's own direction word, or a comparison it states (a from/prior
+value, or a cited earlier-period figure such as last year's XBRL fact). An opposite direction FAILS; no comparison in the
+cited evidence leaves the claim SOURCE_MATCHED. Direction-neutral levels ("was $4 billion") need no comparison. Numbers whose role cannot be read, and figures the source does not state (e.g. a change amount derived
 by subtraction), are never VERIFIED. Only this narrow format can be certified; any other prose stays SOURCE_MATCHED.
 
 | status | meaning | can drive decisions |
@@ -297,12 +302,21 @@ by subtraction), are never VERIFIED. Only this narrow format can be certified; a
 | `NOT_REQUIRED` | ASSUMPTION / OPINION (labelled, never verified) | — |
 
 Gates: thesis approval refuses FACT claims that FAILED and requires `--acknowledge-unverified` for SOURCE_MATCHED /
-UNVERIFIED ones (recorded in the approval note); the engine returns REVIEW (`THESIS_EVIDENCE_FAILED`) for an approved thesis
+UNVERIFIED ones; the acknowledgement is stored as an **evidence review** (`thesis_evidence_review`, append-only) listing
+each claim with the exact status it had. An approval supports new ADDs only while every non-VERIFIED FACT claim of the
+version is covered by a review of its *current* status (point in time: reviews at or before the decision). When a claim
+is downgraded after approval (migrations 0004/0007/0008) or otherwise changes status, the approval stays on record but
+the engine withholds ADD (HOLD, reason `EVIDENCE_REVIEW_REQUIRED`); TRIM/EXIT rules are unaffected and nothing is sold
+because a review is pending. Re-running `eqm thesis approve --version-id …` on an approved version never succeeds
+silently: claims recorded by an older verifier are first re-verified under the current one (stored citations, the
+version's evidence cutoff); claims that now verify need nothing more, FAILED ones require a corrected version, and the
+rest require `--acknowledge-unverified`, which records a fresh review; the engine returns REVIEW (`THESIS_EVIDENCE_FAILED`) for an approved thesis
 with FAILED FACT claims; exposure-profile approval refuses FAILED evidence and requires acknowledgement for unverified
 evidence; external observations and news claims act only when VERIFIED. An LLM's opinion that a claim is supported is
 recorded as a note and never raises a status (`with_llm_assessment`). Migration 0004 downgraded claims verified by the
 former quote/number matcher to SOURCE_MATCHED (`support_status = LEGACY`); migration 0007 did the same for claims verified
-by `ev-2`, which checked numbers independently of their roles.
+by `ev-2`, which checked numbers independently of their roles, and migration 0008 for `ev-3`, which checked direction only
+on change figures.
 
 Limits: the parser uses a fixed metric vocabulary (revenue, operating/net income, cash flow, capex, debt concepts, cash,
 margins, EPS, shares, equity, assets); other phrasing stays SOURCE_MATCHED. It does not understand causal or comparative
@@ -333,3 +347,7 @@ incomplete debt total as unknown (leverage metrics withheld).
 - **2026-10-01 follow-up repair** (review of af00fc1): §10 quantity roles and the certifiable claim format (verifier
   ev-3; ev-2 VERIFIED claims downgraded); §7 paper execution state includes same-session fills at open-time prices, one
   allocation per paper book per session, paper limits net of fees, sell identity per paper portfolio. No threshold changed.
+- **2026-10-01 review of be46212**: §10 direction asserted on any figure must be supported (verifier ev-4; ev-3 VERIFIED
+  claims downgraded by migration 0008); approvals cover the evidence state they were given — downgraded or changed claims
+  need a recorded evidence review (re-verified first) before the thesis supports new ADDs; never forces a sale. No
+  threshold changed.

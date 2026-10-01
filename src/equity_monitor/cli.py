@@ -704,7 +704,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--condition-id")
     s.add_argument("--state", choices=["TRIGGERED", "NOT_TRIGGERED", "AMBIGUOUS"])
     s.add_argument("--acknowledge-unverified", action="store_true",
-                   help="approve although some FACT claims are only SOURCE_MATCHED/UNVERIFIED (listed by `thesis show`)")
+                   help="approve (or re-review an already approved version) although some FACT claims are only "
+                        "SOURCE_MATCHED/UNVERIFIED; records an evidence review against their current status")
     s.set_defaults(fn=cmd_thesis)
 
     s = sub.add_parser("watchlist", help="set watchlist status")

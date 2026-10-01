@@ -158,24 +158,99 @@ class ThesisEvidenceError(ValueError):
     """A thesis cannot be approved while its FACT claims fail or are not substantively verified (unless acknowledged)."""
 
 
+def _fact_claims(app: App, version_id: str) -> list:
+    return all_rows(app.conn, "SELECT id, text, verification, support_status, verifier_version FROM claim "
+                              "WHERE owner_type='THESIS_VERSION' AND owner_id=? AND claim_type='FACT' ORDER BY rowid",
+                    (version_id,))
+
+
+def reverify_claims(app: App, version_id: str) -> list[str]:
+    """Re-run the current verifier on FACT claims recorded by an older verifier version, using their stored citations
+    and the version's evidence cutoff. The claim row's status is updated (the thesis content itself is immutable);
+    returns the ids changed. Called before any evidence review or re-approval, so a review always sees the current
+    verdict — a claim the current rules reject becomes FAILED and needs a corrected version."""
+    from .evidence import Citation
+    v = one(app.conn, "SELECT v.evidence_as_of, s.issuer_id FROM thesis_version v JOIN thesis t ON t.id=v.thesis_id "
+                      "JOIN security s ON s.id=t.security_id WHERE v.id=?", (version_id,))
+    changed = []
+    for c in all_rows(app.conn, "SELECT * FROM claim WHERE owner_type='THESIS_VERSION' AND owner_id=? AND claim_type='FACT' "
+                                "AND COALESCE(verifier_version,'') <> ?", (version_id, VERIFIER_VERSION)):
+        links = all_rows(app.conn, "SELECT passage_id, fact_id, quote FROM evidence_link WHERE claim_id=?", (c["id"],))
+        cits = [Citation(passage_id=l["passage_id"], fact_id=l["fact_id"],
+                         quote=l["quote"] if l["passage_id"] else None) for l in links if l["passage_id"] or l["fact_id"]]
+        if len(cits) != len(links):
+            continue        # unresolved references stay as recorded (they were FAILED at creation)
+        res = verify_claim(app, ClaimIn(text=c["text"], claim_type="FACT", citations=cits), v["issuer_id"],
+                           datetime.fromisoformat(v["evidence_as_of"].replace("Z", "+00:00")))
+        app.conn.execute("UPDATE claim SET verification=?, citation_status=?, support_status=?, verifier_version=?, "
+                         "verification_detail=? WHERE id=?",
+                         (res.status, res.citation_status, res.support_status, VERIFIER_VERSION,
+                          f"re-verified under {VERIFIER_VERSION} (was {c['verification']}/{c['verifier_version']}): "
+                          + "; ".join(res.details), c["id"]))
+        app.conn.execute("UPDATE evidence_link SET verified=? WHERE claim_id=?", (int(res.status == "VERIFIED"), c["id"]))
+        changed.append(c["id"])
+    if changed:
+        app.audit("thesis.claims_reverified", "thesis_version", version_id, {"claims": changed, "verifier": VERIFIER_VERSION})
+    return changed
+
+
+def evidence_review_pending(app: App, version_id: str, as_of: str | None = None) -> list[str]:
+    """FACT claims (not FAILED, not VERIFIED) that have no explicit evidence review recorded against their CURRENT
+    status at or before ``as_of``. An approval made while a claim had another status (e.g. VERIFIED before a
+    downgrade) does not cover it. Empty list => the thesis may support new ADDs."""
+    reviews = all_rows(app.conn, "SELECT claims_json FROM thesis_evidence_review WHERE thesis_version_id=?"
+                       + (" AND reviewed_at<=?" if as_of else ""), (version_id, as_of) if as_of else (version_id,))
+    covered = {(c["claim_id"], c["verification"], c.get("support_status"), c.get("verifier_version"))
+               for r in reviews for c in from_json(r["claims_json"])}
+    return [f"[{c['verification']}/{c['support_status'] or '-'}] {c['text'][:120]}" for c in _fact_claims(app, version_id)
+            if c["verification"] in ("SOURCE_MATCHED", "UNVERIFIED")
+            and (c["id"], c["verification"], c["support_status"], c["verifier_version"]) not in covered]
+
+
+def review_evidence(app: App, version_id: str, *, reviewer: str = "owner", note: str = "") -> str:
+    """Record an explicit review of a thesis version's non-verified FACT claims against their current statuses.
+    FAILED claims cannot be reviewed away: create a corrected version. Claims from an older verifier are re-verified
+    first."""
+    reverify_claims(app, version_id)
+    claims = _fact_claims(app, version_id)
+    failed = [c["text"] for c in claims if c["verification"] == "FAILED"]
+    if failed:
+        raise ThesisEvidenceError("FACT claims failed verification; create a corrected version: " + " | ".join(failed))
+    weak = [c for c in claims if c["verification"] in ("SOURCE_MATCHED", "UNVERIFIED")]
+    rid = new_id("ter")
+    insert(app.conn, "thesis_evidence_review", {
+        "id": rid, "thesis_version_id": version_id, "reviewed_at": app.now_iso(), "reviewer": reviewer, "note": note,
+        "claims_json": to_json([{"claim_id": c["id"], "verification": c["verification"], "support_status": c["support_status"],
+                                 "verifier_version": c["verifier_version"], "text": c["text"]} for c in weak])})
+    app.audit("thesis.evidence_reviewed", "thesis_version", version_id, {"claims": len(weak), "note": note})
+    return rid
+
+
 def approve_version(app: App, version_id: str, approver: str = "owner", note: str = "",
                     acknowledge_unverified: bool = False) -> None:
     """Approve a thesis version. FACT claims that FAILED (broken citation, contradicted or unsupported) block approval:
     correct them in a new version. FACT claims that are only SOURCE_MATCHED (citation intact, content not checked) or
-    UNVERIFIED need ``acknowledge_unverified=True``; the acknowledged claims are recorded in the approval note."""
-    if one(app.conn, "SELECT 1 FROM thesis_approval WHERE thesis_version_id=?", (version_id,)):
-        return
-    claims = all_rows(app.conn, "SELECT text, verification FROM claim WHERE owner_type='THESIS_VERSION' AND owner_id=? "
-                                "AND claim_type='FACT'", (version_id,))
+    UNVERIFIED need ``acknowledge_unverified=True``; the acknowledgement is recorded as an evidence review against the
+    claims' current statuses. If the version is already approved but its evidence changed since (e.g. a downgrade),
+    calling this again does not silently succeed: claims from an older verifier are re-verified, FAILED ones block,
+    and the rest require the acknowledgement, which records a fresh review."""
+    reverify_claims(app, version_id)
+    claims = _fact_claims(app, version_id)
     failed = [c["text"] for c in claims if c["verification"] == "FAILED"]
     if failed:
         raise ThesisEvidenceError("FACT claims failed verification; create a corrected version: " + " | ".join(failed))
-    weak = [f"[{c['verification']}] {c['text']}" for c in claims if c["verification"] in ("SOURCE_MATCHED", "UNVERIFIED")]
-    if weak and not acknowledge_unverified:
+    pending = evidence_review_pending(app, version_id)
+    if pending and not acknowledge_unverified:
         raise ThesisEvidenceError("FACT claims are not substantively verified (review them, then pass "
-                                  "acknowledge_unverified=True / --acknowledge-unverified): " + " | ".join(weak))
-    if weak:
-        note = (note + " | " if note else "") + "acknowledged unverified claims: " + " | ".join(weak)
+                                  "acknowledge_unverified=True / --acknowledge-unverified): " + " | ".join(pending))
+    already = one(app.conn, "SELECT 1 FROM thesis_approval WHERE thesis_version_id=?", (version_id,))
+    if pending:
+        review_evidence(app, version_id, reviewer=approver,
+                        note=("re-review of an approved version: " if already else "") + (note or "acknowledged at approval"))
+    if already:
+        return
+    if pending:
+        note = (note + " | " if note else "") + "acknowledged unverified claims: " + " | ".join(pending)
     insert(app.conn, "thesis_approval", {"id": new_id("tap"), "thesis_version_id": version_id,
                                          "approved_at": app.now_iso(), "approver": approver, "note": note})
     app.audit("thesis.approved", "thesis_version", version_id, {"note": note})

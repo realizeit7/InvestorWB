@@ -940,8 +940,9 @@ def test_paper_execution_scope_migration_preserves_rows(monkeypatch, tmp_path):
     from equity_monitor.db import core
     from equity_monitor.util import Clock
     orig = core._migration_files
-    monkeypatch.setattr(core, "_migration_files", lambda: [f for f in orig() if f[0] < "0006"])
-    app = memory_app(clock=Clock(AS_OF), home=tmp_path)                       # schema as of af00fc1
+    # schema as of af00fc1 (+ the independent 0008 table that current code reads)
+    monkeypatch.setattr(core, "_migration_files", lambda: [f for f in orig() if f[0] < "0006" or f[0] == "0008_evidence_review.sql"])
+    app = memory_app(clock=Clock(AS_OF), home=tmp_path)
     d = build_demo(app)
     app.policy = Policy(status="FROZEN")
     sid = d["securities"]["ZZTRM"]["security_id"]
@@ -966,7 +967,8 @@ def test_claims_verified_by_previous_verifier_are_downgraded(monkeypatch, tmp_pa
     orig = core._migration_files
     monkeypatch.setattr(core, "_migration_files", lambda: [f for f in orig() if f[0] < "0007"])
     app = memory_app(clock=Clock(AS_OF), home=tmp_path)
-    for cid, ver, vv in (("c_ev2", "VERIFIED", "ev-2"), ("c_ev3", "VERIFIED", "ev-3"), ("c_fail", "FAILED", "ev-2")):
+    for cid, ver, vv in (("c_ev2", "VERIFIED", "ev-2"), ("c_ev3", "VERIFIED", "ev-3"), ("c_ev4", "VERIFIED", "ev-4"),
+                         ("c_fail", "FAILED", "ev-2")):
         insert(app.conn, "claim", {"id": cid, "owner_type": "THESIS_VERSION", "owner_id": "v", "text": "t",
                                    "claim_type": "FACT", "verification": ver, "verification_detail": None,
                                    "citation_status": "SOURCE_MATCHED", "support_status": "CONFIRMED" if ver == "VERIFIED" else "CONTRADICTED",
@@ -974,5 +976,170 @@ def test_claims_verified_by_previous_verifier_are_downgraded(monkeypatch, tmp_pa
     monkeypatch.setattr(core, "_migration_files", orig)
     core.migrate(app.conn)
     got = {r[0]: (r[1], r[2]) for r in app.conn.execute("SELECT id, verification, support_status FROM claim")}
-    assert got == {"c_ev2": ("SOURCE_MATCHED", "LEGACY"), "c_ev3": ("VERIFIED", "CONFIRMED"),
-                   "c_fail": ("FAILED", "CONTRADICTED")}
+    assert got == {"c_ev2": ("SOURCE_MATCHED", "LEGACY"), "c_ev3": ("SOURCE_MATCHED", "LEGACY"),   # 0007 and 0008
+                   "c_ev4": ("VERIFIED", "CONFIRMED"), "c_fail": ("FAILED", "CONTRADICTED")}
+
+
+# ================================================================== review of be46212
+# ------------------------------------------------------------------ P1a direction attached to a level
+UP_SRC = "Revenue increased from $3 billion to $4 billion in 2025."
+DOWN_SRC = "Revenue decreased from $5 billion to $4 billion in 2025."
+FLAT_SRC = "Revenue was $4 billion in 2025."
+
+
+@pytest.fixture
+def dirs(app):
+    iss = get_or_create_issuer(app.conn, app.now_iso(), name="DirCo", cik="950")
+    return iss, {t: (_doc(app, iss, t, doc_id=f"doc_dir{i}"), t) for i, t in enumerate((UP_SRC, DOWN_SRC, FLAT_SRC))}
+
+
+def _dv(app, dirs, src, claim):
+    iss, docs = dirs
+    pid, text = docs[src]
+    return _v(app, iss, claim, text, pid)
+
+
+def test_level_with_contradictory_direction_fails(app, dirs):
+    v = _dv(app, dirs, UP_SRC, "Revenue decreased to $4 billion in 2025.")              # was VERIFIED
+    assert v.status == "FAILED" and any("direction" in d for d in v.details)
+    v2 = _dv(app, dirs, DOWN_SRC, "Revenue increased to $4 billion in 2025.")
+    assert v2.status == "FAILED" and any("direction" in d for d in v2.details)
+
+
+def test_correct_and_direction_neutral_levels_still_verify(app, dirs):
+    assert _dv(app, dirs, UP_SRC, "Revenue increased to $4 billion in 2025.").status == "VERIFIED"
+    assert _dv(app, dirs, DOWN_SRC, "Revenue decreased to $4 billion in 2025.").status == "VERIFIED"
+    assert _dv(app, dirs, UP_SRC, "Revenue was $4 billion in 2025.").status == "VERIFIED"
+    assert _dv(app, dirs, FLAT_SRC, "Revenue was $4 billion in 2025.").status == "VERIFIED"
+
+
+def test_direction_without_comparison_evidence_is_not_verified(app, dirs):
+    v = _dv(app, dirs, FLAT_SRC, "Revenue increased to $4 billion in 2025.")
+    assert v.status == "SOURCE_MATCHED" and any("not established" in d for d in v.details)
+    assert _dv(app, dirs, FLAT_SRC, "Revenue rose to $4 billion in 2025.").status == "SOURCE_MATCHED"
+
+
+def test_direction_from_cited_prior_period_fact(app):
+    iss = get_or_create_issuer(app.conn, app.now_iso(), name="DirFacts", cik="951")
+    for y, v in ((2024, 900_000_000), (2025, 1_000_000_000)):
+        add_fact(app, iss, "revenue", v, start=date(y, 1, 1), end=date(y, 12, 31), public_at=PUB, accession=f"d-{y}",
+                 fiscal_year=y, fiscal_period="FY")
+    ids = {r["fiscal_year"]: r["id"] for r in app.conn.execute("SELECT id, fiscal_year FROM financial_fact WHERE issuer_id=?", (iss,))}
+
+    def fv(text, years):
+        return verify_claim(app, ClaimIn(text=text, claim_type="FACT", citations=[Citation(fact_id=ids[y]) for y in years]),
+                            iss, AS_OF).status
+    assert fv("Revenue increased to $1.0 billion in fiscal 2025", [2025]) == "SOURCE_MATCHED"     # no comparison cited
+    assert fv("Revenue increased to $1.0 billion in fiscal 2025", [2024, 2025]) == "VERIFIED"
+    assert fv("Revenue decreased to $1.0 billion in fiscal 2025", [2024, 2025]) == "FAILED"
+
+
+# ------------------------------------------------------------------ P1b downgraded evidence cannot keep an approval effective
+SWAPPED = "Revenue increased from $4 billion to $3 billion in 2025."
+
+
+def _legacy_approved(monkeypatch, tmp_path, claim_text=SWAPPED):
+    """A thesis approved by the pre-repair code while its (wrong) claim was stored as ev-2 VERIFIED, then upgraded."""
+    from equity_monitor.app import memory_app
+    from equity_monitor.db import core
+    from equity_monitor.research.thesis import ThesisContent, create_version, current_version
+    from equity_monitor.util import Clock
+    orig = core._migration_files
+    monkeypatch.setattr(core, "_migration_files", lambda: [f for f in orig() if f[0] != "0007_claim_reverify.sql"])
+    app = memory_app(clock=Clock(AS_OF), home=tmp_path)
+    d = build_demo(app)
+    sid, iss = d["securities"]["ZZADD"]["security_id"], d["securities"]["ZZADD"]["issuer_id"]
+    old_rec = generate(app, d["portfolio_id"], sid)
+    pid = _doc(app, iss, UP_SRC, doc_id="doc_legacy", public_at="2026-08-01T21:00:00.000000Z")
+    base = current_version(app, sid).content
+    vid = create_version(app, sid, ThesisContent.model_validate({**base, "evidence": [ClaimIn(
+        text=claim_text, claim_type="FACT", citations=[Citation(passage_id=pid, quote=UP_SRC)]).model_dump()]}),
+        change_reason="legacy version", as_of=AS_OF)
+    app.conn.execute("UPDATE claim SET verification='VERIFIED', support_status='CONFIRMED', verifier_version='ev-2' "
+                     "WHERE owner_id=?", (vid,))
+    app.conn.execute("INSERT INTO thesis_approval(id, thesis_version_id, approved_at, approver, note) "
+                     "VALUES ('tap_legacy', ?, ?, 'owner', '')", (vid, app.now_iso()))
+    monkeypatch.setattr(core, "_migration_files", orig)
+    assert core.migrate(app.conn) == ["0007_claim_reverify.sql"]
+    return app, d, sid, iss, vid, old_rec
+
+
+def test_downgraded_evidence_blocks_new_adds_without_selling(monkeypatch, tmp_path):
+    app, d, sid, iss, vid, old_rec = _legacy_approved(monkeypatch, tmp_path)
+    assert app.conn.execute("SELECT verification FROM claim WHERE owner_id=?", (vid,)).fetchone()[0] == "SOURCE_MATCHED"
+    r = get(app, generate(app, d["portfolio_id"], sid, force=True))
+    assert r["action"] == "HOLD" and "EVIDENCE_REVIEW_REQUIRED" in r["reason_codes"]      # was ADD
+    assert r["payload"]["held"] and r["action"] not in ("TRIM", "EXIT")                     # nothing is sold
+    p = propose(app, d["portfolio_id"])
+    assert "ZZADD" not in {l.symbol for l in p.lines if l.amount > 0}
+    assert "ZZADD" not in {l["symbol"] for l in p.baseline["lines"]}
+    assert any(e["symbol"] == "ZZADD" and "EVIDENCE_REVIEW_REQUIRED" in e["reason"] for e in p.excluded)
+    # historical records intact
+    assert get(app, old_rec)["action"] == "ADD"
+    assert app.conn.execute("SELECT note FROM thesis_approval WHERE id='tap_legacy'").fetchone()[0] == ""
+
+
+def test_existing_approval_cannot_silently_satisfy_the_review(monkeypatch, tmp_path):
+    from equity_monitor.research.thesis import ThesisEvidenceError, approve_version, review_evidence
+    app, d, sid, iss, vid, _ = _legacy_approved(monkeypatch, tmp_path)
+    # re-approval re-verifies the downgraded claim under the current rules: the swapped claim now FAILS
+    with pytest.raises(ThesisEvidenceError, match="failed verification"):
+        approve_version(app, vid, acknowledge_unverified=True)                          # was: returned silently
+    with pytest.raises(ThesisEvidenceError):
+        review_evidence(app, vid)
+    row = app.conn.execute("SELECT verification, verifier_version, verification_detail FROM claim WHERE owner_id=?",
+                           (vid,)).fetchone()
+    assert row[0] == "FAILED" and row[1] == "ev-4" and "re-verified" in row[2]
+    r = get(app, generate(app, d["portfolio_id"], sid))
+    assert r["action"] == "REVIEW" and "THESIS_EVIDENCE_FAILED" in r["reason_codes"] and r["payload"]["proposed_trade"] is None
+    assert app.conn.execute("SELECT COUNT(*) FROM thesis_evidence_review").fetchone()[0] == 0
+
+
+def test_acknowledged_review_is_recorded_against_current_status(monkeypatch, tmp_path):
+    from equity_monitor.research.thesis import ThesisEvidenceError, approve_version, evidence_review_pending
+    from equity_monitor.util import iso_utc
+    app, d, sid, iss, vid, _ = _legacy_approved(monkeypatch, tmp_path, claim_text="Revenue in 2024 was $3 billion.")
+    assert get(app, generate(app, d["portfolio_id"], sid, force=True))["action"] == "HOLD"
+    with pytest.raises(ThesisEvidenceError, match="not substantively verified"):
+        approve_version(app, vid)                                                        # was: returned silently
+    assert evidence_review_pending(app, vid)
+    app.clock.set(AS_OF + timedelta(minutes=5))
+    approve_version(app, vid, acknowledge_unverified=True, note="2024 figure checked against the prior 10-K")
+    rows = app.conn.execute("SELECT claims_json, note FROM thesis_evidence_review WHERE thesis_version_id=?", (vid,)).fetchall()
+    assert len(rows) == 1 and "SOURCE_MATCHED" in rows[0][0] and "re-review" in rows[0][1]
+    assert evidence_review_pending(app, vid) == []
+    assert evidence_review_pending(app, vid, iso_utc(AS_OF)) != []                        # point in time
+    assert app.conn.execute("SELECT COUNT(*) FROM thesis_approval WHERE thesis_version_id=?", (vid,)).fetchone()[0] == 1
+    assert get(app, generate(app, d["portfolio_id"], sid))["action"] == "ADD"             # explicit review restores
+    # a review covers the status it saw: a later change re-opens it
+    app.conn.execute("UPDATE claim SET verification='UNVERIFIED' WHERE owner_id=?", (vid,))
+    assert evidence_review_pending(app, vid)
+    with pytest.raises(Exception):
+        app.conn.execute("DELETE FROM thesis_evidence_review")
+
+
+def test_corrected_verified_thesis_restores_eligibility(monkeypatch, tmp_path):
+    from equity_monitor.research.thesis import ThesisContent, approve_version, create_version, current_version
+    app, d, sid, iss, vid, _ = _legacy_approved(monkeypatch, tmp_path)
+    assert get(app, generate(app, d["portfolio_id"], sid, force=True))["action"] == "HOLD"
+    pid = "doc_legacy#p0"
+    app.clock.set(AS_OF + timedelta(minutes=5))
+    fixed = create_version(app, sid, ThesisContent.model_validate({**current_version(app, sid).content, "evidence": [
+        ClaimIn(text=UP_SRC, claim_type="FACT", citations=[Citation(passage_id=pid, quote=UP_SRC)]).model_dump()]}),
+        change_reason="corrected the swapped revenue claim", as_of=app.now())
+    assert app.conn.execute("SELECT verification FROM claim WHERE owner_id=?", (fixed,)).fetchone()[0] == "VERIFIED"
+    approve_version(app, fixed)                                                           # no acknowledgement needed
+    r = get(app, generate(app, d["portfolio_id"], sid))
+    assert (r["action"], r["purchase_eligibility"]) == ("ADD", "ELIGIBLE")
+    assert "ZZADD" in {l.symbol for l in propose(app, d["portfolio_id"]).lines if l.amount > 0}
+
+
+def test_legacy_ev3_claim_reverifies_on_reapproval(monkeypatch, tmp_path):
+    from equity_monitor.research.thesis import approve_version, evidence_review_pending
+    app, d, sid, iss, vid, _ = _legacy_approved(monkeypatch, tmp_path, claim_text="Revenue was $4 billion in 2025.")
+    assert evidence_review_pending(app, vid)                                  # downgraded LEGACY: ADD blocked
+    assert get(app, generate(app, d["portfolio_id"], sid, force=True))["action"] == "HOLD"
+    approve_version(app, vid)                                                 # re-verified under ev-4: VERIFIED, no ack
+    assert app.conn.execute("SELECT verification FROM claim WHERE owner_id=?", (vid,)).fetchone()[0] == "VERIFIED"
+    assert evidence_review_pending(app, vid) == []
+    assert get(app, generate(app, d["portfolio_id"], sid))["action"] == "ADD"

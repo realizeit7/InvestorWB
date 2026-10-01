@@ -81,6 +81,7 @@ uv run eqm valuation approve MSFT --downside-reviewed   # add --accept-assumptio
 uv run eqm thesis template > msft_thesis.yaml               # or: uv run eqm thesis draft MSFT (LLM, if configured)
 uv run eqm thesis create MSFT --file msft_thesis.yaml --reason "original thesis"
 uv run eqm thesis approve --version-id <printed id>    # FAILED claims block; SOURCE_MATCHED ones need --acknowledge-unverified
+#   (re-run on an approved version after an upgrade: re-verifies claims; a recorded review is needed before new ADDs)
 uv run eqm exposure draft MSFT --out msft_exposure.yaml     # benchmarks + sensitivities; evidence or ANALYST_ASSUMPTION each
 uv run eqm exposure create MSFT --file msft_exposure.yaml --reason "initial exposure profile"
 uv run eqm exposure approve --version-id <printed id>        # without an approved profile, purchases stay PAUSED

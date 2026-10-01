@@ -19,6 +19,7 @@ from ..db.core import all_rows, insert, one
 from ..ledger.store import accounts_of, open_issues, portfolio_kind
 from ..ledger.views import PortfolioView, portfolio_view
 from ..research.conditions import evaluate_condition, evaluate_milestone
+from ..research.thesis import evidence_review_pending
 from ..research.fundamentals import FactView
 from ..research.screening import ScreenInput, exclusion
 from ..research.thesis import current_version, latest_assessment, record_assessment
@@ -140,6 +141,7 @@ def gather_inputs(app: App, portfolio_id: str, security_id: str, as_of: datetime
         thesis_evidence_issues=[f"thesis FACT claim failed verification: {c['text'][:120]}"
                                 for c in (thesis.claims if thesis else [])
                                 if c["claim_type"] == "FACT" and c["verification"] == "FAILED"],
+        thesis_evidence_review_pending=evidence_review_pending(app, thesis.id, iso_utc(as_of)) if thesis else [],
     )
     ctx = {"prev": dict(prev) if prev else None, "valuation": val, "thesis": thesis, "session": session,
            "filings_check": dict(chk) if chk else None, "view": view, "last_review": last_review, "ref": ref}
