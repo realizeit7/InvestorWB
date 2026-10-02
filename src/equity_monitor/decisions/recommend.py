@@ -192,9 +192,14 @@ def require_company_scope(app: App, portfolio_id: str) -> None:
 
 
 def generate(app: App, portfolio_id: str, security_id: str, as_of: datetime | None = None,
-             view: PortfolioView | None = None, force: bool = False) -> str:
-    """Create a recommendation (or return the previous id if nothing in the inputs changed)."""
+             view: PortfolioView | None = None, force: bool = False, live: bool | None = None) -> str:
+    """Create a recommendation (or return the previous id if nothing in the inputs changed).
+
+    ``live``: the decision is made now (not a replay of a past cutoff), so stale exposure evidence may be re-checked
+    under the current verifier. Defaults to ``as_of is None``; callers that captured "now" themselves pass it
+    explicitly (comparing timestamps against a moving clock would wrongly treat a just-captured "now" as the past)."""
     require_company_scope(app, portfolio_id)
+    live = (as_of is None) if live is None else live
     as_of = as_of or app.now()
     inp, ctx = gather_inputs(app, portfolio_id, security_id, as_of, view)
     d = decide(inp, app.policy.recommendation, app.policy.portfolio)
@@ -205,7 +210,7 @@ def generate(app: App, portfolio_id: str, security_id: str, as_of: datetime | No
                       as_of=as_of, snapshot=snapshot, profile=profile, last_review_at=ctx["last_review"],
                       valuation=ctx["valuation"])
     cash_unrec = any(i["issue_type"] == "NEGATIVE_CASH" for i in ctx["view"].open_issues)
-    prof_ev = evidence_status(app, profile[0], iso_utc(as_of)) if profile else ("OK", [])
+    prof_ev = evidence_status(app, profile[0], iso_utc(as_of), recheck=live) if profile else ("OK", [])
     cc = assess_conditions(inp, d, app.policy.portfolio, app.policy.market, impacts, has_profile=profile is not None,
                            profile_evidence=prof_ev,
                            cash_unreconciled=cash_unrec, today=as_of.date())
@@ -322,13 +327,14 @@ def _raise_research_tasks(app: App, security_id: str, rec_id: str, cc) -> None:
 
 def review_portfolio(app: App, portfolio_id: str, as_of: datetime | None = None, include_watchlist: bool = True) -> list[str]:
     """Generate recommendations for every non-ETF holding (+ approved watchlist). Returns ids."""
+    live = as_of is None
     as_of = as_of or app.now()
     view = portfolio_view(app, portfolio_id, cal.latest_completed_session(as_of))
     sids = [h.security_id for h in view.holdings if h.security_type not in ("ETF", "FUND")]
     if include_watchlist:
         sids += [r["security_id"] for r in all_rows(app.conn, "SELECT security_id FROM watchlist_entry WHERE status IN "
                                                               "('APPROVED','RESEARCH')") if r["security_id"] not in sids]
-    return [generate(app, portfolio_id, sid, as_of, view) for sid in sids]
+    return [generate(app, portfolio_id, sid, as_of, view, live=live) for sid in sids]
 
 
 def get(app: App, rec_id: str) -> dict:

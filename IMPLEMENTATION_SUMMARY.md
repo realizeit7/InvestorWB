@@ -180,3 +180,25 @@ day) or the interactive pack (`eqm finder pack` → Claude Code session → `eqm
 Details: POLICY.md §13, RUNBOOK "LLM without an API key", VALIDATION.md §9.
 Tests: 190 passed. A live stage-1 run (2,069 → 25), a pack export and one interactive judgment (TTD) were run; a live
 `claude -p` call and prospective evaluation were not. Verifier ev-5: an inferred source period cannot contradict a claim.
+
+## Review of 77a3ad1: trustworthy comparisons (2026-10-02)
+
+Accepted by the reviewer as an exploratory discovery tool; this milestone fixes what would make its evaluation
+untrustworthy, before any prospective collection starts.
+
+| finding | fix |
+|---|---|
+| equal metrics got unequal ranks (0 / 0.5 / 1, order-dependent) | average ranks for ties in the finder and the screening engine; symbol tie-break only after final scores |
+| evaluation used information unavailable at selection | comparison arms A/B/C/D frozen as append-only cohorts (`finder_cohort`, migration 0012) with an information time; entry at the first open after it, SPY over the same open-to-open interval; later judgments create a new D cohort; missing outcomes make a cohort INCOMPLETE (never a smaller cohort); costs charged |
+| Claude CLI isolation overstated | `--safe-mode --restricted --setting-sources ""` added to the call; preflight checks the installed CLI's flags, `claude auth status` (first-party, `claude.ai`, no API-key source) and refuses provider-routing variables; `eqm llm claude-check` proves isolation offline on the installed CLI (fake API, temporary home with hooks/MCP/CLAUDE.md; control vs isolated); judging refused until a PASS exists for that CLI version; atomic daily call slots |
+| moving-clock comparison blocked exposure re-checks | "live" is an explicit flag from the entry point, not a timestamp comparison |
+| `live_pilot.sh` exited 0 after failures | collects failures, exits 1 with a list |
+
+Spec decisions implemented: "historical growth vs model-implied growth" naming; conservative variant `cg-1` (peer-median
+shrinkage + cap, predeclared, not validated) with sensitivity/FRAGILE flags; arms A (quality+value), B (raw gap, the
+shortlist), C (conservative gap), D (predeclared LLM rule on B); SIC peer mapping `sic-v1` in both stages with a
+fallback hierarchy and classification-conflict flags; trailing 20-session liquidity in the deep dive; narrower scope
+stated explicitly; top-5 research priorities highlighted while keeping all 25; evaluation protocol (primary 126
+sessions, secondary 63/252, block-bootstrap uncertainty, concentration, drawdowns, exposures) and the evidence gate
+(24 months, 52 primary cohorts; INSUFFICIENT_DATA / NOT_SUPPORTED / INCONCLUSIVE / PROMISING). Interactive packs stay
+the default; `finder_auto_judge` now defaults to false. Details: POLICY.md §12–§13, RUNBOOK, VALIDATION.md §10.

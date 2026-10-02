@@ -215,11 +215,11 @@ def recheck_evidence(app: App, version_id: str, *, acknowledged: bool = False, r
     return ver
 
 
-def evidence_status(app: App, version_id: str, as_of: str | None = None, *, recheck: bool = True) -> tuple[str, list[str]]:
+def evidence_status(app: App, version_id: str, as_of: str | None = None, *, recheck: bool = False) -> tuple[str, list[str]]:
     """Whether an approved profile may support purchase eligibility at ``as_of``:
     OK | FAILED | REVIEW_REQUIRED, with the factors concerned. The stored snapshot counts only if the current verifier
-    produced it; otherwise the latest current-verifier check at or before ``as_of`` is used, and (when ``recheck`` and
-    the decision is at the present time) a new check is run. Unresolved items need an acknowledged check whose statuses
+    produced it; otherwise the latest current-verifier check at or before ``as_of`` is used, and when ``recheck`` (the
+    caller states the decision is live, i.e. made now) a new check is run. Replays of past cutoffs never re-check. Unresolved items need an acknowledged check whose statuses
     equal the current ones."""
     r = one(app.conn, "SELECT verification_json, created_at FROM exposure_profile_version WHERE id=?", (version_id,))
     stored = from_json(r["verification_json"])
@@ -232,7 +232,7 @@ def evidence_status(app: App, version_id: str, as_of: str | None = None, *, rech
         current = stored
     elif checks:
         current = from_json(checks[-1]["verification_json"])
-    elif recheck and cutoff >= app.now_iso():
+    elif recheck:
         current = recheck_evidence(app, version_id)
     else:
         return "REVIEW_REQUIRED", [f"{v['factor']}: evidence not checked by verifier {VERIFIER_VERSION}"

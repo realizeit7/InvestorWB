@@ -626,7 +626,10 @@ def cmd_finder(args):
         from .llm.service import provider_from_settings
         if app.settings.llm.provider == "none":
             raise SystemExit("llm.provider is none: set llm.provider: claude_code (no API key) or use `eqm finder pack`")
-        print(fj.judge_run(app, provider_from_settings(app), run_id))
+        try:
+            print(fj.judge_run(app, provider_from_settings(app), run_id))
+        except fj.JudgingRefused as exc:
+            raise SystemExit(str(exc))
         reports.write_report(app, "finder_shortlist", reports.finder_md(app, run_id))
     elif args.action == "pack":
         out = args.out or str(app.reports_dir / "finder" / run_id)
@@ -645,7 +648,21 @@ def cmd_finder(args):
         set_watchlist(app, _sid(app, args.symbol), "RESEARCH", args.note or f"from finder run {run_id or '-'}")
         print(f"{args.symbol.upper()} added to the watchlist as RESEARCH (no purchase is implied)")
     elif args.action == "evaluate":
-        _print(fd.evaluate_shortlists(app))
+        from .research.finder_eval import evaluate
+        _print(evaluate(app, include_rows=args.rows))
+
+
+def cmd_llm(args):
+    from .llm.claude_code_check import run_check
+    app = _app(args)
+    if args.action == "claude-check":
+        if args.live and not args.i_authorize_one_live_call:
+            raise SystemExit("--live makes ONE real Claude Code call under your login (plan usage). Add "
+                             "--i-authorize-one-live-call to confirm.")
+        r = run_check(app, live=args.live)
+        _print(r)
+        if r["status"] != "PASS":
+            raise SystemExit(1)
 
 
 def cmd_setup(args):
@@ -900,7 +917,14 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--file", help="judgments JSON to import")
     s.add_argument("--symbol")
     s.add_argument("--note")
+    s.add_argument("--rows", action="store_true", help="evaluate: include every cohort row")
     s.set_defaults(fn=cmd_finder)
+
+    s = sub.add_parser("llm", help="LLM provider checks (no secrets printed)")
+    s.add_argument("action", choices=["claude-check"])
+    s.add_argument("--live", action="store_true", help="also make ONE tiny real call (owner-authorized)")
+    s.add_argument("--i-authorize-one-live-call", action="store_true")
+    s.set_defaults(fn=cmd_llm)
 
     s = sub.add_parser("setup", help="setup check: owner inputs, integrations, PREVIEW status (no secrets printed)")
     s.add_argument("action", choices=["check"])

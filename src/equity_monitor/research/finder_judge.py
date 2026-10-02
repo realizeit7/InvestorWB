@@ -148,8 +148,28 @@ def store_judgment(app: App, run_id: str, j: JudgmentIn, *, provider: str, llm_c
     return jid
 
 
+class JudgingRefused(RuntimeError):
+    pass
+
+
+def require_validated_provider(app: App, provider: LLMProvider) -> None:
+    """Local Claude Code judging runs only after `eqm llm claude-check` passed for the installed CLI version and the
+    authentication route is confirmed (preflight). Other providers are governed by their own budget rules."""
+    if getattr(provider, "name", None) != "claude_code" or not hasattr(provider, "ensure_ready"):
+        return
+    from ..llm.claude_code_check import validated
+    pf = provider.ensure_ready()
+    if not pf.ok:
+        raise JudgingRefused("Claude Code preflight refused: " + "; ".join(pf.reasons))
+    ok, why = validated(app, pf.cli_version)
+    if not ok:
+        raise JudgingRefused(f"{why}. Run `uv run eqm llm claude-check` first (offline, no usage), or judge "
+                             "interactively with `eqm finder pack`.")
+
+
 def judge_run(app: App, provider: LLMProvider, run_id: str, *, fetch_text: bool = True) -> dict:
     from ..llm.service import SYSTEM_PROMPT, _set_validation, call
+    require_validated_provider(app, provider)
     cands = shortlist(app, run_id)[: app.policy.finder.max_judgments_per_run]
     allowed = {c["symbol"].upper(): c for c in cands}
     out = {"judged": [], "failed": []}
@@ -176,6 +196,7 @@ def judge_run(app: App, provider: LLMProvider, run_id: str, *, fetch_text: bool 
             _set_validation(app, cid, "INVALID", {"error": str(exc)[:1000]})
             out["failed"].append({"symbol": c["symbol"], "error": str(exc)[:300]})
     app.audit("finder.judged", "finder_run", run_id, {"provider": provider.name, **{k: len(v) for k, v in out.items()}})
+    out["llm_cohort"] = freeze_llm_cohort(app, run_id)
     return out
 
 
@@ -216,7 +237,46 @@ def import_judgments(app: App, path: str | Path, *, provider: str = "interactive
         except ValueError as exc:
             rejected.append({"symbol": j.symbol, "error": str(exc)})
     app.audit("finder.judgments_imported", "finder_run", data.run_id, {"stored": len(stored), "rejected": len(rejected)})
-    return {"run_id": data.run_id, "stored": stored, "rejected": rejected}
+    return {"run_id": data.run_id, "stored": stored, "rejected": rejected, "llm_cohort": freeze_llm_cohort(app, data.run_id)}
+
+
+def freeze_llm_cohort(app: App, run_id: str) -> str | None:
+    """Arm D: apply the PREDECLARED rule (``finder.llm_selection_rule``) to the deterministic shortlist using the
+    judgments that exist NOW, and freeze the result as a new append-only cohort. Its information time is now, so its
+    evaluation starts after the judgments existed. Later judgments create a later cohort; they never change this one.
+    Returns the cohort id, or None if nothing changed since the previous freeze."""
+    from .finder import protocol_hash
+    rule = app.policy.finder.llm_selection_rule
+    js = latest_judgments(app, run_id)
+    if not js:
+        return None
+    members, excluded = [], []
+    for c in shortlist(app, run_id):
+        j = js.get(c["symbol"])
+        if j is None:
+            excluded.append({"symbol": c["symbol"], "reason": "not judged when frozen"})
+        elif j["verdict"] in rule.verdicts and (j["priority"] or 0) >= rule.min_priority:
+            members.append({"symbol": c["symbol"], "security_id": c["security_id"], "rank": c["rank"],
+                            "judgment_id": j["id"], "verdict": j["verdict"], "priority": j["priority"],
+                            "provider": j["provider"]})
+        else:
+            excluded.append({"symbol": c["symbol"], "reason": f"{j['verdict']} priority {j['priority']}",
+                             "judgment_id": j["id"]})
+    used = sorted(m["judgment_id"] for m in members) + sorted(e.get("judgment_id", "") for e in excluded)
+    prev = one(app.conn, "SELECT cohort_no, members_json, excluded_json FROM finder_cohort WHERE run_id=? AND "
+                         "arm='D_LLM_RULE' ORDER BY cohort_no DESC LIMIT 1", (run_id,))
+    if prev:
+        old = sorted(m["judgment_id"] for m in json.loads(prev["members_json"])) + \
+            sorted(e.get("judgment_id", "") for e in json.loads(prev["excluded_json"]))
+        if old == used:
+            return None
+    cid = new_id("fco")
+    now = app.now_iso()
+    insert(app.conn, "finder_cohort", {
+        "id": cid, "run_id": run_id, "arm": "D_LLM_RULE", "cohort_no": (prev["cohort_no"] + 1) if prev else 1,
+        "protocol_hash": protocol_hash(app), "rule_json": to_json(rule.model_dump(mode="json")), "info_time": now,
+        "members_json": to_json(members), "excluded_json": to_json(excluded), "created_at": now})
+    return cid
 
 
 def latest_judgments(app: App, run_id: str) -> dict[str, dict]:

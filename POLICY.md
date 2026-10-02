@@ -130,7 +130,8 @@ while NAV is unknown or cash history is unreconciled (negative cash).
 
 Exclusions: SIC 6000–6199 banks/credit, 6300–6411 insurance, 6798 REIT, 6770 shells, pharma/biotech SIC with revenue <
 $100M, unknown SIC, ETFs/funds, fewer than 3 fiscal years of revenue and operating cash flow. Metric definitions are in
-the module docstring. Scores are peer-group percentiles (SIC 2-digit group with ≥ 5 members, else all eligible);
+the module docstring. Scores are peer-group percentiles (SIC 2-digit group with ≥ 5 members, else all eligible; the
+company finder's deep dive passes `sic-v1` peer labels instead, §13); tied values receive the average of their ranks;
 quality and value scores are averaged separately; a score is withheld when completeness < 70%. Invalid denominators give
 `None`, never a favourable value. A screen score is a research priority, not a valuation or recommendation.
 
@@ -353,49 +354,98 @@ kept in full if usage/price is unknown or the call raised. Remaining overshoot r
 outside token usage, or retries performed inside the SDK. This is a conservative pre-authorization limit, **not** a
 provider-enforced hard cap; also set a limit in the provider console.
 
-## 13. Company finder (`research/finder.py`, `research/finder_judge.py`)
+**Claude Code subscription calls** (`llm.provider: claude_code`) are not priced per token by InvestorWB. Each call first
+reserves one of today's call slots (UTC day) in the same exclusive transaction, so concurrent or crashed calls can never
+exceed `llm.max_subscription_calls_per_day` (40); a slot is used even if the call fails. "No API key" does not mean
+unlimited usage or a guarantee of no other charges under every account configuration: the owner checks their plan,
+authentication route and billing settings, respects plan limits, and never retries through another account or route.
+Before any call a preflight refuses unless the installed CLI supports every isolation flag, `claude auth status`
+reports a first-party login whose method is in `llm.claude_code_auth_methods` (default `claude.ai`) with no API-key
+source, and no provider-routing variable (Bedrock/Vertex/Foundry/base URL) is set. Unattended judging additionally
+requires a PASS from `eqm llm claude-check` for exactly the installed CLI version (RUNBOOK); interactive packs remain the
+default.
 
-Purpose: surface US companies that current evidence suggests may be **under-rated**, as research candidates. The finder
+## 13. Company finder (`research/finder.py`, `research/finder_judge.py`, `research/finder_eval.py`)
+
+Purpose: surface companies that current evidence suggests may be **under-rated**, as research candidates. It is an
+**exploratory discovery tool**; its evaluation is not (yet) evidence of stock-selection or LLM-judgment skill. The finder
 never creates recommendations, watchlist entries or trades; the owner promotes a name (`eqm finder promote`) and the
-regular valuation → thesis → approval workflow decides everything else. Defaults (`finder.*` in the policy):
+regular valuation → thesis → approval workflow decides everything else. Rules (`finder.*`, identified by
+`protocol_version` and a hash of the whole section):
 
-1. **Universe** — NYSE/Nasdaq listings (Nasdaq screener snapshot, `MARKET_CAP_SNAPSHOT`: universe filter only) joined to
-   SEC CIKs: country United States (US-GAAP filers); excluded **industries** — banks, savings institutions, underwriting
-   and specialty insurers, REITs, closed-end funds/trusts, finance companies and BDCs, broker-dealers, SPACs (SIC
-   exclusions apply again in the deep dive). Whole sectors are not excluded, because Nasdaq's "Finance"/"Real Estate"
-   sectors also contain ratings agencies, real-estate services and education companies. Partnership units (LP/MLP, K-1
-   tax forms) are excluded by policy (`exclude_partnerships`); ADRs, SPAC shares, preferreds, warrants, units, notes
-   and when-issued listings are not common stock. Market cap ≥ $300M, last-session dollar volume ≥ $1M, one listing
-   per company (most liquid share class). Nasdaq sector labels are coarse (e.g. PayPal under Industrials) and only
-   define the preliminary percentile pools.
-2. **Preliminary rank** — SEC XBRL frames for the last five calendar years (`FRAME_FUNDAMENTAL`: approximate,
+1. **Universe** — scope is narrower than "US-listed": companies with a **US country label** in the Nasdaq listing
+   snapshot, listed on **NYSE or Nasdaq**, joined to SEC CIKs (`MARKET_CAP_SNAPSHOT`: universe filter only). Excluded
+   **industries** — banks, savings institutions, underwriting and specialty insurers, REITs, closed-end funds/trusts,
+   finance companies and BDCs, broker-dealers, SPACs (SIC exclusions apply again in the deep dive); whole sectors are not
+   excluded. Partnership units are excluded by policy (`exclude_partnerships`); ADRs, SPAC shares, preferreds,
+   warrants, units, notes and when-issued listings are not common stock. Market cap ≥ $300M; liquidity here uses the
+   last session's dollar volume ≥ $1M — a **single-session proxy** (one unusual day can distort it); one listing per
+   company (most liquid share class). Foreign-domiciled 10-K/US-GAAP filers are not included; if wanted later they
+   become a separately tagged cohort (filing format, currency and accounting compatibility matter, not only domicile).
+2. **Peer groups** — versioned mapping `sic-v1` used in BOTH stages: each company is compared within the finest SIC
+   level that has enough members — 4-digit industry → 3-digit group → 2-digit major group → SIC division → `ALL` (last
+   resort, flagged). Minimum sizes: 20 in the preliminary stage (`sector_relative_min_size`), `screening.
+   min_peer_group_size` in the deep dive. SIC is reference data from the SEC submissions index, fetched once per
+   issuer and cached. SIC groups are an inexpensive starting point, not perfect economic peers. Nasdaq sector labels are
+   kept for display only; a label incompatible with the SIC sector is flagged as a classification conflict.
+3. **Preliminary rank** — SEC XBRL frames for the last five calendar years (`FRAME_FUNDAMENTAL`: approximate,
    latest-filed): 3-year revenue CAGR, operating margin and 2-year trend, average FCF margin, FCF yield on market cap,
-   FCF-positive years. Percentiles within the Nasdaq sector when it has ≥ 20 members (else pooled); ≥ 3 metrics required;
-   missing data is never zero.
-3. **Deep dive** of the top 60 — full filings index (SIC), companyfacts and prices, point in time: the regular screening
-   quality and value scores (peer percentiles, §6) plus the **expectations gap** = 3-year revenue CAGR − the constant
-   revenue growth that the current price implies in a reverse DCF at the policy's default WACC/margins/terminal growth.
-   A large positive gap means the price assumes far less growth than the company delivered. The DCF margin of safety at
-   the same (unapproved, ILLUSTRATIVE) defaults is shown but weighted 0, because it comes from the same model.
-   Score = 0.35 quality + 0.30 value + 0.35 expectations-gap percentile (weights renormalized over available
-   components; quality, value and the gap are required). Fewer than 3 years of revenue, no price, or a screening
-   exclusion removes a company.
-4. **Shortlist** — top 25 by score, stored append-only with every metric.
-5. **LLM judgment** (opinion) — per shortlisted company, from the numbers and recent 10-K/10-Q passages: under-rated
-   case, value-trap risks, what would change the view, verdict (RESEARCH_FURTHER / LIKELY_VALUE_TRAP /
-   INSUFFICIENT_EVIDENCE) and a 1–5 research priority. Strict schema; FACT claims verified (§10); judgments about
-   companies not on the shortlist are rejected; the deterministic order never changes. Without the API: `llm.provider:
-   claude_code` runs the local Claude Code CLI under the owner's Claude login (no tools, no MCP, API-key variables
-   stripped; at most `llm.max_subscription_calls_per_day`), or `eqm finder pack` → Claude in a Claude Code session →
-   `eqm finder import-judgments`. The passages given to the model are selected from the latest 10-K/10-Q by relevance (risk factors,
-   MD&A, segment and outlook text scored up; cover pages, boilerplate and bare numeric tables scored down) within a fixed
-   character budget, kept in document order.
-6. **Evaluation** — shortlisted names keep daily prices; `eqm finder evaluate` reports forward total returns vs SPY over
-   fixed horizons (63/126/252 sessions) from each run, matured windows only, also by LLM verdict. Weekly runs overlap,
-   so the output is descriptive; no edge is claimed.
+   FCF-positive years. Percentiles within the peer pool; **ties receive the average of their ranks** (equal values
+   always get equal percentiles and input order never matters — the same rule is used by the screening engine); ≥ 3
+   metrics required; missing data is never zero. A stable symbol tie-break is applied only after final scores.
+4. **Deep dive** of the top 60 — full filings index, companyfacts and prices, point in time: screening quality and value
+   (peer percentiles, §6); trailing liquidity = median dollar volume of the last 20 sessions (`trailing_liquidity_
+   sessions`) must be ≥ $1M (unknown is reported, not treated as zero); and:
+   - **historical growth vs model-implied growth** (stored as `expectations_gap`) = 3-year revenue CAGR − the
+     constant revenue growth the current price implies in a reverse DCF at the policy's default WACC/margins/terminal
+     growth. It is a comparison, **not a forecast of excess returns**;
+   - **conservative variant `cg-1`** (`conservative_gap`, predeclared, not validated, never tuned to a shortlist):
+     growth = 0.5 × own CAGR + 0.5 × peer median CAGR (peer pool of ≥ 20 companies with data, SIC hierarchy), capped
+     at peer median + 10 pp; conservative gap = that growth − implied growth;
+   - **sensitivity**: the implied growth is recomputed one change at a time — WACC +1 pp, terminal growth −0.5 pp,
+     EBIT margins ×0.9, 1%/year share dilution; a candidate whose conservative gap is positive but turns ≤ 0 (or
+     unsolvable) under any of them is **FRAGILE**;
+   - DCF margin of safety at the same ILLUSTRATIVE defaults: shown, weighted 0 (same model as the gap).
+   Fewer than 3 years of revenue, no price, a screening exclusion or trailing illiquidity removes a company.
+5. **Shortlist** — top 25 by arm B (below), stored append-only with every metric. The report highlights 5 research
+   priorities (by LLM priority among RESEARCH_FURTHER verdicts when judged, else rank) and keeps all 25. Twenty-five
+   candidates are not a recommendation to own 25 stocks. Weights 0.35/0.30/0.35, deep dive 60 and shortlist 25 are
+   provisional engineering defaults, not optimized investment parameters.
+6. **Comparison arms** (frozen when the run is recorded; `finder_cohort`, append-only):
+   A = quality + value only (0.35/0.30 renormalized); B = A + raw historical-vs-implied gap (the shortlist);
+   C = A + conservative gap `cg-1`; D = the predeclared LLM rule applied to shortlist B — verdict RESEARCH_FURTHER with
+   priority ≥ 3 (`llm_selection_rule`). **LLM judgment** (opinion): under-rated case, value-trap risks, what would
+   change the view, verdict and priority 1–5; strict schema; FACT claims verified (§10); judgments about other
+   companies are rejected; the deterministic order never changes. Arm D is frozen as a cohort when judgments are
+   stored (`judge` or `import-judgments`), with the judgment ids it used; later judgments create a NEW cohort and never
+   change an earlier one. LLM without an API key: interactive packs (default) or `llm.provider: claude_code` after
+   `eqm llm claude-check` passes (§12).
+7. **Prospective evaluation** (`eqm finder evaluate`; HYPOTHETICAL, nothing traded):
+   - *Operational*: timestamped runs with immutable rule hashes and policy versions; complete candidate, exclusion,
+     error and missing-data records; each cohort enters at the **opening price of the first session after its
+     information time** (a Sunday shortlist is bought Monday at the open), exits at the open h sessions later; SPY over
+     exactly the same interval; dividends/splits from recorded corporate actions; 10 bps per side charged on each buy
+     and sell of members (SPY charged nothing); a member without an entry or exit opening price (delisted, acquired,
+     halted, data gap) makes the cohort INCOMPLETE — counted and listed, excluded from statistics, its priced subset
+     shown separately and never as the cohort's result.
+   - *Research protocol*: primary horizon 126 sessions; secondary 63 and 252. Statistics per rule hash and arm: mean and
+     median net excess vs SPY, share of cohorts beating SPY, mean drawdown, sector mix, median market cap, mean
+     pre-entry beta vs SPY, distinct issuers and the top-5 issuers' share of positive excess, and a moving-block
+     bootstrap interval (90%, block = horizon in weeks) over the cohort sequence, because overlapping weekly cohorts and
+     repeated companies are correlated — thousands of overlapping company observations are not thousands of bets.
+     B and C are compared with A, and D with B, on the same runs (paired).
+   - *Evidence gate* (minimum observations, not sufficient evidence): at least **24 months** and **52 matured complete
+     primary-horizon cohorts**. Verdicts: INSUFFICIENT_DATA until then; NOT_SUPPORTED if the mean net excess is not
+     positive or the arm does not improve on its baseline; INCONCLUSIVE if the top 5 issuers supply more than 50% of the
+     positive excess or an interval includes zero; PROMISING only otherwise — still not proof of skill. Runs from
+     before cohorts existed are reported as `legacy-unfrozen` and never count. No scoring or LLM rule may be changed
+     during collection without a new `protocol_version`; the next step after this milestone is to freeze the protocol and
+     collect, not to tune weights against current shortlists.
 
-The weekly job (`weekly_finder`, Sunday 10:00 ET) runs only when `finder_enabled: true` (it makes ~1 Nasdaq request,
-~40 SEC frames requests and ~3 SEC + 1 price request per deep-dive company).
+The weekly job (`weekly_finder`, Sunday 10:00 ET) runs only when `finder_enabled: true` (≈ 1 Nasdaq request, ≈ 40 SEC
+frames requests, one SEC submissions request per issuer without a cached SIC — ≈ 2,000 on the first run only, ≈ 20–30 minutes — and ≈ 3
+SEC + 1 price request per deep-dive company). It judges automatically only if `finder_auto_judge: true` (default false)
+and, for claude_code, the check has passed; otherwise it writes the pack.
 
 ## Change log
 
@@ -421,3 +471,12 @@ The weekly job (`weekly_finder`, Sunday 10:00 ET) runs only when `finder_enabled
 - **2026-10-02 verifier ev-5**: §10 a source figure with an inferred (not stated) period cannot contradict a claim's
   period (found on a live 10-Q table: a correct prior-year revenue claim was FAILED under ev-4). Only relaxes FAILED →
   SOURCE_MATCHED; nothing new becomes VERIFIED. Stored statuses are not rewritten. No threshold changed.
+- **2026-10-02 review of 77a3ad1**: §13 rewritten — tied metrics get average ranks (also in §6 screening); SIC peer
+  mapping `sic-v1` in both stages; trailing 20-session liquidity in the deep dive (universe value labelled a
+  single-session proxy); "historical growth vs model-implied growth" naming; conservative variant `cg-1` and
+  sensitivity flags; comparison arms A–D frozen as cohorts; executable evaluation timing, frozen judgments, coverage,
+  costs, block-bootstrap uncertainty and the evidence gate (24 months, 52 primary cohorts). §12 Claude Code preflight,
+  isolation check and atomic call slots; `finder_auto_judge` default changed to false. New keys: `finder.protocol_version`,
+  `trailing_liquidity_sessions`, `peer_mapping`, `report_top_priorities`, `conservative_gap.*`, `sensitivity.*`,
+  `llm_selection_rule.*`, `evaluation.*` (replaces `evaluation_horizons_sessions`), `llm.claude_code_auth_methods`.
+  Thresholds chosen before any outcome was observed; none is validated.

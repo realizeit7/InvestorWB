@@ -83,16 +83,40 @@ holdings). Suggested: nightly cron `eqm backup create` + weekly copy elsewhere; 
 
 ## LLM without an API key (Claude Code)
 
-`llm.provider: claude_code` makes the app call the Claude Code CLI non-interactively (`claude -p`) on the machine where
-it runs, under the Claude account you logged in with (`claude` once, interactively). No `ANTHROPIC_API_KEY` is used —
-the app removes it from the subprocess environment, so calls never fall back to API billing. Calls run with no tools,
-no MCP servers, our own system prompt and an empty working directory. They count toward your plan's usage limits;
-`llm.max_subscription_calls_per_day` (default 40) caps them, and you should check your plan's terms for automated use.
-Verify once with an explicitly authorized call: `uv run eqm finder judge` on a small shortlist.
+**Default: interactive packs.** `uv run eqm finder pack` writes an evidence pack + `judgments.json` template; open a
+Claude Code session, ask Claude to fill the template from the pack, then
+`uv run eqm finder import-judgments --file <judgments.json>`. Importing freezes the LLM-rule cohort (arm D) for
+evaluation; later imports create a new cohort and never change an earlier one.
 
-Without any automation: `uv run eqm finder pack` writes an evidence pack + `judgments.json` template; open a Claude Code
-session, ask Claude to fill the template from the pack, then `uv run eqm finder import-judgments --file <judgments.json>`.
-Both paths are validated identically (strict schema, verified claims, shortlist-only).
+**Optional: local CLI judging** (`llm.provider: claude_code`) calls `claude -p` on the machine where InvestorWB runs,
+under the Claude account you logged in with (`claude` once, interactively). It counts toward your plan's usage limits —
+"no API key" does not mean unlimited use or a guarantee of no other charges under every account configuration; check
+your plan, authentication route and billing settings, and never retry through another account to get around a limit.
+Enable it only after this check passes on the machine that will run it:
+
+```bash
+uv run eqm llm claude-check                     # offline: no usage, nothing sent to Anthropic
+uv run eqm llm claude-check --live --i-authorize-one-live-call   # optional: ONE tiny real call under your login
+```
+
+What the check does (results stored append-only in `llm_provider_check`; no secrets printed — only `loggedIn`,
+`authMethod`, `apiProvider`, `apiKeySource`, `subscriptionType`):
+1. the installed CLI version supports every isolation flag InvestorWB uses (`--safe-mode`, `--restricted`,
+   `--setting-sources ""`, `--tools ""`, `--strict-mcp-config`, `--disable-slash-commands`, `--permission-mode
+   dontAsk`, `--permission-prompts none`, `--system-prompt`, `--no-session-persistence`, `--json-schema`);
+2. an offline isolation test: a temporary home with user-level hooks, a user MCP server and a user CLAUDE.md, a working
+   directory with project hooks and a project CLAUDE.md, a local fake API on 127.0.0.1 with a dummy key. A control run
+   without the flags must fire the hooks; the isolated run must fire none, send our system prompt without either
+   CLAUDE.md, offer only the CLI's `StructuredOutput` tool and return the structured answer;
+3. `claude auth status`: first-party, method in `llm.claude_code_auth_methods` (default `claude.ai`), no API-key source;
+   provider-routing variables (`CLAUDE_CODE_USE_BEDROCK/VERTEX/FOUNDRY`, `ANTHROPIC_BASE_URL`, …) are refused.
+   If you log in with `claude setup-token` the method is reported as `oauth_token`; add it only after confirming it is
+   your subscription login.
+
+`eqm finder judge` and the weekly job refuse CLI judging until a PASS exists for exactly the installed CLI version
+(re-run the check after every Claude Code update); the weekly job then writes the pack instead. Admin-managed
+(policy) settings are never bypassed. Calls are capped by atomic daily slots (`llm.max_subscription_calls_per_day`).
+Unattended judging in the weekly job additionally needs `finder_auto_judge: true`.
 
 ## Credentials and secrets
 

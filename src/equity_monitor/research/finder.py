@@ -44,6 +44,7 @@ from ..db.core import all_rows, insert, one
 from ..market.sources import assert_use
 from ..util import dstr, iso_utc, new_id, to_json
 from .fundamentals import FactView
+from .screening import percentile_ranks as _pct_ranks
 
 ZERO = Decimal(0)
 NASDAQ_URL = "https://api.nasdaq.com/api/screener/stocks?tableonly=true&download=true"
@@ -114,6 +115,107 @@ def fetch_frames(app: App, client: HttpClient, years: list[int]) -> tuple[dict, 
                         merged[cik] = Decimal(str(d["val"]))
             out[(concept, y)] = merged
     return out, raws, warns
+
+
+# ------------------------------------------------------------------ peer groups (versioned mapping "sic-v1")
+SIC_DIVISIONS = (("A", 100, 999), ("B", 1000, 1499), ("C", 1500, 1799), ("D", 2000, 3999), ("E", 4000, 4999),
+                 ("F", 5000, 5199), ("G", 5200, 5999), ("H", 6000, 6799), ("I", 7000, 8999), ("J", 9100, 9999))
+PEER_LEVELS = ("SIC4", "SIC3", "SIC2", "DIV")
+# Nasdaq sector labels (display only) and the SIC-derived sectors they plausibly cover; anything else is flagged
+NASDAQ_SIC_COMPATIBLE = {
+    "Technology": {"Technology", "Communication Services", "Industrials"},
+    "Telecommunications": {"Communication Services", "Technology"},
+    "Health Care": {"Health Care", "Materials", "Industrials", "Consumer Staples"},
+    "Finance": {"Financials", "Real Estate", "Industrials", "Technology"},
+    "Real Estate": {"Real Estate", "Financials", "Construction", "Industrials"},
+    "Consumer Discretionary": {"Consumer Discretionary", "Consumer Staples", "Industrials", "Communication Services",
+                               "Technology"},
+    "Consumer Staples": {"Consumer Staples", "Consumer Discretionary", "Materials", "Agriculture"},
+    "Industrials": {"Industrials", "Materials", "Construction", "Technology", "Consumer Discretionary"},
+    "Basic Materials": {"Materials", "Energy", "Industrials", "Construction"},
+    "Energy": {"Energy", "Materials", "Utilities", "Industrials"},
+    "Utilities": {"Utilities", "Energy"},
+}
+
+
+def peer_levels(sic: str | int | None) -> list[str]:
+    """Labels from finest to coarsest: 4-digit industry, 3-digit group, 2-digit major group, SIC division."""
+    if sic in (None, ""):
+        return []
+    s = int(sic)
+    div = next((d for d, lo, hi in SIC_DIVISIONS if lo <= s <= hi), "OTHER")
+    return [f"SIC4:{s:04d}", f"SIC3:{s // 10:03d}", f"SIC2:{s // 100:02d}", f"DIV:{div}"]
+
+
+def assign_peers(sics: dict[str, str | None], min_size: int) -> dict[str, str]:
+    """Each key gets the finest label shared by at least ``min_size`` keys (all keys count at every level); if none,
+    ``ALL`` — the documented last resort, flagged in reports. Unknown SIC also falls back to ``ALL``."""
+    counts: dict[str, int] = {}
+    levels = {k: peer_levels(v) for k, v in sics.items()}
+    for ls in levels.values():
+        for lab in ls:
+            counts[lab] = counts.get(lab, 0) + 1
+    return {k: next((lab for lab in ls if counts[lab] >= min_size), "ALL") for k, ls in levels.items()}
+
+
+def peer_pools(sics: dict[str, str | None], labels: dict[str, str]) -> dict[str, set[str]]:
+    """Members of every label in use: everyone whose hierarchy contains it."""
+    levels = {k: set(peer_levels(v)) for k, v in sics.items()}
+    return {lab: (set(sics) if lab == "ALL" else {k for k, ls in levels.items() if lab in ls})
+            for lab in set(labels.values())}
+
+
+def pooled_percentiles(values: dict[str, Decimal | None], sics: dict[str, str | None], labels: dict[str, str],
+                       direction: int) -> dict[str, Decimal]:
+    """Percentile of each key within its own peer pool (keys without a value get none)."""
+    out: dict[str, Decimal] = {}
+    for lab, members in peer_pools(sics, labels).items():
+        pct = _pct_ranks([(k, values[k]) for k in members if values.get(k) is not None], direction)
+        for k in members:
+            if labels.get(k) == lab and k in pct:
+                out[k] = pct[k]
+    return out
+
+
+def classification_conflict(nasdaq_sector: str | None, sic: str | int | None) -> str | None:
+    from ..data.securities import sic_to_sector
+    sic_sector = sic_to_sector(sic)
+    ok = NASDAQ_SIC_COMPATIBLE.get(nasdaq_sector or "")
+    if ok is None or sic_sector is None or sic_sector in ok:
+        return None
+    return f"Nasdaq sector '{nasdaq_sector}' vs SIC {sic} ({sic_sector})"
+
+
+def default_sic_lookup(client: HttpClient) -> Callable[[int], tuple[str | None, str | None]]:
+    """SIC from the SEC submissions index (reference data, cached on the issuer row; not evidence)."""
+    def lookup(cik: int) -> tuple[str | None, str | None]:
+        doc = client.get(f"https://data.sec.gov/submissions/CIK{cik:010d}.json").json()
+        return (doc.get("sic") or None, doc.get("sicDescription") or None)
+    return lookup
+
+
+def classify_universe(app: App, universe: list[UniverseRow],
+                      sic_lookup: Callable[[int], tuple[str | None, str | None]] | None) -> tuple[dict[str, str | None], list[str]]:
+    """{symbol: SIC} for the universe. Issuers are created (reference rows only); SIC is fetched once and cached."""
+    from ..data.securities import get_or_create_issuer, update_issuer_classification
+    out, warns, fetched, failed = {}, [], 0, 0
+    for u in universe:
+        iid = get_or_create_issuer(app.conn, app.now_iso(), name=u.name, cik=str(u.cik))
+        sic = one(app.conn, "SELECT sic FROM issuer WHERE id=?", (iid,))["sic"]
+        if sic is None and sic_lookup is not None:
+            try:
+                sic, desc = sic_lookup(u.cik)
+                fetched += 1
+                if sic:
+                    update_issuer_classification(app.conn, iid, sic=str(sic), sic_description=desc, fiscal_year_end=None)
+            except Exception as exc:                     # one lookup failing must not stop the run
+                failed += 1
+                if failed <= 5:
+                    warns.append(f"SIC lookup {u.symbol} failed: {exc}"[:200])
+        out[u.symbol] = str(sic) if sic else None
+    if failed:
+        warns.append(f"SIC unknown for {failed} companies after lookup failures (ranked in the ALL pool)")
+    return out, warns
 
 
 # ------------------------------------------------------------------ stage 0: universe
@@ -219,34 +321,37 @@ def prelim_metrics(u: UniverseRow, frames: dict, years: list[int]) -> tuple[dict
     return m, latest
 
 
-def _pct_ranks(values: list[tuple[str, Decimal]], direction: int) -> dict[str, Decimal]:
-    if len(values) < 2:
-        return {}
-    ordered = sorted(values, key=lambda kv: kv[1] * direction)
-    n = len(ordered) - 1
-    return {k: Decimal(i) / Decimal(n) for i, (k, _v) in enumerate(ordered)}
-
-
-def prelim_rank(app: App, rows: list[tuple[UniverseRow, dict]]) -> list[tuple[UniverseRow, dict, Decimal | None, dict]]:
+def prelim_rank(app: App, rows: list[tuple[UniverseRow, dict]], sics: dict[str, str | None] | None = None
+                ) -> list[tuple[UniverseRow, dict, Decimal | None, dict]]:
+    """Percentiles within SIC peer pools (mapping ``sic-v1``, at least ``sector_relative_min_size`` members, coarser
+    levels as fallback, ``ALL`` last). The peer label is recorded in the metrics as ``peer_group``."""
     pol = app.policy.finder
-    by_sector: dict[str, list] = {}
-    for u, m in rows:
-        by_sector.setdefault(u.sector or "Unknown", []).append((u, m))
-    pools = []
-    small = []
-    for sector, members in by_sector.items():
-        (pools.append(members) if len(members) >= pol.sector_relative_min_size else small.extend(members))
-    if small:
-        pools.append(small)                                 # small sectors are compared together
+    sics = {u.symbol: (sics or {}).get(u.symbol) for u, _m in rows}
+    labels = assign_peers(sics, pol.sector_relative_min_size)
+    pct = {k: pooled_percentiles({u.symbol: m.get(k) for u, m in rows}, sics, labels, d)
+           for k, d in PRELIM_DIRECTIONS.items()}
     out = []
-    for pool in pools:
-        pct = {k: _pct_ranks([(u.symbol, m[k]) for u, m in pool if m.get(k) is not None], d)
-               for k, d in PRELIM_DIRECTIONS.items()}
-        for u, m in pool:
-            comps = {k: pct[k][u.symbol] for k in PRELIM_DIRECTIONS if u.symbol in pct[k]}
-            score = sum(comps.values(), ZERO) / len(comps) if len(comps) >= pol.min_prelim_metrics else None
-            out.append((u, m, score, comps))
+    for u, m in rows:
+        comps = {k: pct[k][u.symbol] for k in PRELIM_DIRECTIONS if u.symbol in pct[k]}
+        score = sum(comps.values(), ZERO) / len(comps) if len(comps) >= pol.min_prelim_metrics else None
+        m = {**m, "peer_group": labels[u.symbol], "sic": sics[u.symbol],
+             "classification_conflict": classification_conflict(u.sector, sics[u.symbol])}
+        out.append((u, m, score, comps))
     return out
+
+
+def peer_growth_medians(app: App, prelim: list[tuple[UniverseRow, dict, Decimal | None, dict]]) -> dict[str, Decimal]:
+    """Median 3-year revenue CAGR of each company's peer pool (``conservative_gap.min_peer_count`` members with data;
+    coarser SIC levels as fallback; none if even ALL is too small)."""
+    import statistics
+    cg = app.policy.finder.conservative_gap
+    vals = {u.symbol: m.get("revenue_cagr_3y") for u, m, _s, _c in prelim if m.get("revenue_cagr_3y") is not None}
+    sics = {u.symbol: m.get("sic") for u, m, _s, _c in prelim if u.symbol in vals}
+    labels = assign_peers(sics, cg.min_peer_count)
+    pools = peer_pools(sics, labels)
+    med = {lab: Decimal(str(statistics.median(vals[k] for k in mem))) for lab, mem in pools.items()
+           if len(mem) >= cg.min_peer_count}
+    return {k: med[lab] for k, lab in labels.items() if lab in med}
 
 
 # ------------------------------------------------------------------ stage 2: deep dive + under-rated score
@@ -262,23 +367,90 @@ class DeepResult:
     exclusion: str | None = None
 
 
-def deep_score(app: App, items: list[tuple[str, str]], as_of: datetime) -> list[DeepResult]:
-    """items: (symbol, security_id) already fetched. Point-in-time FactViews at ``as_of``."""
+ARMS = ("A_QUALITY_VALUE", "B_RAW_GAP", "C_CONSERVATIVE_GAP")
+
+
+def trailing_dollar_volume(app: App, security_id: str, session, n: int) -> Decimal | None:
+    """Median close x volume over the last ``n`` sessions up to ``session``; None if fewer than ``n`` bars have volume."""
+    import statistics
+    rows = all_rows(app.conn, "SELECT session_date, close, volume FROM price_bar WHERE security_id=? AND session_date<=? "
+                              "AND volume IS NOT NULL ORDER BY session_date DESC, provider LIMIT ?",
+                    (security_id, session.isoformat(), n * 3))
+    seen, vals = set(), []
+    for r in rows:                                        # one bar per session (first provider)
+        if r["session_date"] in seen:
+            continue
+        seen.add(r["session_date"])
+        vals.append(Decimal(r["close"]) * Decimal(r["volume"]))
+        if len(vals) == n:
+            break
+    return Decimal(str(statistics.median(vals))) if len(vals) == n else None
+
+
+def _implied_growth(base, price, pol_val, variable) -> Decimal | None:
+    from ..valuation.dcf import reverse_dcf
+    rv = reverse_dcf(base, price, variable, cap=pol_val.terminal_growth_cap)
+    return rv.implied_value if rv.status == "SOLVED" else None
+
+
+def sensitivity_cases(base, sens) -> dict:
+    """One-at-a-time modest changes to the reverse-DCF inputs (POLICY.md §13.3)."""
+    from ..valuation.dcf import A, Series, Source
+    src = Source(kind="DERIVED", note="finder sensitivity case")
+    grow = (1 + sens.annual_dilution) ** base.years
+    return {
+        "wacc_up": base.model_copy(update={"wacc": A(value=base.wacc.value + sens.wacc_delta, source=src)}),
+        "terminal_growth_down": base.model_copy(update={"terminal_growth": A(
+            value=base.terminal_growth.value - sens.terminal_growth_delta, source=src)}),
+        "margins_down": base.model_copy(update={"ebit_margin": Series(
+            values=[v * (1 - sens.margin_relative_delta) for v in base.ebit_margin.values], source=src)}),
+        "dilution": base.model_copy(update={"diluted_shares": A(value=base.diluted_shares.value * grow, source=src)}),
+    }
+
+
+def _weighted(comps: dict, weights: dict[str, Decimal]) -> Decimal | None:
+    w = {k: v for k, v in weights.items() if v > 0 and comps.get(k) is not None}
+    tot = sum(w.values(), ZERO)
+    return sum((w[k] * Decimal(comps[k]) for k in w), ZERO) / tot if tot else None
+
+
+def arm_weights(pol) -> dict[str, dict[str, Decimal]]:
+    """The predeclared comparison arms (POLICY.md §13.6). B is the owner-facing shortlist."""
+    w = pol.weights
+    return {"A_QUALITY_VALUE": {"quality": w["quality"], "value": w["value"]},
+            "B_RAW_GAP": {"quality": w["quality"], "value": w["value"], "expectations_gap": w["expectations_gap"],
+                          "dcf_margin_of_safety": w.get("dcf_margin_of_safety", ZERO)},
+            "C_CONSERVATIVE_GAP": {"quality": w["quality"], "value": w["value"],
+                                   "conservative_gap": w["expectations_gap"],
+                                   "dcf_margin_of_safety": w.get("dcf_margin_of_safety", ZERO)}}
+
+
+def deep_score(app: App, items: list[tuple[str, str]], as_of: datetime,
+               peer_medians: dict[str, Decimal] | None = None) -> list[DeepResult]:
+    """items: (symbol, security_id) already fetched. Point-in-time FactViews at ``as_of``.
+
+    "Expectations gap" = historical 3-year revenue CAGR minus the growth implied by the current price in a reverse DCF
+    — reported as *historical growth vs model-implied growth*; it is not a forecast of excess returns. The
+    conservative variant (``conservative_gap.version``) shrinks historical growth toward the peer median and caps it."""
     from ..valuation.builder import MissingInputs, build_scenarios
-    from ..valuation.dcf import ValuationError, margin_of_safety, reverse_dcf, run_dcf
+    from ..valuation.dcf import ValuationError, margin_of_safety, run_dcf
     from .screening import ScreenInput, score
     pol = app.policy.finder
+    cg, val = pol.conservative_gap, app.policy.valuation
+    peer_medians = peer_medians or {}
     session = cal.latest_completed_session(as_of)
-    inputs, prices = [], {}
+    rows_db, prices = {}, {}
     for sym, sid in items:
-        r = one(app.conn, "SELECT s.security_type, i.id AS iid, i.sic, i.industry_group FROM security s "
+        r = one(app.conn, "SELECT s.security_type, i.id AS iid, i.sic FROM security s "
                           "LEFT JOIN issuer i ON i.id=s.issuer_id WHERE s.id=?", (sid,))
-        if r is None or r["iid"] is None:
-            continue
-        px = price_on_or_before(app, sid, session)
-        prices[sid] = px
-        inputs.append(ScreenInput(sid, sym, r["sic"], r["industry_group"], FactView(app, r["iid"], as_of),
-                                  px[1] if px else None, r["security_type"] or "COMMON"))
+        if r is not None and r["iid"] is not None:
+            rows_db[sid] = (sym, r)
+            prices[sid] = price_on_or_before(app, sid, session)
+    sics = {sid: r["sic"] for sid, (_sym, r) in rows_db.items()}
+    peers = assign_peers(sics, app.policy.screening.min_peer_group_size)
+    inputs = [ScreenInput(sid, sym, r["sic"], peers[sid], FactView(app, r["iid"], as_of),
+                          prices[sid][1] if prices[sid] else None, r["security_type"] or "COMMON")
+              for sid, (sym, r) in rows_db.items()]
     rows = {r.security_id: r for r in score(app, inputs)}
     results: list[DeepResult] = []
     for si in inputs:
@@ -286,8 +458,16 @@ def deep_score(app: App, items: list[tuple[str, str]], as_of: datetime) -> list[
         px = prices.get(si.security_id)
         res = DeepResult(si.symbol, si.security_id, px[1] if px else None, px[0].isoformat() if px else None,
                          metrics={k: v for k, v in sr.metrics.items()}, exclusion=sr.exclusion_reason)
+        res.metrics["peer_group"] = peers[si.security_id]
         if sr.exclusion_reason is None and px is None:
             res.exclusion = "NO_PRICE"
+        adv = trailing_dollar_volume(app, si.security_id, session, pol.trailing_liquidity_sessions)
+        res.metrics["trailing_median_dollar_volume"] = adv
+        if adv is None:
+            res.metrics["liquidity_note"] = (f"trailing {pol.trailing_liquidity_sessions}-session volume unknown; "
+                                             "universe used a single-session proxy")
+        elif res.exclusion is None and adv < pol.min_daily_dollar_volume_usd:
+            res.exclusion = f"LIQUIDITY<{pol.min_daily_dollar_volume_usd:,.0f} ({pol.trailing_liquidity_sessions}-session median)"
         if res.exclusion is None:
             years = len(si.fv.annual("revenue"))
             if years < pol.min_years_history:
@@ -296,40 +476,62 @@ def deep_score(app: App, items: list[tuple[str, str]], as_of: datetime) -> list[
             res.components["quality"] = sr.quality_score
             res.components["value"] = sr.value_score
             try:
-                scen = build_scenarios(si.fv, app.policy.valuation)
+                scen = build_scenarios(si.fv, val)
                 base = scen["base"]
-                dcf = run_dcf(base, app.policy.valuation.terminal_growth_cap)
+                dcf = run_dcf(base, val.terminal_growth_cap)
                 res.metrics["dcf_base_value_per_share"] = dcf.value_per_share
                 res.metrics["dcf_margin_of_safety"] = margin_of_safety(res.price, dcf.value_per_share)
                 res.metrics["dcf_review_flags"] = len(base.review_flags)
-                rv = reverse_dcf(base, res.price, pol.expectations_gap_variable,
-                                 cap=app.policy.valuation.terminal_growth_cap)
-                res.metrics["implied_revenue_growth"] = rv.implied_value if rv.status == "SOLVED" else None
+                implied = _implied_growth(base, res.price, val, pol.expectations_gap_variable)
+                res.metrics["implied_revenue_growth"] = implied
                 hist = sr.metrics.get("revenue_cagr_3y")
-                if rv.status == "SOLVED" and hist is not None:
-                    res.metrics["expectations_gap"] = hist - rv.implied_value
+                res.metrics["expectations_gap"] = hist - implied if implied is not None and hist is not None else None
+                if res.metrics["expectations_gap"] is None:
+                    res.metrics["expectations_gap_note"] = ("reverse DCF not solved" if implied is None
+                                                            else "historical revenue CAGR unknown")
+                med = peer_medians.get(si.symbol)
+                res.metrics["peer_median_growth"] = med
+                if hist is not None and med is not None and implied is not None:
+                    g = min(cg.shrink_weight * hist + (1 - cg.shrink_weight) * med, med + cg.max_excess_over_peer_median)
+                    res.metrics["conservative_growth"] = g
+                    res.metrics["conservative_gap"] = g - implied
+                    sens = {}
+                    for name, case in sensitivity_cases(base, pol.sensitivity).items():
+                        try:
+                            ig = _implied_growth(case, res.price, val, pol.expectations_gap_variable)
+                        except (ValuationError, ZeroDivisionError, InvalidOperation):
+                            ig = None
+                        sens[name] = None if ig is None else g - ig
+                    res.metrics["conservative_gap_sensitivity"] = sens
+                    res.metrics["fragile"] = res.metrics["conservative_gap"] > 0 and any(
+                        v is None or v <= 0 for v in sens.values())
                 else:
-                    res.metrics["expectations_gap"] = None
-                    res.metrics["expectations_gap_note"] = f"reverse DCF {rv.status}" if rv.status != "SOLVED" else \
-                        "historical revenue CAGR unknown"
+                    res.metrics["conservative_gap"] = None
+                    res.metrics["conservative_gap_note"] = ("peer median growth unavailable" if med is None
+                                                            else "historical growth or implied growth unknown")
             except (MissingInputs, ValuationError, ZeroDivisionError, InvalidOperation) as exc:
                 res.metrics["dcf_note"] = f"valuation not computable: {exc}"[:300]
         results.append(res)
     eligible = [r for r in results if r.exclusion is None]
-    for comp, metric in (("expectations_gap", "expectations_gap"), ("dcf_margin_of_safety", "dcf_margin_of_safety")):
-        pct = _pct_ranks([(r.symbol, r.metrics[metric]) for r in eligible if r.metrics.get(metric) is not None], 1)
+    for comp in ("expectations_gap", "conservative_gap", "dcf_margin_of_safety"):
+        pct = _pct_ranks([(r.symbol, r.metrics[comp]) for r in eligible if r.metrics.get(comp) is not None], 1)
         for r in eligible:
             if r.symbol in pct:
                 r.components[comp] = pct[r.symbol]
+    arms = arm_weights(pol)
     for r in eligible:
-        weighted = [k for k in ("expectations_gap", "dcf_margin_of_safety") if pol.weights.get(k, ZERO) > 0]
-        if r.components.get("quality") is None or r.components.get("value") is None or \
-                not any(k in r.components for k in weighted):
-            r.metrics["score_note"] = "insufficient components (need quality, value and a weighted valuation-gap component)"
+        r.metrics["arm_scores"] = {}
+        if r.components.get("quality") is None or r.components.get("value") is None:
+            r.metrics["score_note"] = "insufficient components (need quality and value)"
             continue
-        w = {k: pol.weights.get(k, ZERO) for k, v in r.components.items() if v is not None and pol.weights.get(k, ZERO) > 0}
-        tot = sum(w.values(), ZERO)
-        r.score = sum((w[k] * Decimal(r.components[k]) for k in w), ZERO) / tot if tot else None
+        for arm, w in arms.items():
+            gap_key = {"B_RAW_GAP": "expectations_gap", "C_CONSERVATIVE_GAP": "conservative_gap"}.get(arm)
+            if gap_key and r.components.get(gap_key) is None:
+                continue                                        # a gap arm needs its gap component
+            r.metrics["arm_scores"][arm] = _weighted(r.components, w)
+        r.score = r.metrics["arm_scores"].get("B_RAW_GAP")
+        if r.score is None:
+            r.metrics["score_note"] = "insufficient components (need quality, value and the historical-vs-implied gap)"
     return results
 
 
@@ -361,8 +563,10 @@ def default_deep_fetch(app: App, sec_client: HttpClient, price_provider) -> Call
 
 def run_finder(app: App, *, nasdaq_rows: list[dict] | None = None, sec_map: list[dict] | None = None,
                frames: dict | None = None, deep_fetch: Callable[[UniverseRow], str | None] | None = None,
+               sic_lookup: Callable[[int], tuple[str | None, str | None]] | None = None,
                as_of: datetime | None = None) -> str:
-    """Run stages 0-3 and record everything. Fetchers can be injected (tests); defaults use the live sources."""
+    """Run stages 0-3 and record everything, including the frozen comparison cohorts (arms A/B/C). Fetchers can be
+    injected (tests); defaults use the live sources."""
     as_of = as_of or app.now()
     pol = app.policy.finder
     warnings: list[str] = []
@@ -370,7 +574,7 @@ def run_finder(app: App, *, nasdaq_rows: list[dict] | None = None, sec_map: list
     sec_client = None
     if nasdaq_rows is None:
         nasdaq_rows, sources["nasdaq_raw"] = fetch_nasdaq_screener(app)
-    if sec_map is None or frames is None or deep_fetch is None:
+    if sec_map is None or frames is None or deep_fetch is None or sic_lookup is None:
         from ..data.sec import load_ticker_map, make_client
         sec_client = make_client(app)
         if sec_map is None:
@@ -382,7 +586,10 @@ def run_finder(app: App, *, nasdaq_rows: list[dict] | None = None, sec_map: list
     if frames is None:
         frames, sources["frames_raw"], fw = fetch_frames(app, sec_client, years)
         warnings += fw
-    prelim = prelim_rank(app, [(u, prelim_metrics(u, frames, years)[0]) for u in universe])
+    sics, sw = classify_universe(app, universe, sic_lookup or default_sic_lookup(sec_client))
+    warnings += sw
+    prelim = prelim_rank(app, [(u, prelim_metrics(u, frames, years)[0]) for u in universe], sics)
+    medians = peer_growth_medians(app, prelim)
     ranked = sorted([p for p in prelim if p[2] is not None], key=lambda p: (-p[2], p[0].symbol))
     run_id = new_id("fnd")
     session = cal.latest_completed_session(as_of)
@@ -398,7 +605,7 @@ def run_finder(app: App, *, nasdaq_rows: list[dict] | None = None, sec_map: list
             continue
         if sid:
             deep_items.append((u.symbol, sid))
-    deep = deep_score(app, deep_items, as_of)
+    deep = deep_score(app, deep_items, as_of, medians)
     shortlist = sorted([d for d in deep if d.score is not None], key=lambda d: (-d.score, d.symbol))[:pol.shortlist_size]
     insert(app.conn, "finder_run", {
         "id": run_id, "as_of": iso_utc(as_of), "session_date": session.isoformat(),
@@ -424,8 +631,29 @@ def run_finder(app: App, *, nasdaq_rows: list[dict] | None = None, sec_map: list
         insert(app.conn, "finder_candidate", {"id": new_id("fc"), "stage": "DEEP", "rank": None, **base})
         if d.symbol in rank_of:
             insert(app.conn, "finder_candidate", {"id": new_id("fc"), "stage": "SHORTLIST", "rank": rank_of[d.symbol], **base})
+    info_time = app.now_iso()                 # every input to arms A/B/C exists once this run is recorded
+    ph = protocol_hash(app)
+    arms = arm_weights(pol)
+    for arm in ARMS:
+        picks = sorted([d for d in deep if d.metrics.get("arm_scores", {}).get(arm) is not None],
+                       key=lambda d: (-d.metrics["arm_scores"][arm], d.symbol))[:pol.shortlist_size]
+        insert(app.conn, "finder_cohort", {
+            "id": new_id("fco"), "run_id": run_id, "arm": arm, "cohort_no": 1, "protocol_hash": ph,
+            "rule_json": to_json({"weights": arms[arm], "size": pol.shortlist_size,
+                                  "conservative_gap": pol.conservative_gap.model_dump(mode="json")
+                                  if arm == "C_CONSERVATIVE_GAP" else None}),
+            "info_time": info_time,
+            "members_json": to_json([{"symbol": d.symbol, "security_id": d.security_id, "rank": i,
+                                      "score": d.metrics["arm_scores"][arm]} for i, d in enumerate(picks, 1)]),
+            "excluded_json": "[]", "created_at": info_time})
     app.audit("finder.run", "finder_run", run_id, {"universe": len(universe), "shortlist": len(shortlist)})
     return run_id
+
+
+def protocol_hash(app: App) -> str:
+    """Identity of the finder rules (selection, gap variant, LLM rule, evaluation protocol) in force."""
+    from ..util import stable_hash
+    return stable_hash(app.policy.finder.model_dump(mode="json"))
 
 
 def latest_run(app: App) -> dict | None:
@@ -437,48 +665,3 @@ def shortlist(app: App, run_id: str) -> list[dict]:
     return [dict(r) | {"metrics": json.loads(r["metrics_json"]), "scores": json.loads(r["scores_json"])}
             for r in all_rows(app.conn, "SELECT * FROM finder_candidate WHERE run_id=? AND stage='SHORTLIST' ORDER BY rank",
                               (run_id,))]
-
-
-# ------------------------------------------------------------------ prospective evaluation (descriptive only)
-def evaluate_shortlists(app: App) -> dict:
-    """Forward total returns of shortlisted names vs SPY over FIXED horizons from each run's session, for matured
-    windows only; split by the LLM verdict when one exists. Weekly runs overlap heavily (same names, overlapping
-    windows), so observations are not independent; nothing here is a statistical test or evidence of an edge."""
-    from ..data.securities import find_security
-    from ..evaluation.augmented import _fwd
-    session = cal.latest_completed_session(app.now())
-    spy = find_security(app.conn, "SPY")
-    horizons = app.policy.finder.evaluation_horizons_sessions
-    out_rows, names = [], set()
-    for run in all_rows(app.conn, "SELECT id, session_date FROM finder_run ORDER BY created_at"):
-        start = datetime.fromisoformat(run["session_date"]).date()
-        verdicts = {r["symbol"]: r["verdict"] for r in all_rows(
-            app.conn, "SELECT symbol, verdict FROM finder_judgment WHERE run_id=? ORDER BY created_at", (run["id"],))}
-        for h in horizons:
-            end = start
-            for _ in range(h):
-                end = cal.next_session(end)
-            if end > session:
-                continue
-            spy_r = _fwd(app, spy, start, end)
-            picks = []
-            for c in shortlist(app, run["id"]):
-                r = _fwd(app, c["security_id"], start, end)
-                picks.append({"symbol": c["symbol"], "return": r, "verdict": verdicts.get(c["symbol"])})
-                names.add(c["symbol"])
-            known = [p for p in picks if p["return"] is not None]
-
-            def summary(ps):
-                if not ps or spy_r is None:
-                    return None
-                mean = sum(p["return"] for p in ps) / len(ps)
-                return {"n": len(ps), "mean_return": mean, "mean_excess_vs_spy": mean - spy_r,
-                        "share_beating_spy": sum(1 for p in ps if p["return"] > spy_r) / len(ps)}
-            out_rows.append({"run_id": run["id"], "start": start, "horizon_sessions": h, "end": end, "spy_return": spy_r,
-                             "picks": len(picks), "with_price_data": len(known), "all": summary(known),
-                             "research_further": summary([p for p in known if p["verdict"] == "RESEARCH_FURTHER"]),
-                             "likely_value_trap": summary([p for p in known if p["verdict"] == "LIKELY_VALUE_TRAP"])})
-    return {"matured_windows": out_rows, "distinct_companies": len(names),
-            "verdict": "descriptive only — overlapping weekly shortlists are not independent observations; no "
-                       "statistical test is run and nothing here establishes a stock-selection edge",
-            "missing": "returns are UNKNOWN (not zero) where price history does not cover the window"}

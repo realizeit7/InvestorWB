@@ -304,13 +304,18 @@ def weekly_finder(app: App, run_id: str, scheduled_for: datetime, ctx: JobContex
     if not app.settings.finder_enabled:
         return {"skipped": "company finder is opt-in: set finder_enabled: true in config/user.yaml"}
     from ..research.finder import run_finder
-    from ..research.finder_judge import export_pack, judge_run
+    from ..research.finder_judge import JudgingRefused, export_pack, judge_run
     from ..llm.service import provider_from_settings
     rid = run_finder(app)
     detail: dict = {"finder_run": rid}
+    judged = False
     if app.settings.finder_auto_judge and app.settings.llm.provider in ("claude_code", "anthropic"):
-        detail["judgment"] = judge_run(app, provider_from_settings(app), rid)
-    else:
+        try:
+            detail["judgment"] = judge_run(app, provider_from_settings(app), rid)
+            judged = True
+        except JudgingRefused as exc:            # unattended CLI judging stays off until validated
+            detail["judgment_refused"] = str(exc)
+    if not judged:
         detail["pack"] = {k: str(v) for k, v in export_pack(app, rid, app.reports_dir / "finder" / rid).items()}
     md = reports.finder_md(app, rid)
     path, _ = reports.write_report(app, "finder_shortlist", md)

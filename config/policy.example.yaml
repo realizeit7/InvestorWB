@@ -105,8 +105,11 @@ market:
   evaluation_min_episodes: 20
 
 finder:                        # discovery of possibly under-rated companies -> RESEARCH candidates only
+  protocol_version: finder-protocol-1   # bump when any finder rule changes (evaluation groups by rule hash)
   min_market_cap_usd: '300000000'
-  min_daily_dollar_volume_usd: '1000000'
+  min_daily_dollar_volume_usd: '1000000'   # universe: SINGLE-SESSION proxy; deep dive: trailing median below
+  trailing_liquidity_sessions: 20
+  peer_mapping: sic-v1          # SIC 4 -> 3 -> 2 digit -> division -> ALL
   exchanges: [NYSE, Nasdaq]
   excluded_industries: [Major Banks, Banks, Commercial Banks, Savings Institutions, Property-Casualty Insurers, Life Insurance,
     Accident &Health Insurance, Specialty Insurers, Real Estate Investment Trusts,
@@ -123,4 +126,21 @@ finder:                        # discovery of possibly under-rated companies -> 
   expectations_gap_variable: revenue_growth
   weights: {quality: '0.35', value: '0.30', expectations_gap: '0.35', dcf_margin_of_safety: '0'}   # MoS shown, not weighted (same DCF as the gap)
   max_judgments_per_run: 25
-  evaluation_horizons_sessions: [63, 126, 252]
+  report_top_priorities: 5
+  conservative_gap:             # predeclared, NOT validated; never tune it to today's shortlist
+    version: cg-1
+    shrink_weight: '0.5'        # growth = 0.5 x own 3y CAGR + 0.5 x peer median ...
+    max_excess_over_peer_median: '0.10'   # ... capped at peer median + 10 pp
+    min_peer_count: 20
+  sensitivity: {wacc_delta: '0.01', terminal_growth_delta: '0.005', margin_relative_delta: '0.10', annual_dilution: '0.01'}
+  llm_selection_rule: {verdicts: [RESEARCH_FURTHER], min_priority: 3}   # arm D, applied to the frozen judgments
+  evaluation:
+    primary_horizon_sessions: 126
+    horizons_sessions: [63, 126, 252]
+    cost_bps_per_side: '10'
+    gate_min_months: 24
+    gate_min_primary_cohorts: 52
+    max_top5_issuer_share: '0.5'
+    bootstrap_samples: 2000
+    ci_level: '0.90'
+    beta_lookback_sessions: 252

@@ -383,31 +383,62 @@ def finder_md(app: App, run_id: str) -> str:
     src = _json.loads(run["sources_json"])
     judg = latest_judgments(app, run_id)
     cands = shortlist(app, run_id)
+    pol = app.policy.finder
 
     def pct(v):
         return "—" if v is None else f"{float(v):.0%}"
     md = [f"# Company finder — research candidates ({run['session_date']})", "",
           "> **RESEARCH CANDIDATES, not recommendations.** A deterministic screen flagged these as possibly under-rated; "
-          "nothing is bought or added to the watchlist automatically. DCF figures use ILLUSTRATIVE unapproved defaults. "
-          "The finder has no demonstrated stock-selection edge; it is measured prospectively against SPY "
-          "(`eqm finder evaluate`).", "",
-          f"- Universe: {run['universe_count']} US companies (market cap ≥ ${app.policy.finder.min_market_cap_usd:,.0f}); "
-          f"preliminary rank {run['prelim_ranked']}; deep dive {run['deep_count']}; shortlist {run['shortlist_count']}",
+          "nothing is bought or added to the watchlist automatically. Twenty-five candidates are not a recommendation "
+          "to own 25 stocks. DCF figures use ILLUSTRATIVE unapproved defaults. The finder has no demonstrated "
+          "stock-selection edge; it is measured prospectively against SPY and simpler baselines (`eqm finder evaluate`).", "",
+          f"- Scope: companies with a **US country label listed on NYSE or Nasdaq** (narrower than all US-listed "
+          f"stocks), market cap ≥ ${pol.min_market_cap_usd:,.0f}; liquidity screened first on a SINGLE-SESSION "
+          f"dollar-volume proxy (≥ ${pol.min_daily_dollar_volume_usd:,.0f}), then on the "
+          f"{pol.trailing_liquidity_sessions}-session median in the deep dive",
+          f"- Funnel: universe {run['universe_count']}; preliminary rank {run['prelim_ranked']}; deep dive "
+          f"{run['deep_count']}; shortlist {run['shortlist_count']}. Peers: SIC mapping `{pol.peer_mapping}`",
           f"- Excluded from the universe: " + ", ".join(f"{k} {v}" for k, v in sorted(src.get("universe_dropped", {}).items())),
-          f"- Run `{run_id}`, data as of {run['as_of']}, policy `{run['policy_version_id']}`", "",
-          "| # | Symbol | Sector | Score | Quality | Value | Growth priced in vs 3y actual | DCF MoS* | LLM view |",
-          "|---|---|---|---|---|---|---|---|---|"]
-    traps = []
+          f"- Run `{run_id}`, data as of {run['as_of']}, policy `{run['policy_version_id']}`", ""]
+    ranked_j = sorted([c for c in cands if (judg.get(c["symbol"]) or {}).get("verdict") == "RESEARCH_FURTHER"],
+                      key=lambda c: (-(judg[c["symbol"]]["priority"] or 0), c["rank"]))
+    top = (ranked_j or cands)[:pol.report_top_priorities]
+    md += [f"## Research first ({len(top)} of {len(cands)})", "",
+           ("By LLM research priority among RESEARCH_FURTHER verdicts, then rank:" if ranked_j else
+            "No LLM judgments yet — by deterministic rank:")]
+    md += [f"{i}. **{c['symbol']}** (rank {c['rank']})" + (" — FRAGILE: attractiveness disappears under a modest "
+                                                           "assumption change" if c["metrics"].get("fragile") else "")
+           for i, c in enumerate(top, 1)]
+    md += ["", "## Full shortlist (arm B: quality + value + historical-vs-implied growth)", "",
+           "| # | Symbol | Peer group | Score | Quality | Value | Growth implied by price vs 3y historical | "
+           "Conservative gap (" + pol.conservative_gap.version + ") | DCF MoS* | LLM view |",
+           "|---|---|---|---|---|---|---|---|---|---|"]
+    traps, conflicts = [], []
     for c in cands:
         m, sc, j = c["metrics"], c["scores"], judg.get(c["symbol"])
         view = f"{j['verdict']} (priority {j['priority']}, {j['provider']})" if j else "not judged yet"
         if j and j["verdict"] == "LIKELY_VALUE_TRAP":
             traps.append(c["symbol"])
+        prelim = app.conn.execute("SELECT metrics_json FROM finder_candidate WHERE run_id=? AND stage='PRELIM' AND symbol=?",
+                                  (run_id, c["symbol"])).fetchone()
+        conflict = _json.loads(prelim[0]).get("classification_conflict") if prelim else None
+        if conflict:
+            conflicts.append(f"{c['symbol']}: {conflict}")
         gap = (f"{pct(m.get('implied_revenue_growth'))} vs {pct(m.get('revenue_cagr_3y'))}"
                if m.get("implied_revenue_growth") is not None else m.get("expectations_gap_note", "—"))
-        md.append(f"| {c['rank']} | {c['symbol']} | {c.get('sector') or '—'} | {float(c['score']):.2f} | {pct(sc.get('quality'))} | "
-                  f"{pct(sc.get('value'))} | {gap} | {pct(m.get('dcf_margin_of_safety'))} | {view} |")
-    md += ["", "*Scores are percentiles within the deep-dive set; DCF margin of safety is shown, not weighted.", ""]
+        cons = (pct(m.get("conservative_gap")) + (" FRAGILE" if m.get("fragile") else "")
+                if m.get("conservative_gap") is not None else m.get("conservative_gap_note", "—"))
+        md.append(f"| {c['rank']} | {c['symbol']} | {m.get('peer_group') or '—'} | {float(c['score']):.2f} | "
+                  f"{pct(sc.get('quality'))} | {pct(sc.get('value'))} | {gap} | {cons} | "
+                  f"{pct(m.get('dcf_margin_of_safety'))} | {view} |")
+    md += ["", "*Scores are percentiles within the deep-dive set. \"Historical vs implied growth\" compares the past "
+           "3-year revenue CAGR with the constant growth the current price implies in a reverse DCF at ILLUSTRATIVE "
+           "defaults; it is not a forecast of excess returns. The conservative gap shrinks historical growth toward the "
+           "peer median and caps it (predeclared, not validated). FRAGILE = conservative gap turns ≤ 0 under a modest "
+           "change to WACC, terminal growth, margins or dilution. DCF margin of safety is shown, not weighted. Arms A "
+           "(quality + value only) and C (conservative gap) are recorded for evaluation but not shown as lists.", ""]
+    if conflicts:
+        md += ["**Classification conflicts (provider label vs SIC; check the peer group):** " + "; ".join(conflicts), ""]
     if traps:
         md += ["**LLM flagged as likely value traps (still listed in deterministic order above):** " + ", ".join(traps), ""]
     for c in cands:
@@ -425,6 +456,7 @@ def finder_md(app: App, run_id: str) -> str:
     if warns:
         md += ["Warnings:", ""] + [f"- {w}" for w in warns[:20]] + [""]
     md += ["Next steps: research a name with `eqm finder promote SYMBOL` (adds it to the watchlist as RESEARCH), then the "
-           "usual valuation → thesis → approval workflow. Judge the shortlist without the API: `eqm finder judge` "
-           "(llm.provider claude_code) or `eqm finder pack` and ask Claude in a Claude Code session."]
+           "usual valuation → thesis → approval workflow. Judge the shortlist without the API: `eqm finder pack` and ask "
+           "Claude in a Claude Code session (default), or `eqm finder judge` with llm.provider claude_code after "
+           "`eqm llm claude-check` passes."]
     return "\n".join(md) + "\n"

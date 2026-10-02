@@ -1182,7 +1182,7 @@ def test_obsolete_exposure_approval_cannot_support_purchases(app):
     app.clock.set(AS_OF)
     d = build_demo(app)
     sid, vid = _legacy_profile(app, d, "ZZADD", "Revenue decreased to $4 billion in 2025.")
-    assert evidence_status(app, vid)[0] == "FAILED"                            # current verifier rejects the evidence
+    assert evidence_status(app, vid, recheck=True)[0] == "FAILED"                            # current verifier rejects the evidence
     r = get(app, generate(app, d["portfolio_id"], sid, force=True))
     assert r["exposure_version_id"] == vid
     assert r["purchase_eligibility"] == "PAUSED"                                # was: ELIGIBLE on the stale snapshot
@@ -1206,14 +1206,14 @@ def test_legacy_exposure_approval_requires_correction_or_review(app):
     with pytest.raises(ValueError, match="failed verification"):               # was: approved on the stale snapshot
         approve_profile(app, failed_vid)
     sid, weak_vid = _legacy_profile(app, d, "ZZNEW", "Revenue in 2024 was $3 billion.")   # approved, unresolved
-    assert evidence_status(app, weak_vid)[0] == "REVIEW_REQUIRED"
+    assert evidence_status(app, weak_vid, recheck=True)[0] == "REVIEW_REQUIRED"
     r = get(app, generate(app, d["portfolio_id"], sid, force=True))
     assert "EXPOSURE_EVIDENCE_REVIEW_REQUIRED" in [p["code"] for p in r["payload"]["current_conditions"]["pauses"]]
     with pytest.raises(ValueError, match="not substantively verified"):
         approve_profile(app, weak_vid)                                          # existing approval does not satisfy it
     app.clock.set(AS_OF + timedelta(minutes=5))
     approve_profile(app, weak_vid, acknowledge_unverified=True, note="checked the 2024 figure in the prior 10-K")
-    assert evidence_status(app, weak_vid) == ("OK", [])
+    assert evidence_status(app, weak_vid, recheck=True) == ("OK", [])
     assert evidence_status(app, weak_vid, iso_utc(AS_OF), recheck=False)[0] == "REVIEW_REQUIRED"   # point in time
     assert get(app, generate(app, d["portfolio_id"], sid))["purchase_eligibility"] == "ELIGIBLE"
 
@@ -1223,7 +1223,7 @@ def test_legacy_exposure_evidence_that_still_verifies_needs_no_human(app):
     app.clock.set(AS_OF)
     d = build_demo(app)
     sid, vid = _legacy_profile(app, d, "ZZADD", "Revenue increased to $4 billion in 2025.")
-    assert evidence_status(app, vid) == ("OK", [])                              # automatic re-check under ev-4
+    assert evidence_status(app, vid, recheck=True) == ("OK", [])                              # automatic re-check under ev-4
     assert get(app, generate(app, d["portfolio_id"], sid, force=True))["purchase_eligibility"] == "ELIGIBLE"
     row = app.conn.execute("SELECT verifier_version, acknowledged FROM exposure_evidence_check WHERE exposure_version_id=?",
                            (vid,)).fetchone()
@@ -1470,3 +1470,37 @@ def test_inferred_source_period_cannot_contradict_a_claim(app):
     assert v.status == "SOURCE_MATCHED" and all(d.startswith("UNCONFIRMED") for d in v.details)  # was FAILED
     assert _v(app, iss, "Revenue was $715,057 in 2026.", quote, pid).status == "VERIFIED"
     assert _v(app, iss, "Revenue was $999,999 in 2026.", quote, pid).status == "FAILED"     # unsupported number
+
+
+class _TickingClock:
+    """Advances one second on every read, like a real clock during a slow review."""
+
+    def __init__(self, start):
+        self.t = start
+
+    def now(self):
+        self.t += timedelta(seconds=1)
+        return self.t
+
+    def set(self, when):
+        self.t = when
+
+
+def test_live_review_rechecks_exposure_evidence_with_a_moving_clock(app):
+    """Regression (review of 77a3ad1): 'present' was decided by comparing the decision time with a clock that had
+    already moved on, so a live review never re-checked stale exposure evidence and paused purchases instead."""
+    app.clock.set(AS_OF)
+    d = build_demo(app)
+    sid, vid = _legacy_profile(app, d, "ZZADD", "Revenue increased to $4 billion in 2025.")
+    app.clock = _TickingClock(AS_OF + timedelta(minutes=1))
+    from equity_monitor.decisions.recommend import review_portfolio
+    recs = {get(app, r)["security_id"]: get(app, r) for r in review_portfolio(app, d["portfolio_id"])}
+    assert recs[sid]["purchase_eligibility"] == "ELIGIBLE"                      # was PAUSED (REVIEW_REQUIRED)
+    assert app.conn.execute("SELECT COUNT(*) FROM exposure_evidence_check WHERE exposure_version_id=?",
+                            (vid,)).fetchone()[0] == 1
+    # a replay of a past cutoff never re-checks (point in time): an explicit as_of is not live
+    vid2 = _legacy_profile(app, d, "ZZNEW", "Revenue increased to $4 billion in 2025.")[1]
+    from equity_monitor.market.exposures import evidence_status
+    assert evidence_status(app, vid2, iso_utc(AS_OF))[0] == "REVIEW_REQUIRED"
+    assert app.conn.execute("SELECT COUNT(*) FROM exposure_evidence_check WHERE exposure_version_id=?",
+                            (vid2,)).fetchone()[0] == 0

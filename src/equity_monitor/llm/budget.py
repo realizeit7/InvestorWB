@@ -88,23 +88,13 @@ def reserve(app: App, provider_name: str, model: str, req: LLMRequest) -> str | 
     if provider_name in FREE_PROVIDERS:
         return None
     if provider_name in SUBSCRIPTION_PROVIDERS:
-        cap = app.settings.llm.max_subscription_calls_per_day
-        today = app.now().strftime("%Y-%m-%d")
-        n = one(app.conn, "SELECT COUNT(*) AS n FROM llm_call WHERE provider=? AND substr(created_at,1,10)=?",
-                (provider_name, today))["n"]
-        if n >= cap:
-            raise BudgetExceeded(f"{provider_name}: {n} calls today reached llm.max_subscription_calls_per_day={cap} "
-                                 "(your Claude plan's own usage limits also apply)")
-        return None
+        return _reserve_slot(app, provider_name)
     budget = app.settings.llm.monthly_budget_usd
     if budget is None:
         raise BudgetExceeded("paid LLM calls need llm.monthly_budget_usd (no unlimited spending)")
     amt, basis = allowance(app, provider_name, model, req)
     conn = app.conn
-    if conn.in_transaction:
-        raise BudgetExceeded("budget reservation must not run inside another transaction (it needs an exclusive "
-                             "write lock to be safe against concurrent calls)")
-    conn.execute("BEGIN IMMEDIATE")                   # serialize reservations across processes
+    _begin_exclusive(conn)
     try:
         spent, unknown = committed(app)
         if unknown:
@@ -116,7 +106,39 @@ def reserve(app: App, provider_name: str, model: str, req: LLMRequest) -> str | 
         rid = new_id("llmr")
         insert(conn, "llm_budget_entry", {"id": rid, "month": _month(app), "kind": "RESERVE", "reservation_id": None,
                                           "amount_usd": dstr(amt), "basis": basis, "llm_call_id": None,
-                                          "created_at": app.now_iso()})
+                                          "created_at": app.now_iso(), "provider": provider_name})
+        conn.execute("COMMIT")
+    except BaseException:
+        conn.execute("ROLLBACK")
+        raise
+    return rid
+
+
+def _begin_exclusive(conn) -> None:
+    if conn.in_transaction:
+        raise BudgetExceeded("budget reservation must not run inside another transaction (it needs an exclusive "
+                             "write lock to be safe against concurrent calls)")
+    conn.execute("BEGIN IMMEDIATE")                   # serialize reservations across processes
+
+
+def _reserve_slot(app: App, provider_name: str) -> str:
+    """Subscription providers: reserve one of today's call slots BEFORE launching, atomically (a slot is used even if
+    the call then fails, so concurrent or crashed calls can never exceed the cap)."""
+    cap = app.settings.llm.max_subscription_calls_per_day
+    today = app.now().strftime("%Y-%m-%d")
+    conn = app.conn
+    _begin_exclusive(conn)
+    try:
+        n = one(conn, "SELECT COUNT(*) AS n FROM llm_budget_entry WHERE kind='RESERVE' AND provider=? AND "
+                      "substr(created_at,1,10)=?", (provider_name, today))["n"]
+        if n >= cap:
+            raise BudgetExceeded(f"{provider_name}: {n} call slots reserved today (UTC) reached "
+                                 f"llm.max_subscription_calls_per_day={cap} (your Claude plan's own usage limits also apply)")
+        rid = new_id("llmr")
+        insert(conn, "llm_budget_entry", {"id": rid, "month": _month(app), "kind": "RESERVE", "reservation_id": None,
+                                          "amount_usd": "0", "basis": f"{provider_name} call slot {n + 1}/{cap} (plan usage, "
+                                          "not per-token billing)", "llm_call_id": None, "created_at": app.now_iso(),
+                                          "provider": provider_name})
         conn.execute("COMMIT")
     except BaseException:
         conn.execute("ROLLBACK")
@@ -129,6 +151,13 @@ def settle(app: App, reservation_id: str | None, resp: LLMResponse | None, llm_c
     if reservation_id is None:
         return None
     res = one(app.conn, "SELECT * FROM llm_budget_entry WHERE id=?", (reservation_id,))
+    if res["provider"] in SUBSCRIPTION_PROVIDERS:
+        insert(app.conn, "llm_budget_entry", {"id": new_id("llms"), "month": res["month"], "kind": "SETTLE",
+                                              "reservation_id": reservation_id, "amount_usd": "0",
+                                              "basis": "subscription call (plan usage; no per-token charge recorded)",
+                                              "llm_call_id": llm_call_id, "created_at": app.now_iso(),
+                                              "provider": res["provider"]})
+        return Decimal(0)
     actual, basis = None, "usage or price unknown: full reservation charged"
     if resp is not None and resp.input_tokens is not None and resp.output_tokens is not None:
         price = price_for(app, resp.model)
@@ -140,5 +169,6 @@ def settle(app: App, reservation_id: str | None, resp: LLMResponse | None, llm_c
     amount = actual if actual is not None else Decimal(res["amount_usd"])
     insert(app.conn, "llm_budget_entry", {"id": new_id("llms"), "month": res["month"], "kind": "SETTLE",
                                           "reservation_id": reservation_id, "amount_usd": dstr(amount), "basis": basis,
-                                          "llm_call_id": llm_call_id, "created_at": app.now_iso()})
+                                          "llm_call_id": llm_call_id, "created_at": app.now_iso(),
+                                          "provider": res["provider"]})
     return amount

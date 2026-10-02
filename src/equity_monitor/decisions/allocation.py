@@ -92,6 +92,7 @@ def _screen_score(app: App, security_id: str) -> Decimal | None:
 def propose(app: App, portfolio_id: str, *, as_of: datetime | None = None, hypothetical_contribution: Decimal | None = None,
             conditional_sale_proceeds: Decimal | None = None) -> Proposal:
     require_company_scope(app, portfolio_id)
+    live = as_of is None
     as_of = as_of or app.now()
     if as_of > app.now():
         raise ValueError(f"allocation cutoff {iso_utc(as_of)} is in the future")
@@ -134,7 +135,7 @@ def propose(app: App, portfolio_id: str, *, as_of: datetime | None = None, hypot
     for sid in sorted(held_ids | wl):
         ref = security_ref(app.conn, sid)
         # Re-review at the cutoff with current policy + evidence; never act on an older decision as such.
-        rec = get(app, generate(app, portfolio_id, sid, as_of=as_of))
+        rec = get(app, generate(app, portfolio_id, sid, as_of=as_of, live=live))
         validated.append({"symbol": ref.symbol, "recommendation_id": rec["id"], "recommendation_as_of": rec["as_of"],
                           "action": rec["action"], "purchase_eligibility": rec.get("purchase_eligibility"),
                           "baseline_eligibility": rec.get("baseline_eligibility"),

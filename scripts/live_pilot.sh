@@ -17,8 +17,14 @@ notifications:
   webhook_authorized: false
 YAML
 EQM=(uv run eqm --home "$HOME_DIR" --settings "$SETTINGS" --policy config/policy.example.yaml)
+FAILED=()
 step() { echo; echo "=== $*"; }
-run() { echo "+ eqm ${*}"; "${EQM[@]}" "$@"; echo "  (exit $?)"; }
+run() {
+  echo "+ eqm ${*}"
+  "${EQM[@]}" "$@"; local rc=$?
+  echo "  (exit $rc)"
+  if [ "$rc" -ne 0 ]; then FAILED+=("eqm $* (exit $rc)"); fi
+}
 
 step "1. setup check before any data"; run setup check
 step "2. illustrative side account (HYPOTHETICAL, TAXABLE)"
@@ -34,3 +40,11 @@ run review --portfolio pilot-side
 step "7. allocation (expected: nothing purchasable without owner approvals)"; run allocate --portfolio pilot-side
 step "8. performance vs contribution-matched benchmarks (SPY primary)"; run performance --portfolio pilot-side --start 2026-01-02
 step "9. scheduler pass, health, setup check"; run jobs run-due; run health; run setup check
+
+echo
+if [ "${#FAILED[@]}" -gt 0 ]; then
+  echo "PILOT FAILED: ${#FAILED[@]} command(s) exited non-zero:"
+  printf '  - %s\n' "${FAILED[@]}"
+  exit 1
+fi
+echo "PILOT OK: every command exited 0 (this checks software behaviour, not investment performance)"

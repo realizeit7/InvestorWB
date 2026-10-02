@@ -12,6 +12,10 @@ from equity_monitor.research.finder import build_universe, prelim_metrics, run_f
 DEMO = ["ZZADD", "ZZHLD", "ZZTRM", "ZZEXT", "ZZREV", "ZZNEW"]
 
 
+def NO_SIC(cik):                                                    # offline: no SEC submissions lookup
+    return (None, None)
+
+
 def _nasdaq(sym, cap="5000000000", px="$30.00", vol="500000", sector="Technology", country="United States", name=None,
             industry=None):
     industry = industry or ("Major Banks" if sym == "ZZBNK" else "Finance: Consumer Services" if sym == "ZZSPG" else "x")
@@ -81,7 +85,8 @@ def test_finder_run_records_shortlist_from_point_in_time_deep_scores(app):
     def deep_fetch(u):
         fetched.append(u.symbol)
         return find_security(app.conn, u.symbol)
-    rid = run_finder(app, nasdaq_rows=nasdaq, sec_map=sec_map, frames=frames, deep_fetch=deep_fetch, as_of=AS_OF)
+    rid = run_finder(app, nasdaq_rows=nasdaq, sec_map=sec_map, frames=frames, deep_fetch=deep_fetch, as_of=AS_OF,
+                     sic_lookup=NO_SIC)
     run = app.conn.execute("SELECT * FROM finder_run WHERE id=?", (rid,)).fetchone()
     assert run["universe_count"] == 7 and run["prelim_ranked"] == 6 and run["label"] == "CURRENT"   # ZZSPG: no frames data
     assert sorted(fetched) == sorted(DEMO)
@@ -110,7 +115,8 @@ def test_failed_deep_fetch_is_a_warning_not_a_crash(app):
         if u.symbol == "ZZADD":
             raise RuntimeError("SEC timeout")
         return find_security(app.conn, u.symbol)
-    rid = run_finder(app, nasdaq_rows=nasdaq, sec_map=sec_map, frames=frames, deep_fetch=deep_fetch, as_of=AS_OF)
+    rid = run_finder(app, nasdaq_rows=nasdaq, sec_map=sec_map, frames=frames, deep_fetch=deep_fetch, as_of=AS_OF,
+                     sic_lookup=NO_SIC)
     w = json.loads(app.conn.execute("SELECT warnings_json FROM finder_run WHERE id=?", (rid,)).fetchone()[0])
     assert any("ZZADD" in x and "SEC timeout" in x for x in w)
     assert "ZZADD" not in {c["symbol"] for c in shortlist(app, rid)}
@@ -132,16 +138,39 @@ def _run(app):
     nasdaq, sec_map = _universe_inputs()
     years = [AS_OF.year - k for k in range(1, 6)]
     return run_finder(app, nasdaq_rows=nasdaq, sec_map=sec_map, frames=_frames([99000000 + i for i in range(6)], years),
-                      deep_fetch=lambda u: find_security(app.conn, u.symbol), as_of=AS_OF)
+                      deep_fetch=lambda u: find_security(app.conn, u.symbol), as_of=AS_OF, sic_lookup=NO_SIC)
 
 
-def _fake_claude(tmp_path, payload: dict, exit_code=0):
-    """A stand-in `claude` executable: records argv, cwd, stdin and environment, prints a result object."""
+@pytest.fixture
+def clean_env(monkeypatch):
+    """Tests must not depend on the host: remove provider-routing variables the preflight refuses."""
+    from equity_monitor.llm.claude_code_provider import _AMBIGUOUS_ENV
+    for k in _AMBIGUOUS_ENV:
+        monkeypatch.delenv(k, raising=False)
+
+
+FLAGS_HELP = ("-p, --print --output-format --json-schema --tools --strict-mcp-config --safe-mode --restricted "
+              "--setting-sources --disable-slash-commands --permission-mode --permission-prompts --system-prompt "
+              "--no-session-persistence")
+
+
+def _fake_claude(tmp_path, payload: dict, exit_code=0, auth=None, help_text=FLAGS_HELP):
+    """A stand-in `claude` executable: answers --version/--help/auth status; for a call it records argv, cwd, stdin and
+    environment and prints a result object."""
     log = tmp_path / "claude_call.json"
     script = tmp_path / "claude"
+    auth = auth if auth is not None else {"loggedIn": True, "authMethod": "claude.ai", "apiProvider": "firstParty",
+                                          "email": "owner@example.com"}
     script.write_text(f"""#!{sys.executable}
 import json, os, sys
-json.dump({{"argv": sys.argv[1:], "cwd": os.getcwd(), "cwd_files": os.listdir("."), "stdin": sys.stdin.read(),
+a = sys.argv[1:]
+if a == ["--version"]:
+    print("2.1.287 (Claude Code)"); sys.exit(0)
+if a == ["--help"]:
+    print({help_text!r}); sys.exit(0)
+if a[:2] == ["auth", "status"]:
+    print(json.dumps({auth!r})); sys.exit(0)
+json.dump({{"argv": a, "cwd": os.getcwd(), "cwd_files": os.listdir("."), "stdin": sys.stdin.read(),
            "has_api_key": "ANTHROPIC_API_KEY" in os.environ}}, open({str(log)!r}, "w"))
 print(json.dumps({payload!r}))
 sys.exit({exit_code})
@@ -150,7 +179,7 @@ sys.exit({exit_code})
     return script, log
 
 
-def test_claude_code_provider_is_isolated_and_never_uses_an_api_key(tmp_path, monkeypatch):
+def test_claude_code_provider_is_isolated_and_never_uses_an_api_key(tmp_path, monkeypatch, clean_env):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-should-be-stripped")
     out = {"type": "result", "subtype": "success", "is_error": False, "result": "",
            "structured_output": {"ok": True}, "usage": {"input_tokens": 1200, "output_tokens": 300},
@@ -165,11 +194,15 @@ def test_claude_code_provider_is_isolated_and_never_uses_an_api_key(tmp_path, mo
     assert argv[:3] == ["-p", "--output-format", "json"] and "--bare" not in argv
     assert argv[argv.index("--tools") + 1] == ""                          # no tools: filing text cannot make it act
     assert "--strict-mcp-config" in argv and "--no-session-persistence" in argv
+    assert "--safe-mode" in argv and "--restricted" in argv               # no hooks, plugins, CLAUDE.md, settings files
+    assert argv[argv.index("--setting-sources") + 1] == "" and "--disable-slash-commands" in argv
+    assert argv[argv.index("--permission-mode") + 1] == "dontAsk"
+    assert p.ensure_ready().auth == {"loggedIn": True, "authMethod": "claude.ai", "apiProvider": "firstParty"}  # no email
     assert argv[argv.index("--system-prompt") + 1] == "SYSTEM PROMPT" and "--json-schema" in argv
     assert call["stdin"] == "untrusted filing text" and call["cwd_files"] == [] and "eqm_cc_" in call["cwd"]
 
 
-def test_claude_code_provider_errors_are_explicit(tmp_path):
+def test_claude_code_provider_errors_are_explicit(tmp_path, clean_env):
     script, _ = _fake_claude(tmp_path, {"type": "result", "subtype": "error_max_turns", "is_error": True, "result": "x"})
     r = ClaudeCodeProvider(str(script)).complete(LLMRequest("t", "v", "s", "u", {}))
     assert r.status == "ERROR" and "error_max_turns" in r.error
@@ -249,13 +282,7 @@ def test_interactive_pack_and_import_verify_claims(app, tmp_path):
     assert latest_judgments(app, rid)["ZZADD"]["provider"] == "interactive"
 
 
-# ------------------------------------------------------------------ ops: report, evaluation, tracking, job, promote
-from datetime import timedelta
-
-from equity_monitor.data import calendar as cal
-from equity_monitor.data.prices import Bar, PriceFetch, store_fetch
-
-
+# ------------------------------------------------------------------ ops: report, tracking, job, promote (evaluation: test_finder_protocol.py)
 def test_report_labels_candidates_as_research_not_recommendations(app):
     from equity_monitor.reporting.reports import finder_md
     rid = _run(app)
@@ -263,29 +290,6 @@ def test_report_labels_candidates_as_research_not_recommendations(app):
     assert "RESEARCH CANDIDATES, not recommendations" in md and "ILLUSTRATIVE" in md
     assert "no demonstrated stock-selection edge" in md and "eqm finder promote" in md
     assert "| 1 |" in md and "not judged yet" in md
-
-
-def test_shortlist_evaluation_uses_fixed_matured_horizons_vs_spy(app):
-    from equity_monitor.data.securities import register_security
-    from equity_monitor.research.finder import evaluate_shortlists
-    rid = _run(app)
-    start = cal.latest_completed_session(AS_OF)
-    days = [start]
-    for _ in range(70):
-        days.append(cal.next_session(days[-1]))
-    spy = register_security(app.conn, app.now_iso(), "SPY", security_type="ETF")
-    store_fetch(app, spy, PriceFetch([Bar(d, D(100) + D(i) * D("0.1")) for i, d in enumerate(days)]), "fixture")
-    sl = shortlist(app, rid)
-    for k, c in enumerate(sl):                                   # rank 1 rises most
-        store_fetch(app, c["security_id"], PriceFetch([Bar(d, D(50) + D(i) * D(len(sl) - k) * D("0.05"))
-                                                       for i, d in enumerate(days)]), "fixture")
-    assert evaluate_shortlists(app)["matured_windows"] == []      # nothing matured yet
-    app.clock.set(AS_OF + timedelta(days=120))
-    ev = evaluate_shortlists(app)
-    w = [r for r in ev["matured_windows"] if r["horizon_sessions"] == 63]
-    assert len(w) == 1 and w[0]["with_price_data"] == len(sl) and w[0]["spy_return"] is not None
-    assert w[0]["all"]["n"] == len(sl) and "descriptive only" in ev["verdict"]
-    assert not [r for r in ev["matured_windows"] if r["horizon_sessions"] == 252]
 
 
 def test_shortlisted_names_keep_daily_prices_and_job_is_opt_in(app):

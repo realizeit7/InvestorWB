@@ -180,13 +180,29 @@ def exclusion(app: App, si: ScreenInput) -> str | None:
     return None
 
 
-def _percentile_scores(rows: list[ScreenRow], metric: str, direction: int) -> dict[str, Decimal]:
-    vals = [(r.security_id, r.metrics[metric]) for r in rows if r.metrics.get(metric) is not None]
-    if len(vals) < 2:
+def percentile_ranks(values: list[tuple[str, Decimal]], direction: int) -> dict[str, Decimal]:
+    """Percentile in [0, 1] (1 = best in ``direction``). Ties get the AVERAGE of their ranks, so equal values always
+    get equal percentiles and the input order never matters (e.g. discrete metrics such as FCF-positive years)."""
+    if len(values) < 2:
         return {}
-    ordered = sorted(vals, key=lambda x: (x[1] * direction, x[0]))
-    n = len(ordered)
-    return {sid: Decimal(i) / Decimal(n - 1) for i, (sid, _) in enumerate(ordered)}
+    ordered = sorted(values, key=lambda kv: kv[1] * direction)
+    n = len(ordered) - 1
+    out: dict[str, Decimal] = {}
+    i = 0
+    while i < len(ordered):
+        j = i
+        while j + 1 < len(ordered) and ordered[j + 1][1] == ordered[i][1]:
+            j += 1
+        pct = Decimal(i + j) / 2 / Decimal(n)
+        for k, _v in ordered[i:j + 1]:
+            out[k] = pct
+        i = j + 1
+    return out
+
+
+def _percentile_scores(rows: list[ScreenRow], metric: str, direction: int) -> dict[str, Decimal]:
+    return percentile_ranks([(r.security_id, r.metrics[metric]) for r in rows if r.metrics.get(metric) is not None],
+                            direction)
 
 
 def score(app: App, inputs: list[ScreenInput]) -> list[ScreenRow]:

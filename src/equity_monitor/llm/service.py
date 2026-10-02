@@ -44,8 +44,8 @@ def provider_from_settings(app: App) -> LLMProvider:
         return AnthropicProvider(s.model, s.effort, s.use_server_fallbacks)
     if s.provider == "claude_code":
         from .claude_code_provider import ClaudeCodeProvider
-        return ClaudeCodeProvider(s.claude_code_bin, s.model,
-                                  s.claude_code_timeout_s)
+        return ClaudeCodeProvider(s.claude_code_bin, s.model, s.claude_code_timeout_s,
+                                  allowed_auth_methods=s.claude_code_auth_methods)
     if s.provider == "fixture":
         return FixtureLLM(lambda req: {"summary": "fixture provider: no real inference", "claims": []})
     return NoLLM()

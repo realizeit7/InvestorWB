@@ -11,7 +11,7 @@ sec_user_agent: null
 market_data_provider: yahoo_chart
 
 active_portfolio: null          # e.g. "main"
-benchmarks: [SCHG, VTI]         # contribution-matched benchmarks (broad market = VTI)
+benchmarks: [SPY, SCHG, VTI]    # contribution-matched; the FIRST (SPY, S&P 500) is the primary comparison
 
 contribution:
   monthly_amount_usd: null      # e.g. 1000 — a plan, not cash until you record the DEPOSIT
@@ -33,7 +33,8 @@ llm:
   price_output_per_mtok: null
   claude_code_bin: claude       # Claude Code CLI path for provider claude_code
   claude_code_timeout_s: 900
-  max_subscription_calls_per_day: 40
+  max_subscription_calls_per_day: 40   # atomic slots reserved before each launch (UTC day)
+  claude_code_auth_methods: [claude.ai]   # `claude auth status` methods accepted; anything else is refused
 
 notifications:
   webhook_enabled: false        # external delivery stays OFF until you enable AND authorize it

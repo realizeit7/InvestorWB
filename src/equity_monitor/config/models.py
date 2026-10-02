@@ -80,10 +80,50 @@ class ScreeningPolicy(_Strict):
     biotech_min_revenue_usd: Decimal = Decimal("100000000")
 
 
+class ConservativeGapPolicy(_Strict):
+    """Version ``cg-1`` of the conservative growth variant (POLICY.md §13). Predeclared, NOT validated: it was fixed
+    before any outcome was observed and must not be tuned to make a particular shortlist look plausible."""
+    version: str = "cg-1"
+    shrink_weight: Decimal = Decimal("0.5")          # growth used = w x own 3y CAGR + (1 - w) x peer median
+    max_excess_over_peer_median: Decimal = Decimal("0.10")   # then capped at peer median + this
+    min_peer_count: int = 20                         # peer median needs this many companies (SIC hierarchy fallback)
+
+
+class SensitivityPolicy(_Strict):
+    """One-at-a-time reverse-DCF changes; a candidate whose conservative gap is <= 0 under any of them is FRAGILE."""
+    wacc_delta: Decimal = Decimal("0.01")
+    terminal_growth_delta: Decimal = Decimal("0.005")
+    margin_relative_delta: Decimal = Decimal("0.10")  # EBIT margins x (1 - delta)
+    annual_dilution: Decimal = Decimal("0.01")        # share count grows this much per explicit year
+
+
+class FinderEvaluationPolicy(_Strict):
+    """Prospective research protocol (POLICY.md §13.7). Minimum observation requirements, not sufficient evidence."""
+    primary_horizon_sessions: int = 126
+    horizons_sessions: list[int] = Field(default_factory=lambda: [63, 126, 252])
+    cost_bps_per_side: Decimal = Decimal("10")        # charged on each buy and each sell of a cohort member
+    gate_min_months: int = 24
+    gate_min_primary_cohorts: int = 52
+    max_top5_issuer_share: Decimal = Decimal("0.5")   # share of positive excess contribution from the top 5 issuers
+    bootstrap_samples: int = 2000
+    ci_level: Decimal = Decimal("0.90")
+    beta_lookback_sessions: int = 252
+
+
+class LLMSelectionRule(_Strict):
+    """Arm D: predeclared rule applied to the deterministic shortlist (arm B) using FROZEN judgments."""
+    verdicts: list[str] = Field(default_factory=lambda: ["RESEARCH_FURTHER"])
+    min_priority: int = 3
+
+
 class FinderPolicy(_Strict):
     """Discovery of possibly under-rated companies. Produces RESEARCH candidates only — never ADD/TRIM/EXIT."""
+    protocol_version: str = "finder-protocol-1"      # bump whenever any rule below changes
     min_market_cap_usd: Decimal = Decimal("300000000")
-    min_daily_dollar_volume_usd: Decimal = Decimal("1000000")     # last session volume x price (liquidity floor)
+    # universe stage: last session volume x price — a SINGLE-SESSION PROXY (one unusual day can distort it)
+    min_daily_dollar_volume_usd: Decimal = Decimal("1000000")
+    trailing_liquidity_sessions: int = 20            # deep stage: median dollar volume over this many sessions
+    peer_mapping: Literal["sic-v1"] = "sic-v1"       # SIC 4 -> 3 -> 2 digit -> division -> ALL, min size per stage
     exchanges: list[str] = Field(default_factory=lambda: ["NYSE", "Nasdaq"])
     # balance-sheet businesses the FCF/DCF screen cannot judge (Nasdaq industry labels; SIC exclusions apply again in the
     # deep dive). Excluding whole sectors would also drop e.g. ratings agencies, real-estate services or education firms.
@@ -107,7 +147,11 @@ class FinderPolicy(_Strict):
         "quality": Decimal("0.35"), "value": Decimal("0.30"), "expectations_gap": Decimal("0.35"),
         "dcf_margin_of_safety": Decimal("0")})
     max_judgments_per_run: int = 25
-    evaluation_horizons_sessions: list[int] = Field(default_factory=lambda: [63, 126, 252])
+    report_top_priorities: int = 5                    # highlighted for research; all shortlisted names are kept
+    conservative_gap: ConservativeGapPolicy = Field(default_factory=ConservativeGapPolicy)
+    sensitivity: SensitivityPolicy = Field(default_factory=SensitivityPolicy)
+    llm_selection_rule: LLMSelectionRule = Field(default_factory=LLMSelectionRule)
+    evaluation: FinderEvaluationPolicy = Field(default_factory=FinderEvaluationPolicy)
 
 
 class AlertPolicy(_Strict):
@@ -211,6 +255,8 @@ class LLMSettings(_Strict):
     claude_code_bin: str = "claude"                    # path to the Claude Code CLI for provider claude_code
     claude_code_timeout_s: int = 900
     max_subscription_calls_per_day: int = 40           # claude_code: cap on calls/day (plan usage limits apply)
+    # claude_code: `claude auth status` methods accepted as the owner's subscription login; anything else is refused
+    claude_code_auth_methods: list[str] = Field(default_factory=lambda: ["claude.ai"])
 
 
 class RiskSettings(_Strict):
@@ -234,7 +280,9 @@ class UserSettings(_Strict):
     # they can still be imported, reconciled and benchmarked
     no_company_research_tax_statuses: list[str] = Field(default_factory=lambda: ["TAX_DEFERRED"])
     finder_enabled: bool = False          # weekly company-finder scan (network: Nasdaq listing + SEC); opt-in
-    finder_auto_judge: bool = True        # when llm.provider is claude_code/anthropic, judge the shortlist automatically
+    # unattended judging in the weekly job; with claude_code it also needs a passing `eqm llm claude-check` for the
+    # installed CLI version. Off by default: interactive packs are the initial default.
+    finder_auto_judge: bool = False
 
 
 def load_policy(path: str | Path | None) -> Policy:
