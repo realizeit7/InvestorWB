@@ -274,3 +274,51 @@ SEC frames are approximate; DCF figures use ILLUSTRATIVE unapproved defaults.
 run on the owner's machine under the owner's Claude login with the owner's authorization; prospective finder
 evaluation (needs 63/126/252 sessions after each run). The shortlist is a set of research candidates; nothing here is
 evidence of a stock-selection edge.
+
+## 10. Review of 77a3ad1 (2026-10-02)
+
+Full offline suite: **210 passed, 0 failed** (`uv run pytest`). New: 17 tests in `tests/test_finder_protocol.py`, 3 in
+`tests/test_ops_scripts.py`, 1 in `tests/test_repairs.py`; finder tests updated for the new interfaces.
+
+### Findings reproduced on 77a3ad1 and after the fix (actual outputs)
+
+| # | finding | 77a3ad1 | now | tests |
+|---|---|---|---|---|
+| 1 | equal metrics get unequal ranks | three equal values → percentiles **0, 0.5, 1** (order-dependent) | **0.5, 0.5, 0.5**; prelim scores identical under 5 shuffles; screening engine uses the same rule | `test_equal_metrics_get_equal_percentiles_whatever_the_input_order`, `test_prelim_scores_do_not_depend_on_input_order` |
+| 2 | evaluation uses information unavailable at selection | synthetic run + prices: matured 63-session RESEARCH_FURTHER group **n = 2 → 3** and its mean excess changed after a judgment added 500 days later; windows started at the run's Wednesday close | frozen D cohort unchanged (n = 2, same result); the late judgment created cohort 2, reported as a later re-freeze outside the statistics; entry = **Thursday's open** (first open after the information time), SPY over the same interval, costs charged, missing outcomes → INCOMPLETE | `test_later_judgments_never_change_a_matured_cohort`, `test_cohort_entry_is_the_first_open_after_the_information_existed`, `test_arms_start_at_a_common_executable_price_and_spy_matches_the_interval`, `test_missing_outcomes_make_a_cohort_incomplete_not_a_smaller_cohort`, `test_open_to_open_return_includes_dividends_and_splits`, `test_verdict_gate_needs_predeclared_observations_baselines_and_dispersion` |
+| 3 | Claude CLI isolation overstated | call had no `--safe-mode`/`--restricted`/`--setting-sources`; no auth-route check; cap counted completed calls | see the real-CLI check below; preflight refuses API-key methods, API-key sources, non-first-party providers, routing variables and missing flags; judging refused (nothing launched) until a PASS for the installed version; 8 concurrent processes with cap 3 → exactly **3** slots | `test_preflight_refuses_ambiguous_or_unsupported_configurations`, `test_cli_judging_is_refused_until_the_isolation_check_passed_for_this_version`, `test_weekly_job_falls_back_to_the_pack_when_cli_judging_is_not_validated`, `test_subscription_call_slots_are_reserved_atomically_across_processes`, `test_real_cli_does_not_run_user_or_project_hooks_offline` |
+| 4 | moving-clock comparison prevents exposure re-checks | with a clock that advances on every read, a live review left stale-but-valid evidence **PAUSED** (REVIEW_REQUIRED) | **ELIGIBLE** after an automatic re-check; replays of past cutoffs never re-check | `test_live_review_rechecks_exposure_evidence_with_a_moving_clock` |
+| 5 | `live_pilot.sh` exits 0 after failures | 3 tests fail on the old script (exit 0 even when every command fails) | exit 1 with the failing commands listed; 0 only if all succeed | `tests/test_ops_scripts.py` |
+
+### Real Claude Code CLI isolation check (this container, CLI 2.1.287, offline, no plan usage)
+
+`eqm llm claude-check` with a temporary home (user hooks on SessionStart/UserPromptSubmit/PreToolUse/Stop, a user MCP
+server, a user CLAUDE.md), project hooks and a project CLAUDE.md, a local fake Messages API and a dummy key:
+
+| | control (no isolation flags) | isolated (InvestorWB's exact flags) |
+|---|---|---|
+| hooks / MCP server executed | user and project SessionStart, UserPromptSubmit, Stop + user MCP server | **none** |
+| CLAUDE.md sent to the model | user and project | **none** |
+| tools offered | — | **StructuredOutput only** |
+| system prompt | default | **InvestorWB's** |
+| structured answer | — | returned (`{"ok": "isolated"}`) |
+
+Overall status **FAIL, as intended in this container**: it routes Claude Code through `ANTHROPIC_BASE_URL` and reports
+`authMethod: oauth_token`, both refused. On the owner's machine with a normal subscription login the expected method is
+`claude.ai`. **Not run:** the check and a live call on the owner's machine (owner action, RUNBOOK).
+
+### Live finder run 3 (separate home, placeholder SEC contact, no LLM; run `fnd_328012da1a8c4315ba0e`)
+
+| item | actual result |
+|---|---|
+| duration | 7 min 28 s including the first-time SIC lookups (2,069 issuers; 2,031 with SIC) |
+| funnel | universe 2,069 → preliminary 1,694 → deep 60 → shortlist 25 (no deep-fetch failures) |
+| preliminary peer level used | 4-digit 577, 3-digit 253, 2-digit 547, division 315, ALL 2; 93 Nasdaq-label vs SIC conflicts flagged |
+| deep exclusions | 5 BANK_OR_CREDIT (SIC), 1 INSUFFICIENT_HISTORY; trailing liquidity known for all 60, none below the floor |
+| conservative gap | computable for 39 of 54 eligible; 2 shortlisted names FRAGILE (RMD, IDCC) |
+| cohorts frozen | A, B, C with 25 members each; overlap with B: A 16, C 22 |
+| shortlist top 5 | TKO, DECK, TRN, GEN, BKNG (run 2's TTD, PYPL and YELP no longer reach the deep dive: preliminary percentiles are now computed within SIC peer pools instead of Nasdaq sectors) |
+| `eqm finder evaluate` | every cohort NOT_MATURED; verdict INSUFFICIENT_DATA |
+
+These names are research candidates only; no recommendation is implied. **Not run:** prospective collection (needs
+≥ 24 months and ≥ 52 matured 126-session cohorts), owner-side Claude Code check and live call.

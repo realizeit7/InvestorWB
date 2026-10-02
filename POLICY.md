@@ -443,7 +443,7 @@ regular valuation → thesis → approval workflow decides everything else. Rule
      collect, not to tune weights against current shortlists.
 
 The weekly job (`weekly_finder`, Sunday 10:00 ET) runs only when `finder_enabled: true` (≈ 1 Nasdaq request, ≈ 40 SEC
-frames requests, one SEC submissions request per issuer without a cached SIC — ≈ 2,000 on the first run only, ≈ 20–30 minutes — and ≈ 3
+frames requests, one SEC submissions request per issuer without a cached SIC — ≈ 2,000 on the first run only; the whole first live run took 7.5 minutes — and ≈ 3
 SEC + 1 price request per deep-dive company). It judges automatically only if `finder_auto_judge: true` (default false)
 and, for claude_code, the check has passed; otherwise it writes the pack.
 
