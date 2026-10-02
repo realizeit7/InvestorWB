@@ -30,6 +30,7 @@ from ..util import dstr, new_id
 from .base import PRICING, LLMRequest, LLMResponse, LLMUnavailable
 
 FREE_PROVIDERS = ("none", "fixture")
+SUBSCRIPTION_PROVIDERS = ("claude_code",)       # billed by the owner's plan, not per token: capped by calls per day
 
 
 class BudgetExceeded(LLMUnavailable):
@@ -56,7 +57,7 @@ def committed(app: App, month: str | None = None) -> tuple[Decimal, int]:
         sum((Decimal(r["amount_usd"]) for r in rows if r["kind"] == "RESERVE" and r["id"] not in settled), Decimal(0))
     # legacy cost records written before this ledger existed (not linked to any ledger entry)
     legacy = all_rows(app.conn, "SELECT amount_usd FROM cost_record WHERE category='LLM' AND substr(occurred_at,1,7)=? "
-                                "AND provider NOT IN ('none','fixture') AND (ref_id IS NULL OR ref_id NOT IN "
+                                "AND provider NOT IN ('none','fixture','claude_code') AND (ref_id IS NULL OR ref_id NOT IN "
                                 "(SELECT llm_call_id FROM llm_budget_entry WHERE llm_call_id IS NOT NULL))", (month,))
     total += sum((Decimal(r["amount_usd"]) for r in legacy if r["amount_usd"] is not None), Decimal(0))
     return total, sum(1 for r in legacy if r["amount_usd"] is None)
@@ -85,6 +86,15 @@ def reserve(app: App, provider_name: str, model: str, req: LLMRequest) -> str | 
     """Reserve the worst-case cost of one request, atomically against concurrent reservations. Returns the
     reservation id, or None for free providers. Raises BudgetExceeded instead of sending."""
     if provider_name in FREE_PROVIDERS:
+        return None
+    if provider_name in SUBSCRIPTION_PROVIDERS:
+        cap = app.settings.llm.max_subscription_calls_per_day
+        today = app.now().strftime("%Y-%m-%d")
+        n = one(app.conn, "SELECT COUNT(*) AS n FROM llm_call WHERE provider=? AND substr(created_at,1,10)=?",
+                (provider_name, today))["n"]
+        if n >= cap:
+            raise BudgetExceeded(f"{provider_name}: {n} calls today reached llm.max_subscription_calls_per_day={cap} "
+                                 "(your Claude plan's own usage limits also apply)")
         return None
     budget = app.settings.llm.monthly_budget_usd
     if budget is None:

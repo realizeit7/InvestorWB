@@ -106,3 +106,136 @@ def test_failed_deep_fetch_is_a_warning_not_a_crash(app):
     w = json.loads(app.conn.execute("SELECT warnings_json FROM finder_run WHERE id=?", (rid,)).fetchone()[0])
     assert any("ZZADD" in x and "SEC timeout" in x for x in w)
     assert "ZZADD" not in {c["symbol"] for c in shortlist(app, rid)}
+
+
+# ------------------------------------------------------------------ stage 2: LLM judgment (no API, credential-free)
+import os
+import stat
+import subprocess
+import sys
+
+from equity_monitor.llm.base import FixtureLLM, LLMRequest
+from equity_monitor.llm.claude_code_provider import ClaudeCodeProvider
+
+
+def _run(app):
+    app.clock.set(AS_OF)
+    build_demo(app)
+    nasdaq, sec_map = _universe_inputs()
+    years = [AS_OF.year - k for k in range(1, 6)]
+    return run_finder(app, nasdaq_rows=nasdaq, sec_map=sec_map, frames=_frames([99000000 + i for i in range(6)], years),
+                      deep_fetch=lambda u: find_security(app.conn, u.symbol), as_of=AS_OF)
+
+
+def _fake_claude(tmp_path, payload: dict, exit_code=0):
+    """A stand-in `claude` executable: records argv, cwd, stdin and environment, prints a result object."""
+    log = tmp_path / "claude_call.json"
+    script = tmp_path / "claude"
+    script.write_text(f"""#!{sys.executable}
+import json, os, sys
+json.dump({{"argv": sys.argv[1:], "cwd": os.getcwd(), "cwd_files": os.listdir("."), "stdin": sys.stdin.read(),
+           "has_api_key": "ANTHROPIC_API_KEY" in os.environ}}, open({str(log)!r}, "w"))
+print(json.dumps({payload!r}))
+sys.exit({exit_code})
+""")
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    return script, log
+
+
+def test_claude_code_provider_is_isolated_and_never_uses_an_api_key(tmp_path, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-should-be-stripped")
+    out = {"type": "result", "subtype": "success", "is_error": False, "result": "",
+           "structured_output": {"ok": True}, "usage": {"input_tokens": 1200, "output_tokens": 300},
+           "total_cost_usd": 0.05, "modelUsage": {"claude-opus-5-5": {}}}
+    script, log = _fake_claude(tmp_path, out)
+    p = ClaudeCodeProvider(str(script), model="claude-opus-5-5", timeout_s=30)
+    resp = p.complete(LLMRequest("t", "v", "SYSTEM PROMPT", "untrusted filing text", {"type": "object"}))
+    call = json.loads(log.read_text())
+    assert resp.status == "OK" and json.loads(resp.text) == {"ok": True} and resp.input_tokens == 1200
+    assert call["has_api_key"] is False                                   # uses the logged-in account, not API billing
+    argv = call["argv"]
+    assert argv[:3] == ["-p", "--output-format", "json"] and "--bare" not in argv
+    assert argv[argv.index("--tools") + 1] == ""                          # no tools: filing text cannot make it act
+    assert "--strict-mcp-config" in argv and "--no-session-persistence" in argv
+    assert argv[argv.index("--system-prompt") + 1] == "SYSTEM PROMPT" and "--json-schema" in argv
+    assert call["stdin"] == "untrusted filing text" and call["cwd_files"] == [] and "eqm_cc_" in call["cwd"]
+
+
+def test_claude_code_provider_errors_are_explicit(tmp_path):
+    script, _ = _fake_claude(tmp_path, {"type": "result", "subtype": "error_max_turns", "is_error": True, "result": "x"})
+    r = ClaudeCodeProvider(str(script)).complete(LLMRequest("t", "v", "s", "u", {}))
+    assert r.status == "ERROR" and "error_max_turns" in r.error
+    bad, _ = _fake_claude(tmp_path, {"type": "result"}, exit_code=3)
+    assert "exit 3" in ClaudeCodeProvider(str(bad)).complete(LLMRequest("t", "v", "s", "u", {})).error
+    assert "not found" in ClaudeCodeProvider(str(tmp_path / "nope")).complete(LLMRequest("t", "v", "s", "u", {})).error
+
+
+def _judgment(sym, verdict="RESEARCH_FURTHER", claims=()):
+    return {"symbol": sym, "verdict": verdict, "research_priority": 4, "underrated_case": "margins expanding",
+            "value_trap_risks": "customer concentration", "what_would_change_view": "margin reversal",
+            "claims": list(claims)}
+
+
+def test_judgments_annotate_but_never_reorder_or_extend_the_shortlist(app):
+    from equity_monitor.research.finder_judge import judge_run, latest_judgments
+    rid = _run(app)
+    before = [(c["symbol"], c["rank"]) for c in shortlist(app, rid)]
+
+    def responder(req):
+        sym = json.loads(req.user.split("\n", 1)[1].split("\n\nRecent filing")[0])["symbol"]
+        if sym == "ZZEXT":
+            return _judgment(sym, "LIKELY_VALUE_TRAP")
+        if sym == "ZZREV":
+            return _judgment("AAPL")                                       # tries to judge another company
+        return _judgment(sym)
+    out = judge_run(app, FixtureLLM(responder), rid, fetch_text=False)
+    js = latest_judgments(app, rid)
+    assert js["ZZEXT"]["verdict"] == "LIKELY_VALUE_TRAP" and "ZZREV" not in js and "AAPL" not in js
+    assert any(f["symbol"] == "ZZREV" for f in out["failed"])
+    assert [(c["symbol"], c["rank"]) for c in shortlist(app, rid)] == before          # deterministic order unchanged
+    assert app.conn.execute("SELECT COUNT(*) FROM recommendation").fetchone()[0] == 0
+
+
+def test_subscription_calls_are_capped_per_day(app):
+    from equity_monitor.research.finder_judge import judge_run
+    rid = _run(app)
+    s = app.settings.llm.model_copy(update={"max_subscription_calls_per_day": 2})
+    app.settings = app.settings.model_copy(update={"llm": s})
+
+    class FakeCC(FixtureLLM):
+        name = "claude_code"
+    p = FakeCC(lambda req: _judgment(json.loads(req.user.split("\n", 1)[1].split("\n\nRecent filing")[0])["symbol"]))
+    out = judge_run(app, p, rid, fetch_text=False)
+    assert len(out["judged"]) == 2 and "max_subscription_calls_per_day" in out["failed"][0]["error"]
+    cost = app.conn.execute("SELECT amount_usd, units_json FROM cost_record WHERE provider='claude_code' LIMIT 1").fetchone()
+    assert cost[0] == "0" and "subscription" in cost[1]
+
+
+def test_interactive_pack_and_import_verify_claims(app, tmp_path):
+    from equity_monitor.db.core import insert
+    from equity_monitor.data.sec import store_passages
+    from equity_monitor.research.finder_judge import export_pack, import_judgments, latest_judgments
+    rid = _run(app)
+    iss = app.conn.execute("SELECT issuer_id FROM security WHERE symbol='ZZADD'").fetchone()[0]
+    insert(app.conn, "source_document", {"id": "doc_f", "provider": "FIXTURE", "doc_type": "10-K", "issuer_id": iss,
+           "accession_no": "doc_f", "source_url": None, "title": "t", "fiscal_period_end": "2026-06-30",
+           "filed_date": "2026-08-15", "public_at": "2026-08-15T20:05:00.000000Z", "public_at_basis": "PROVIDED",
+           "retrieved_at": "2026-08-15T20:05:00.000000Z", "raw_object_id": None, "content_hash": None,
+           "parser_version": None, "trust": "FIXTURE", "items": None, "limitations": None})
+    src = "Revenue was $1.0 billion in fiscal 2026."
+    store_passages(app, "doc_f", src)
+    files = export_pack(app, rid, tmp_path / "pack", fetch_text=False)
+    text = files["pack"].read_text()
+    assert "doc_f#p0" in text and "ZZADD" in text and "import-judgments" in text
+    data = {"run_id": rid, "judgments": [
+        _judgment("ZZADD", claims=[{"text": "Revenue was $1.0 billion in fiscal 2026.", "claim_type": "FACT",
+                                    "citations": [{"passage_id": "doc_f#p0", "quote": src}]},
+                                   {"text": "Revenue was $9 billion in fiscal 2026.", "claim_type": "FACT",
+                                    "citations": [{"passage_id": "doc_f#p0", "quote": src}]}]),
+        _judgment("MSFT")]}
+    files["template"].write_text(json.dumps(data))
+    res = import_judgments(app, files["template"])
+    assert res["stored"] == ["ZZADD"] and res["rejected"][0]["symbol"] == "MSFT"
+    ver = latest_judgments(app, rid)["ZZADD"]["verification"]
+    assert [v["status"] for v in ver] == ["VERIFIED", "FAILED"]
+    assert latest_judgments(app, rid)["ZZADD"]["provider"] == "interactive"

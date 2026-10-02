@@ -42,6 +42,10 @@ def provider_from_settings(app: App) -> LLMProvider:
     if s.provider == "anthropic":
         from .anthropic_provider import AnthropicProvider
         return AnthropicProvider(s.model, s.effort, s.use_server_fallbacks)
+    if s.provider == "claude_code":
+        from .claude_code_provider import ClaudeCodeProvider
+        return ClaudeCodeProvider(s.claude_code_bin, s.model,
+                                  s.claude_code_timeout_s)
     if s.provider == "fixture":
         return FixtureLLM(lambda req: {"summary": "fixture provider: no real inference", "claims": []})
     return NoLLM()
@@ -100,10 +104,14 @@ def call(app: App, provider: LLMProvider, req: LLMRequest, redacted_inputs: dict
         "status": status, "input_tokens": resp.input_tokens, "output_tokens": resp.output_tokens,
         "cost_usd": dstr(cost), "created_at": app.now_iso(),
     })
+    subscription = resp.provider in budget.SUBSCRIPTION_PROVIDERS
     insert(app.conn, "cost_record", {"id": new_id("cost"), "category": "LLM", "provider": resp.provider,
-                                     "amount_usd": dstr(charged if reservation else cost), "estimated": 1,
+                                     "amount_usd": "0" if subscription else dstr(charged if reservation else cost),
+                                     "estimated": 1,
                                      "units_json": to_json({"in": resp.input_tokens, "out": resp.output_tokens,
-                                                            "model": resp.model}),
+                                                            "model": resp.model, **({"billing": "subscription (plan usage)",
+                                                            "api_equivalent_usd": resp.extra.get("api_equivalent_cost_usd")}
+                                                            if subscription else {})}),
                                      "ref_id": cid, "occurred_at": app.now_iso()})
     return cid, parsed
 
