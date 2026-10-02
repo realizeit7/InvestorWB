@@ -33,7 +33,7 @@ from ..app import App
 from ..db.core import one
 from ..util import iso_utc
 
-VERIFIER_VERSION = "ev-4"
+VERIFIER_VERSION = "ev-5"
 VERIFIED, SOURCE_MATCHED, UNVERIFIED, FAILED, NOT_REQUIRED = "VERIFIED", "SOURCE_MATCHED", "UNVERIFIED", "FAILED", "NOT_REQUIRED"
 
 
@@ -141,6 +141,8 @@ class Quantity:
     year: int | None = None
     quarter: int | None = None
     negated: bool = False
+    period_inferred: bool = False    # True when the period was not stated next to the figure (document default or a
+                                     # distant token): such a period can fail to confirm, but never CONTRADICT a claim
     role: str | None = None          # LEVEL (value for the stated/current period) | PRIOR (from/comparison value)
                                      # | CHANGE (change amount or rate) | None (relationship not determinable)
 
@@ -283,8 +285,10 @@ def parse_statements(text: str, default_year: int | None = None) -> list[Quantit
         if near:
             p = min(near, key=lambda p: (min(abs(p[0] - q.end), abs(q.start - p[1])), p[0] < q.start))
             q.year, q.quarter = p[2], p[3]
+            q.period_inferred = min(abs(p[0] - q.end), abs(q.start - p[1])) > 40
         elif default_year:
             q.year = default_year
+            q.period_inferred = True
     return qs
 
 
@@ -365,6 +369,8 @@ def _check(c: Quantity, sources: list[Quantity], tol: Decimal = TOL) -> tuple[st
             return "UNCONFIRMED", f"'{c.token}' matches, but its direction {c.direction} is not established: {basis}"
     for s in same_role:
         per = _periods(c, s)
+        if per == "conflict" and s.period_inferred:
+            continue                     # the source never stated this figure's period: cannot contradict on period
         if per == "conflict" and _close(abs(c.value), abs(s.value), tol):
             return "CONTRADICTED", f"period: claim {c.describe()} vs source {s.describe()}"
         if per == "conflict" or c.negated != s.negated:
@@ -389,7 +395,8 @@ def _check(c: Quantity, sources: list[Quantity], tol: Decimal = TOL) -> tuple[st
     s = near[0]
     why = "metric" if not _same_metric(c.metric, s.metric) else \
         ("role (level vs prior/comparison vs change)" if s.role != c.role else
-         "period" if _periods(c, s) != "ok" else "direction" if c.direction != s.direction else "negation/sign")
+         ("period (not stated next to the figure in the source)" if s.period_inferred else "period")
+         if _periods(c, s) != "ok" else "direction" if c.direction != s.direction else "negation/sign")
     return "UNCONFIRMED", f"'{c.token}' appears in the source but its {why} could not be confirmed ({s.describe()})"
 
 

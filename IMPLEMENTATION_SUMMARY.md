@@ -178,3 +178,5 @@ LLM without an API key: `llm.provider: claude_code` (local `claude -p` under the
 day) or the interactive pack (`eqm finder pack` → Claude Code session → `eqm finder import-judgments`). Commands:
 `eqm finder run|show|judge|pack|import-judgments|promote|evaluate`; weekly job opt-in via `finder_enabled`.
 Details: POLICY.md §13, RUNBOOK "LLM without an API key", VALIDATION.md §9.
+Tests: 190 passed. A live stage-1 run (2,069 → 25), a pack export and one interactive judgment (TTD) were run; a live
+`claude -p` call and prospective evaluation were not. Verifier ev-5: an inferred source period cannot contradict a claim.

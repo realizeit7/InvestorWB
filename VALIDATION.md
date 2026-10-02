@@ -242,3 +242,35 @@ run that gives up is marked FAILED with the reason, and health warns about RUNNI
 destination and receipt on the phone; LLM authentication and a live call; days of always-on scheduling on the owner's
 machine; reconciliation of real holdings; prospective paper tracking. See docs/PILOT_CHECKLIST.md. Passing tests and a
 successful pilot establish software behaviour, not investment performance.
+
+## 9. Company finder (2026-10-02)
+
+Full offline suite: **190 passed, 0 failed** (`uv run pytest`). 14 tests in `tests/test_finder.py` (universe filters
+incl. partnerships and non-bank "Finance" companies; missing data never zero; point-in-time deep scores; failed deep
+fetch is a warning; Claude Code provider isolation — a fake `claude` binary records argv, cwd, stdin and environment:
+no tools, no MCP, empty temp directory, API-key variables removed; explicit provider errors; judgments cannot reorder
+or extend the shortlist; subscription calls capped per day; pack export/import with claim verification; report labels;
+fixed matured horizons vs SPY; shortlist names tracked and the weekly job opt-in/SKIPPED; promote adds a RESEARCH
+watchlist entry only; passage selection prefers results discussion over boilerplate) plus
+`test_inferred_source_period_cannot_contradict_a_claim` in `tests/test_repairs.py`.
+
+### Live runs actually performed (separate data home, placeholder SEC contact, no LLM API, no `claude -p`)
+
+| step | actual result |
+|---|---|
+| run 1 | universe 1,918. Inspection showed two filter defects: MLP "Common Units" were silently dropped as non-common stock, and excluding whole Nasdaq sectors dropped e.g. S&P Global, Moody's, CBRE, JLL and education companies. Fixed: explicit `exclude_partnerships` policy and industry-level exclusions (5fbbc83) |
+| run 2 (`fnd_ddb25519b6cc455eb918`, ~1 min 51 s) | universe **2,069** → preliminary rank 1,694 → deep dive 60 (0 fetch failures) → shortlist 25. Top 10: TTD, TKO, GEN, NVDA, TRN, YELP, PYPL, TDW, GMED, IDR. Warnings only for the deprecated `SalesRevenueNet` frames (no data, expected) |
+| exclusion counts (run 2) | non-US filer 1,267; market cap < $300M 1,151; not common stock 1,556; excluded industry 871; partnership units 39; dollar volume < $1M 39; other share class 13; no SEC CIK 8; missing data 9; exchange 1 |
+| `eqm finder pack` | 25 companies, ~30 s, ~40 KB each. First version contained mostly 10-Q cover pages and statements; fixed with relevance-ranked passage selection (POLICY §13) |
+| interactive judgment (TTD, by Claude in this Claude Code session from the pack only) → `eqm finder import-judgments` | RESEARCH_FURTHER, priority 3. Claims: "Revenue was $715,057 in 2026" VERIFIED; "Revenue was $688,857 in 2026" VERIFIED; free-text risk claim SOURCE_MATCHED; growth-deceleration statement OPINION/NOT_REQUIRED; "Revenue was $694,039 in 2025" **FAILED under ev-4** although true — the 10-Q table header "20262025" hides the year, so the verifier inferred 2026 |
+| after the ev-5 fix, same claim re-verified against the same live passage | **SOURCE_MATCHED** ("period (not stated next to the figure in the source) could not be confirmed"); the other claims unchanged. The stored judgment keeps its ev-4 status (append-only) |
+
+Observations, not fixed (documented limitations): the expectations gap uses the historical 3-year revenue CAGR, so
+hyper-growth names rank high (NVDA: 100% delivered vs 24% priced in) although past growth may not repeat; Nasdaq sector
+labels are coarse (PayPal under Industrials, Tidewater under Consumer Discretionary) and only affect preliminary pools;
+SEC frames are approximate; DCF figures use ILLUSTRATIVE unapproved defaults.
+
+**Not run (not reported as done):** a live `claude -p` call (`llm.provider: claude_code`, `eqm finder judge`) — it must
+run on the owner's machine under the owner's Claude login with the owner's authorization; prospective finder
+evaluation (needs 63/126/252 sessions after each run). The shortlist is a set of research candidates; nothing here is
+evidence of a stock-selection edge.

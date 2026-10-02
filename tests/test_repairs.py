@@ -7,6 +7,7 @@ from decimal import Decimal as Dec
 
 import pytest
 
+from equity_monitor.research.evidence import VERIFIER_VERSION
 from equity_monitor.util import iso_utc
 
 from equity_monitor.config.models import ValuationDefaults
@@ -1092,7 +1093,7 @@ def test_existing_approval_cannot_silently_satisfy_the_review(monkeypatch, tmp_p
         review_evidence(app, vid)
     row = app.conn.execute("SELECT verification, verifier_version, verification_detail FROM claim WHERE owner_id=?",
                            (vid,)).fetchone()
-    assert row[0] == "FAILED" and row[1] == "ev-4" and "re-verified" in row[2]
+    assert row[0] == "FAILED" and row[1] == VERIFIER_VERSION and "re-verified" in row[2]
     r = get(app, generate(app, d["portfolio_id"], sid))
     assert r["action"] == "REVIEW" and "THESIS_EVIDENCE_FAILED" in r["reason_codes"] and r["payload"]["proposed_trade"] is None
     assert app.conn.execute("SELECT COUNT(*) FROM thesis_evidence_review").fetchone()[0] == 0
@@ -1226,7 +1227,7 @@ def test_legacy_exposure_evidence_that_still_verifies_needs_no_human(app):
     assert get(app, generate(app, d["portfolio_id"], sid, force=True))["purchase_eligibility"] == "ELIGIBLE"
     row = app.conn.execute("SELECT verifier_version, acknowledged FROM exposure_evidence_check WHERE exposure_version_id=?",
                            (vid,)).fetchone()
-    assert tuple(row) == ("ev-4", 0)
+    assert tuple(row) == (VERIFIER_VERSION, 0)
 
 
 def test_new_profiles_record_their_verifier_version(app):
@@ -1234,7 +1235,7 @@ def test_new_profiles_record_their_verifier_version(app):
     d = build_demo(app)
     ver = json.loads(app.conn.execute("SELECT verification_json FROM exposure_profile_version v JOIN exposure_approval a "
                                       "ON a.exposure_version_id=v.id LIMIT 1").fetchone()[0])
-    assert all(v["verifier_version"] == "ev-4" for v in ver)
+    assert all(v["verifier_version"] == VERIFIER_VERSION for v in ver)
 
 
 # ------------------------------------------------------------------ P2 conservative LLM spending control
@@ -1453,3 +1454,19 @@ def test_interrupted_job_is_retried_then_failed_visibly_and_forced_reruns_reset_
     row = app.conn.execute("SELECT status, error FROM job_run WHERE job_name=?", (spec.name,)).fetchone()
     assert row[0] == "FAILED" and "gave up" in row[1]                                  # was: RUNNING forever, no warning
     assert any("FAILED" in w for w in system_health(app)["warnings"])
+
+
+def test_inferred_source_period_cannot_contradict_a_claim(app):
+    """A prior-year column in a table whose headers the parser cannot read: the figure's period is only inferred, so a
+    claim with a different period is not confirmed — but it must not be FAILED (found on a live 10-Q table)."""
+    iss = get_or_create_issuer(app.conn, app.now_iso(), name="TabCo", cik="960")
+    text = ("Results of Operations for the Three and Six Months Ended June 30, 2026 Compared with the Three and Six "
+            "Months Ended June 30, 2025\n\nThe following tables set forth our condensed consolidated results of operations "
+            "for the periods presented.\n\nThree Months Ended June 30,\n\n20262025\n\n(in thousands)(% of Revenue)"
+            "(in thousands)(% of Revenue)\n\nRevenue$715,057 100 %$694,039 100 %\n\nOperating expenses:")
+    quote = "Revenue$715,057 100 %$694,039 100 %"
+    pid = _doc(app, iss, text, doc_id="doc_tab", fpe="2026-06-30", public_at="2026-08-06T21:00:00.000000Z")
+    v = _v(app, iss, "Revenue was $694,039 in 2025.", quote, pid)               # true, but the table hides the year
+    assert v.status == "SOURCE_MATCHED" and all(d.startswith("UNCONFIRMED") for d in v.details)  # was FAILED
+    assert _v(app, iss, "Revenue was $715,057 in 2026.", quote, pid).status == "VERIFIED"
+    assert _v(app, iss, "Revenue was $999,999 in 2026.", quote, pid).status == "FAILED"     # unsupported number

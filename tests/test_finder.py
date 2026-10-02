@@ -305,3 +305,16 @@ def test_promote_adds_research_watchlist_entry_only(app):
     set_watchlist(app, sid, "RESEARCH", f"from finder run {rid}")             # what `eqm finder promote` does
     assert app.conn.execute("SELECT status FROM watchlist_entry WHERE security_id=?", (sid,)).fetchone()[0] == "RESEARCH"
     assert app.conn.execute("SELECT COUNT(*) FROM recommendation").fetchone()[0] == 0
+
+
+def test_evidence_pack_prefers_results_discussion_over_boilerplate():
+    from equity_monitor.research.finder_judge import select_passages
+    ps = [{"id": "p0", "text": "FORM 10-Q Washington, D.C. Indicate by check mark whether the registrant " * 5},
+          {"id": "p1", "text": "1,234 5,678 9,012 3,456 7,890 " * 40},
+          {"id": "p2", "text": "Results of Operations. Revenue increased 12% compared to the prior year, driven by "
+                               "customers expanding usage; competition and pricing pressure remain risks."},
+          {"id": "p3", "text": "Risk Factors. Our largest customer accounts for 30% of revenue; customer concentration "
+                               "and litigation could cause revenue to decline."}]
+    got = [p["id"] for p in select_passages(ps, 10000)]
+    assert got == ["p2", "p3"]                                         # boilerplate and number tables left out
+    assert [p["id"] for p in select_passages(ps, 200)] == ["p2"]       # budget respected, best first

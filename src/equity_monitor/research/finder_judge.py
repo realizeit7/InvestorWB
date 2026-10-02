@@ -62,6 +62,41 @@ def _issuer(app: App, security_id: str) -> str | None:
     return r["issuer_id"] if r else None
 
 
+_RELEVANT = {"results of operations": 4, "management's discussion": 4, "compared to": 2, "compared with": 2,
+             "revenue": 1, "net sales": 1, "gross margin": 2, "operating income": 1, "operating margin": 2,
+             "increase": 1, "decrease": 1, "decline": 2, "growth": 1, "customers": 1, "customer concentration": 3,
+             "competition": 2, "competitive": 2, "competitor": 2, "risk factors": 2, "outlook": 2, "guidance": 2,
+             "restructuring": 2, "impairment": 2, "litigation": 2, "investigation": 2, "going concern": 4,
+             "material weakness": 4, "liquidity": 1, "repurchase": 1, "backlog": 2, "segment": 1, "headwind": 2,
+             "price increases": 2, "pricing": 1, "market share": 2, "regulat": 1, "tariff": 2, "supply": 1}
+_BOILER = ("indicate by check mark", "table of contents", "washington, d.c.", "exhibit index", "signatures",
+           "pursuant to the requirements", "commission file number", "incorporated by reference", "xbrl")
+
+
+def select_passages(passages: list[dict], max_chars: int) -> list[dict]:
+    """Most informative passages first (results discussion, drivers, risks, outlook), boilerplate and number-only
+    tables last; then re-ordered by document position. Deterministic."""
+    def score(p):
+        t = p["text"].lower()
+        letters = sum(ch.isalpha() for ch in t) or 1
+        digits = sum(ch.isdigit() for ch in t)
+        sc = sum(w * min(t.count(k), 3) for k, w in _RELEVANT.items())
+        sc -= 6 * sum(1 for b in _BOILER if b in t)
+        if digits / letters > 0.5:                   # mostly a numeric table
+            sc -= 4
+        return sc / (1 + len(t) / 4000)
+    ranked = sorted(enumerate(passages), key=lambda ip: (-score(ip[1]), ip[0]))
+    chosen, used = [], 0
+    for i, p in ranked:
+        if score(p) <= 0:
+            break
+        if used + len(p["text"]) > max_chars:
+            continue
+        chosen.append((i, p))
+        used += len(p["text"])
+    return [p for _i, p in sorted(chosen)]
+
+
 def evidence_pack(app: App, run_id: str, candidate: dict, *, fetch_text: bool = True, max_chars: int = 40000) -> dict:
     """Numbers + recent filing passages for one shortlisted company. No holdings or personal data."""
     from ..llm.service import issuer_passages, render_passages
@@ -76,13 +111,13 @@ def evidence_pack(app: App, run_id: str, candidate: dict, *, fetch_text: bool = 
                 fetch_document_text(app, client, d["id"])
         except Exception as exc:                                  # missing text => fewer facts, never invented ones
             candidate = {**candidate, "text_fetch_error": str(exc)[:200]}
-    passages = issuer_passages(app, iid, as_of, ("10-K", "10-Q"), 2) if iid else []
+    passages = select_passages(issuer_passages(app, iid, as_of, ("10-K", "10-Q"), 2), max_chars) if iid else []
     name = one(app.conn, "SELECT i.name FROM security s JOIN issuer i ON i.id=s.issuer_id WHERE s.id=?",
                (candidate["security_id"],))
     return {"symbol": candidate["symbol"], "name": name["name"] if name else None, "sector": candidate.get("sector"),
             "rank": candidate["rank"], "score": candidate["score"], "scores": candidate["scores"],
             "metrics": candidate["metrics"], "price": candidate["price"], "price_date": candidate["price_date"],
-            "documents": render_passages(passages, max_chars=max_chars), "passage_ids": [p["id"] for p in passages],
+            "documents": render_passages(passages, max_chars=max_chars + 20000), "passage_ids": [p["id"] for p in passages],
             "text_fetch_error": candidate.get("text_fetch_error")}
 
 

@@ -292,6 +292,9 @@ billion" needs evidence that the metric fell — the source's own direction word
 value, or a cited earlier-period figure such as last year's XBRL fact). An opposite direction FAILS; no comparison in the
 cited evidence leaves the claim SOURCE_MATCHED. Direction-neutral levels ("was $4 billion") need no comparison. Numbers whose role cannot be read, and figures the source does not state (e.g. a change amount derived
 by subtraction), are never VERIFIED. Only this narrow format can be certified; any other prose stays SOURCE_MATCHED.
+A source figure whose period is **not stated next to it** — e.g. the prior-year column of a table whose header the text
+extraction runs together ("20262025") — has only an *inferred* period (verifier `ev-5`): it can confirm nothing about
+period and can never CONTRADICT a claim's period, so such a claim stays SOURCE_MATCHED rather than FAILED.
 
 | status | meaning | can drive decisions |
 |---|---|---|
@@ -384,7 +387,9 @@ regular valuation → thesis → approval workflow decides everything else. Defa
    companies not on the shortlist are rejected; the deterministic order never changes. Without the API: `llm.provider:
    claude_code` runs the local Claude Code CLI under the owner's Claude login (no tools, no MCP, API-key variables
    stripped; at most `llm.max_subscription_calls_per_day`), or `eqm finder pack` → Claude in a Claude Code session →
-   `eqm finder import-judgments`.
+   `eqm finder import-judgments`. The passages given to the model are selected from the latest 10-K/10-Q by relevance (risk factors,
+   MD&A, segment and outlook text scored up; cover pages, boilerplate and bare numeric tables scored down) within a fixed
+   character budget, kept in document order.
 6. **Evaluation** — shortlisted names keep daily prices; `eqm finder evaluate` reports forward total returns vs SPY over
    fixed horizons (63/126/252 sessions) from each run, matured windows only, also by LLM verdict. Weekly runs overlap,
    so the output is descriptive; no edge is claimed.
@@ -413,3 +418,6 @@ The weekly job (`weekly_finder`, Sunday 10:00 ET) runs only when `finder_enabled
   approval and before an approved profile supports purchase eligibility (pause, never a sale); §12 conservative LLM
   spending control replaces the after-the-fact budget check. No threshold changed.
 - **2026-10-02 company finder**: §13 (new `finder.*` policy keys; DCF margin of safety displayed but weighted 0).
+- **2026-10-02 verifier ev-5**: §10 a source figure with an inferred (not stated) period cannot contradict a claim's
+  period (found on a live 10-Q table: a correct prior-year revenue claim was FAILED under ev-4). Only relaxes FAILED →
+  SOURCE_MATCHED; nothing new becomes VERIFIED. Stored statuses are not rewritten. No threshold changed.
