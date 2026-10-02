@@ -23,7 +23,7 @@ risk:
   outside_holdings_known: false # retirement/outside holdings are not tracked => household concentration unknown
 
 llm:
-  provider: none                # none | anthropic | fixture
+  provider: none                # none | claude_code (local `claude -p`, your Claude login, no API key) | anthropic (API key) | fixture
   model: claude-opus-5-5
   effort: high
   use_server_fallbacks: true    # server-side refusal fallback (beta header server-side-fallback-2026-07-01)
@@ -31,6 +31,9 @@ llm:
   max_output_tokens: 16000
   price_input_per_mtok: null    # only for a model missing from the pricing table (USD per million tokens)
   price_output_per_mtok: null
+  claude_code_bin: claude       # Claude Code CLI path for provider claude_code
+  claude_code_timeout_s: 900
+  max_subscription_calls_per_day: 40
 
 notifications:
   webhook_enabled: false        # external delivery stays OFF until you enable AND authorize it

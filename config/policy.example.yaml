@@ -104,3 +104,18 @@ market:
   evaluation_horizon_sessions: 63
   evaluation_min_episodes: 20
 
+finder:                        # discovery of possibly under-rated companies -> RESEARCH candidates only
+  min_market_cap_usd: '300000000'
+  min_daily_dollar_volume_usd: '1000000'
+  exchanges: [NYSE, Nasdaq]
+  excluded_sectors: [Finance, Real Estate]
+  countries: [United States]
+  min_prelim_metrics: 3
+  sector_relative_min_size: 20
+  deep_dive_count: 60
+  shortlist_size: 25
+  min_years_history: 3
+  expectations_gap_variable: revenue_growth
+  weights: {quality: '0.35', value: '0.30', expectations_gap: '0.35', dcf_margin_of_safety: '0'}   # MoS shown, not weighted (same DCF as the gap)
+  max_judgments_per_run: 25
+  evaluation_horizons_sessions: [63, 126, 252]

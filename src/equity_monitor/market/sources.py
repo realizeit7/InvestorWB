@@ -79,6 +79,21 @@ SOURCES: dict[str, SourceSpec] = {s.id: s for s in [
                "issuer/vendor terms", "-", "holdings daily; flows daily (vendor)", "-", "-",
                "trading volume is not a fund flow; look-through sector weights of held ETFs stay UNKNOWN",
                "deferred: holdings files could be added for SPY/QQQ/SCHG"),
+    SourceSpec("nasdaq_screener", "Nasdaq.com stock screener download (all NYSE/Nasdaq/AMEX listings)",
+               ("universe", "market_cap", "volume"), "CONTEXT",
+               "unofficial JSON endpoint api.nasdaq.com/api/screener/stocks (no key); browser-like User-Agent needed",
+               "free", "no license grant; personal research only", "US exchange listings: symbol, last price, market cap, "
+               "volume, country, sector, industry", "end of day / delayed snapshot", "not versioned (snapshot overwritten)",
+               "current snapshot only (no history, so no point-in-time universe)",
+               "used ONLY to choose which companies the finder screens (size, liquidity, country, sector); never a "
+               "valuation input — valuations use SEC shares x stored prices"),
+    SourceSpec("sec_frames", "SEC XBRL frames API (one concept for all filers per calendar period)",
+               ("fundamentals",), "CONTEXT",
+               "public HTTPS API data.sec.gov/api/xbrl/frames; declared User-Agent", "free", "public domain (US government)",
+               "all XBRL filers; annual frames CYyyyy (calendar-aligned, fiscal years mapped to the nearest calendar year)",
+               "as filed", "latest filed value per entity and frame (restatements replace earlier values)",
+               "2009+", "approximate, latest-value-only: used for a PRELIMINARY finder rank; shortlisted names are "
+               "re-fetched in full (companyfacts, point-in-time) before any scoring that is shown as a result"),
     SourceSpec("external_research", "External research and news (owner-entered)", ("news", "research"), "CONTEXT",
                "manual entry with URL (`eqm market note`)", "free/owner", "per publisher", "whatever the owner enters",
                "publication time as entered", "n/a", "n/a",
@@ -125,6 +140,10 @@ DATA_CLASSES: dict[str, DataClassSpec] = {d.key: d for d in [
     DataClassSpec("GROWTH", "activity indices (industrial production etc.)", frozenset({"CONTEXT", "EXPOSURE_TRIGGER"}), (), ()),
     DataClassSpec("FX", "currency indices", frozenset({"CONTEXT", "EXPOSURE_TRIGGER"}), (), ()),
     DataClassSpec("FILING_EVENT", "SEC filing (8-K item, 10-K/10-Q)", frozenset({"CONTEXT", "EVENT", "RESEARCH_TRIGGER"}), (), ()),
+    DataClassSpec("MARKET_CAP_SNAPSHOT", "third-party market capitalization / last price snapshot",
+                  frozenset({"UNIVERSE_FILTER", "CONTEXT"}), (), ("valuation input", "buy signal")),
+    DataClassSpec("FRAME_FUNDAMENTAL", "SEC frames value (latest filed, calendar-aligned)",
+                  frozenset({"UNIVERSE_FILTER", "RESEARCH_TRIGGER"}), (), ("point-in-time fact", "valuation input")),
     DataClassSpec("NEWS_CLAIM", "claim from news/external research", frozenset({"CONTEXT", "RESEARCH_TRIGGER"}),
                   (), ("verified fact unless checked against a primary source",)),
 ]}

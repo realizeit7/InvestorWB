@@ -80,6 +80,28 @@ class ScreeningPolicy(_Strict):
     biotech_min_revenue_usd: Decimal = Decimal("100000000")
 
 
+class FinderPolicy(_Strict):
+    """Discovery of possibly under-rated companies. Produces RESEARCH candidates only — never ADD/TRIM/EXIT."""
+    min_market_cap_usd: Decimal = Decimal("300000000")
+    min_daily_dollar_volume_usd: Decimal = Decimal("1000000")     # last session volume x price (liquidity floor)
+    exchanges: list[str] = Field(default_factory=lambda: ["NYSE", "Nasdaq"])
+    excluded_sectors: list[str] = Field(default_factory=lambda: ["Finance", "Real Estate"])  # banks/insurers/REITs
+    countries: list[str] = Field(default_factory=lambda: ["United States"])  # US GAAP filers (10-K/10-Q)
+    min_prelim_metrics: int = 3                 # bulk metrics required for a preliminary rank (missing != zero)
+    sector_relative_min_size: int = 20          # rank within sector when it has at least this many members
+    deep_dive_count: int = 60                   # top preliminary names fetched in full (filings, facts, prices)
+    shortlist_size: int = 25
+    min_years_history: int = 3
+    expectations_gap_variable: Literal["revenue_growth"] = "revenue_growth"   # reverse-DCF variable solved for
+    # dcf_margin_of_safety comes from the same DCF as the expectations gap, so it is shown but weighted 0 by default
+    # (weighting both would count one model view twice)
+    weights: dict[str, Decimal] = Field(default_factory=lambda: {
+        "quality": Decimal("0.35"), "value": Decimal("0.30"), "expectations_gap": Decimal("0.35"),
+        "dcf_margin_of_safety": Decimal("0")})
+    max_judgments_per_run: int = 25
+    evaluation_horizons_sessions: list[int] = Field(default_factory=lambda: [63, 126, 252])
+
+
 class AlertPolicy(_Strict):
     cooldown_hours: int = 24
     price_move_alert: Decimal = Decimal("0.10")   # daily |move| that raises an INFO event (never a decision by itself)
@@ -147,6 +169,7 @@ class Policy(_Strict):
     paper: PaperPolicy = PaperPolicy()
     valuation: ValuationDefaults = ValuationDefaults()
     market: MarketPolicy = MarketPolicy()
+    finder: FinderPolicy = FinderPolicy()
 
     def content_hash(self) -> str:
         return stable_hash(self.model_dump(mode="json"))
@@ -167,7 +190,9 @@ class NotificationSettings(_Strict):
 
 
 class LLMSettings(_Strict):
-    provider: Literal["none", "anthropic", "fixture"] = "none"
+    # none | anthropic (API key, per-token billing) | claude_code (local `claude -p` under your logged-in Claude
+    # account, no API key; counts toward your plan's usage limits) | fixture (tests)
+    provider: Literal["none", "anthropic", "claude_code", "fixture"] = "none"
     model: str = "claude-opus-5-5"
     effort: Literal["low", "medium", "high", "xhigh", "max"] = "high"
     use_server_fallbacks: bool = True
@@ -175,6 +200,9 @@ class LLMSettings(_Strict):
     max_output_tokens: int = 16000
     price_input_per_mtok: Decimal | None = None        # explicit pricing for a model missing from the pricing table
     price_output_per_mtok: Decimal | None = None
+    claude_code_bin: str = "claude"                    # path to the Claude Code CLI for provider claude_code
+    claude_code_timeout_s: int = 900
+    max_subscription_calls_per_day: int = 40           # claude_code: cap on calls/day (plan usage limits apply)
 
 
 class RiskSettings(_Strict):
