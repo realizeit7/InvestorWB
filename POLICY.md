@@ -357,9 +357,14 @@ never creates recommendations, watchlist entries or trades; the owner promotes a
 regular valuation → thesis → approval workflow decides everything else. Defaults (`finder.*` in the policy):
 
 1. **Universe** — NYSE/Nasdaq listings (Nasdaq screener snapshot, `MARKET_CAP_SNAPSHOT`: universe filter only) joined to
-   SEC CIKs: country United States (US-GAAP filers), sectors Finance and Real Estate excluded (banks, insurers, REITs; SIC
-   exclusions are applied again in the deep dive), market cap ≥ $300M, last-session dollar volume ≥ $1M, common shares
-   only, one listing per company (most liquid share class).
+   SEC CIKs: country United States (US-GAAP filers); excluded **industries** — banks, savings institutions, underwriting
+   and specialty insurers, REITs, closed-end funds/trusts, finance companies and BDCs, broker-dealers, SPACs (SIC
+   exclusions apply again in the deep dive). Whole sectors are not excluded, because Nasdaq's "Finance"/"Real Estate"
+   sectors also contain ratings agencies, real-estate services and education companies. Partnership units (LP/MLP, K-1
+   tax forms) are excluded by policy (`exclude_partnerships`); ADRs, SPAC shares, preferreds, warrants, units, notes
+   and when-issued listings are not common stock. Market cap ≥ $300M, last-session dollar volume ≥ $1M, one listing
+   per company (most liquid share class). Nasdaq sector labels are coarse (e.g. PayPal under Industrials) and only
+   define the preliminary percentile pools.
 2. **Preliminary rank** — SEC XBRL frames for the last five calendar years (`FRAME_FUNDAMENTAL`: approximate,
    latest-filed): 3-year revenue CAGR, operating margin and 2-year trend, average FCF margin, FCF yield on market cap,
    FCF-positive years. Percentiles within the Nasdaq sector when it has ≥ 20 members (else pooled); ≥ 3 metrics required;

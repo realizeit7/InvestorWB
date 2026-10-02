@@ -4,7 +4,9 @@ Pipeline (each step deterministic and recorded, append-only):
 
 0. Universe — NYSE/Nasdaq listings (Nasdaq screener snapshot) joined to SEC CIKs (company_tickers_exchange):
    US operating companies, market cap >= ``finder.min_market_cap_usd``, last-session dollar volume >= floor,
-   excluded sectors (banks/insurers/REITs), common shares only, one listing per company (most liquid class).
+   excluded industries (banks, underwriting insurers, REITs, funds/BDCs, broker-dealers, SPACs), partnership units
+   (policy), common shares only, one listing per company (most liquid class). Nasdaq's sector labels are coarse and
+   sometimes surprising; they only define preliminary percentile pools.
    Market cap is a MARKET_CAP_SNAPSHOT: used ONLY to choose what to screen, never as a valuation input.
 1. Preliminary rank — SEC XBRL *frames* (one request per concept and calendar year for all filers): revenue
    growth, operating margin and its trend, FCF margin, FCF yield, FCF consistency. Percentiles within the sector
@@ -55,6 +57,7 @@ FRAME_CONCEPTS: dict[str, list[tuple[str, str]]] = {
 }
 PRELIM_DIRECTIONS = {"revenue_cagr_3y": 1, "op_margin": 1, "op_margin_trend": 1, "fcf_margin_avg": 1, "fcf_yield": 1,
                      "fcf_positive_years": 1}
+_PARTNERSHIP = re.compile(r"\b(common units|class [a-z] units|units representing|limited partner)", re.I)
 _NON_COMMON = re.compile(r"\b(warrants?|units?|rights?|preferred|depositary|notes due|debentures|subordinated|"
                          r"trust preferred|when issued|acquisition corp)\b", re.I)
 
@@ -141,8 +144,12 @@ def build_universe(app: App, nasdaq_rows: list[dict], sec_map: list[dict]) -> tu
     for r in nasdaq_rows:
         sym = norm_symbol(str(r.get("symbol", "")))
         name = str(r.get("name", ""))
-        if not sym or "^" in sym or _NON_COMMON.search(name):
-            drop("not common stock")
+        if _PARTNERSHIP.search(name):
+            if pol.exclude_partnerships:
+                drop("partnership units (K-1; policy exclude_partnerships)")
+                continue
+        elif not sym or "^" in sym or _NON_COMMON.search(name):
+            drop("not common stock (ADR, SPAC, preferred, warrant, unit, note, when-issued)")
             continue
         sec = by_sym.get(sym)
         if sec is None:
@@ -154,8 +161,8 @@ def build_universe(app: App, nasdaq_rows: list[dict], sec_map: list[dict]) -> tu
         if (r.get("country") or "") not in pol.countries:
             drop("country (non-US filer)")
             continue
-        if (r.get("sector") or "") in pol.excluded_sectors:
-            drop("excluded sector")
+        if (r.get("sector") or "") in pol.excluded_sectors or (r.get("industry") or "") in pol.excluded_industries:
+            drop("excluded industry (bank, insurer, REIT, fund/BDC, broker-dealer, SPAC)")
             continue
         cap, px, vol = _dec(r.get("marketCap")), _dec(r.get("lastsale")), _dec(r.get("volume"))
         if cap is None or px is None or vol is None:

@@ -85,7 +85,15 @@ class FinderPolicy(_Strict):
     min_market_cap_usd: Decimal = Decimal("300000000")
     min_daily_dollar_volume_usd: Decimal = Decimal("1000000")     # last session volume x price (liquidity floor)
     exchanges: list[str] = Field(default_factory=lambda: ["NYSE", "Nasdaq"])
-    excluded_sectors: list[str] = Field(default_factory=lambda: ["Finance", "Real Estate"])  # banks/insurers/REITs
+    # balance-sheet businesses the FCF/DCF screen cannot judge (Nasdaq industry labels; SIC exclusions apply again in the
+    # deep dive). Excluding whole sectors would also drop e.g. ratings agencies, real-estate services or education firms.
+    excluded_industries: list[str] = Field(default_factory=lambda: [
+        "Major Banks", "Banks", "Commercial Banks", "Savings Institutions", "Property-Casualty Insurers", "Life Insurance",
+        "Accident &Health Insurance", "Specialty Insurers", "Real Estate Investment Trusts",
+        "Trusts Except Educational Religious and Charitable", "Finance Companies", "Finance/Investors Services",
+        "Diversified Financial Services", "Investment Bankers/Brokers/Service", "Blank Checks"])
+    excluded_sectors: list[str] = Field(default_factory=list)
+    exclude_partnerships: bool = True             # LP/MLP "common units" issue K-1 tax forms; explicit choice
     countries: list[str] = Field(default_factory=lambda: ["United States"])  # US GAAP filers (10-K/10-Q)
     min_prelim_metrics: int = 3                 # bulk metrics required for a preliminary rank (missing != zero)
     sector_relative_min_size: int = 20          # rank within sector when it has at least this many members

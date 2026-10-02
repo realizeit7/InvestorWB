@@ -12,18 +12,23 @@ from equity_monitor.research.finder import build_universe, prelim_metrics, run_f
 DEMO = ["ZZADD", "ZZHLD", "ZZTRM", "ZZEXT", "ZZREV", "ZZNEW"]
 
 
-def _nasdaq(sym, cap="5000000000", px="$30.00", vol="500000", sector="Technology", country="United States", name=None):
+def _nasdaq(sym, cap="5000000000", px="$30.00", vol="500000", sector="Technology", country="United States", name=None,
+            industry=None):
+    industry = industry or ("Major Banks" if sym == "ZZBNK" else "Finance: Consumer Services" if sym == "ZZSPG" else "x")
     return {"symbol": sym, "name": name or f"{sym} Common Stock", "lastsale": px, "marketCap": cap, "volume": vol,
-            "sector": sector, "industry": "x", "country": country}
+            "sector": sector, "industry": industry, "country": country}
 
 
 def _universe_inputs():
     nasdaq = [_nasdaq(s) for s in DEMO] + [
         _nasdaq("ZZBNK", sector="Finance"), _nasdaq("ZZSML", cap="200000000"), _nasdaq("ZZILQ", vol="1000"),
+        _nasdaq("ZZMLP", name="ZZ Partners LP Common Units representing Limited Partner Interests"),
+        _nasdaq("ZZSPG", sector="Finance"),
         _nasdaq("ZZFOR", country="Netherlands"), _nasdaq("ZZADD/W", name="Addco Warrants"), _nasdaq("ZZNOCIK"),
         _nasdaq("ZZADD.B", vol="100000"), _nasdaq("ZZOTC")]
     sec_map = [{"cik": 99000000 + i, "name": s, "ticker": s, "exchange": "Nasdaq"} for i, s in enumerate(DEMO)] + [
         {"cik": 1, "name": "bank", "ticker": "ZZBNK", "exchange": "NYSE"}, {"cik": 2, "name": "s", "ticker": "ZZSML", "exchange": "NYSE"},
+        {"cik": 6, "name": "mlp", "ticker": "ZZMLP", "exchange": "NYSE"}, {"cik": 7, "name": "ratings", "ticker": "ZZSPG", "exchange": "NYSE"},
         {"cik": 3, "name": "i", "ticker": "ZZILQ", "exchange": "NYSE"}, {"cik": 4, "name": "f", "ticker": "ZZFOR", "exchange": "NYSE"},
         {"cik": 99000000, "name": "ZZADD", "ticker": "ZZADD-B", "exchange": "Nasdaq"},
         {"cik": 5, "name": "o", "ticker": "ZZOTC", "exchange": "OTC"}]
@@ -48,10 +53,13 @@ def _frames(universe_ciks, years):
 def test_universe_filters_are_explicit(app):
     nasdaq, sec_map = _universe_inputs()
     uni, dropped = build_universe(app, nasdaq, sec_map)
-    assert [u.symbol for u in uni] == sorted(DEMO)
-    assert dropped == {"excluded sector": 1, "market cap below floor": 1, "dollar volume below floor": 1,
-                       "country (non-US filer)": 1, "not common stock": 1, "no SEC CIK": 1,
-                       "other share class of the same company": 1, "exchange": 1}
+    # a non-bank in Nasdaq's "Finance" sector (e.g. a ratings agency) stays; banks and partnerships are excluded explicitly
+    assert [u.symbol for u in uni] == sorted(DEMO + ["ZZSPG"])
+    assert dropped == {"excluded industry (bank, insurer, REIT, fund/BDC, broker-dealer, SPAC)": 1,
+                       "market cap below floor": 1, "dollar volume below floor": 1, "country (non-US filer)": 1,
+                       "not common stock (ADR, SPAC, preferred, warrant, unit, note, when-issued)": 1, "no SEC CIK": 1,
+                       "other share class of the same company": 1, "exchange": 1,
+                       "partnership units (K-1; policy exclude_partnerships)": 1}
 
 
 def test_prelim_metrics_never_treat_missing_as_zero(app):
@@ -75,7 +83,7 @@ def test_finder_run_records_shortlist_from_point_in_time_deep_scores(app):
         return find_security(app.conn, u.symbol)
     rid = run_finder(app, nasdaq_rows=nasdaq, sec_map=sec_map, frames=frames, deep_fetch=deep_fetch, as_of=AS_OF)
     run = app.conn.execute("SELECT * FROM finder_run WHERE id=?", (rid,)).fetchone()
-    assert run["universe_count"] == 6 and run["label"] == "CURRENT"
+    assert run["universe_count"] == 7 and run["prelim_ranked"] == 6 and run["label"] == "CURRENT"   # ZZSPG: no frames data
     assert sorted(fetched) == sorted(DEMO)
     sl = shortlist(app, rid)
     assert sl and [c["rank"] for c in sl] == list(range(1, len(sl) + 1))

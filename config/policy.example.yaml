@@ -108,7 +108,12 @@ finder:                        # discovery of possibly under-rated companies -> 
   min_market_cap_usd: '300000000'
   min_daily_dollar_volume_usd: '1000000'
   exchanges: [NYSE, Nasdaq]
-  excluded_sectors: [Finance, Real Estate]
+  excluded_industries: [Major Banks, Banks, Commercial Banks, Savings Institutions, Property-Casualty Insurers, Life Insurance,
+    Accident &Health Insurance, Specialty Insurers, Real Estate Investment Trusts,
+    Trusts Except Educational Religious and Charitable, Finance Companies, Finance/Investors Services,
+    Diversified Financial Services, Investment Bankers/Brokers/Service, Blank Checks]
+  excluded_sectors: []
+  exclude_partnerships: true   # LP/MLP common units (K-1 tax forms)
   countries: [United States]
   min_prelim_metrics: 3
   sector_relative_min_size: 20
