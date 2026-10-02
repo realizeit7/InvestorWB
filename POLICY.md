@@ -350,6 +350,43 @@ kept in full if usage/price is unknown or the call raised. Remaining overshoot r
 outside token usage, or retries performed inside the SDK. This is a conservative pre-authorization limit, **not** a
 provider-enforced hard cap; also set a limit in the provider console.
 
+## 13. Company finder (`research/finder.py`, `research/finder_judge.py`)
+
+Purpose: surface US companies that current evidence suggests may be **under-rated**, as research candidates. The finder
+never creates recommendations, watchlist entries or trades; the owner promotes a name (`eqm finder promote`) and the
+regular valuation → thesis → approval workflow decides everything else. Defaults (`finder.*` in the policy):
+
+1. **Universe** — NYSE/Nasdaq listings (Nasdaq screener snapshot, `MARKET_CAP_SNAPSHOT`: universe filter only) joined to
+   SEC CIKs: country United States (US-GAAP filers), sectors Finance and Real Estate excluded (banks, insurers, REITs; SIC
+   exclusions are applied again in the deep dive), market cap ≥ $300M, last-session dollar volume ≥ $1M, common shares
+   only, one listing per company (most liquid share class).
+2. **Preliminary rank** — SEC XBRL frames for the last five calendar years (`FRAME_FUNDAMENTAL`: approximate,
+   latest-filed): 3-year revenue CAGR, operating margin and 2-year trend, average FCF margin, FCF yield on market cap,
+   FCF-positive years. Percentiles within the Nasdaq sector when it has ≥ 20 members (else pooled); ≥ 3 metrics required;
+   missing data is never zero.
+3. **Deep dive** of the top 60 — full filings index (SIC), companyfacts and prices, point in time: the regular screening
+   quality and value scores (peer percentiles, §6) plus the **expectations gap** = 3-year revenue CAGR − the constant
+   revenue growth that the current price implies in a reverse DCF at the policy's default WACC/margins/terminal growth.
+   A large positive gap means the price assumes far less growth than the company delivered. The DCF margin of safety at
+   the same (unapproved, ILLUSTRATIVE) defaults is shown but weighted 0, because it comes from the same model.
+   Score = 0.35 quality + 0.30 value + 0.35 expectations-gap percentile (weights renormalized over available
+   components; quality, value and the gap are required). Fewer than 3 years of revenue, no price, or a screening
+   exclusion removes a company.
+4. **Shortlist** — top 25 by score, stored append-only with every metric.
+5. **LLM judgment** (opinion) — per shortlisted company, from the numbers and recent 10-K/10-Q passages: under-rated
+   case, value-trap risks, what would change the view, verdict (RESEARCH_FURTHER / LIKELY_VALUE_TRAP /
+   INSUFFICIENT_EVIDENCE) and a 1–5 research priority. Strict schema; FACT claims verified (§10); judgments about
+   companies not on the shortlist are rejected; the deterministic order never changes. Without the API: `llm.provider:
+   claude_code` runs the local Claude Code CLI under the owner's Claude login (no tools, no MCP, API-key variables
+   stripped; at most `llm.max_subscription_calls_per_day`), or `eqm finder pack` → Claude in a Claude Code session →
+   `eqm finder import-judgments`.
+6. **Evaluation** — shortlisted names keep daily prices; `eqm finder evaluate` reports forward total returns vs SPY over
+   fixed horizons (63/126/252 sessions) from each run, matured windows only, also by LLM verdict. Weekly runs overlap,
+   so the output is descriptive; no edge is claimed.
+
+The weekly job (`weekly_finder`, Sunday 10:00 ET) runs only when `finder_enabled: true` (it makes ~1 Nasdaq request,
+~40 SEC frames requests and ~3 SEC + 1 price request per deep-dive company).
+
 ## Change log
 
 - **2026-09-30 correctness repair** (review of a2d0ef8): §5 allocation re-validation at the cutoff and aggregate issuer
@@ -370,3 +407,4 @@ provider-enforced hard cap; also set a limit in the provider console.
 - **2026-10-01 review of a1a330d**: §10 exposure-profile evidence is re-checked under the current verifier before
   approval and before an approved profile supports purchase eligibility (pause, never a sale); §12 conservative LLM
   spending control replaces the after-the-fact budget check. No threshold changed.
+- **2026-10-02 company finder**: §13 (new `finder.*` policy keys; DCF margin of safety displayed but weighted 0).

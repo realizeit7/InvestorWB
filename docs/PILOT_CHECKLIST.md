@@ -22,7 +22,8 @@ only as present/absent.
 | A7 | Review portfolio limits (10% issuer, 30% sector, 8% target, 10–15 holdings); then `risk.confirmed: true` | `config/policy.yaml`, `config/user.yaml` | not confirmed |
 | A8 | Approve the policy; FREEZE it before paper tracking | `eqm policy approve` | PREVIEW |
 | A9 | Theses, valuation assumptions and exposure profiles per company (with evidence review where flagged) | `eqm thesis/valuation/exposure approve` | none |
-| A10 | (optional) LLM: keep `llm.provider: none` for the pilot; later set `monthly_budget_usd` and `ANTHROPIC_API_KEY` privately | runtime environment | not configured |
+| A10 | (optional) LLM without an API key: install Claude Code on the always-on machine, log in once (`claude`), set `llm.provider: claude_code`; or keep `none` and use `eqm finder pack` + a Claude Code session. (API alternative: `anthropic` + `monthly_budget_usd` + `ANTHROPIC_API_KEY`) | runtime machine | not configured |
+| A10b | Company finder: try `eqm finder run` once; if useful, set `finder_enabled: true` for the weekly scan | `config/user.yaml` | off by default |
 | A11 | Notification destination compatible with a generic JSON webhook (or ask for an adapter), `EQM_WEBHOOK_URL`, then `webhook_enabled` + `webhook_authorized` | `.env` + `config/user.yaml` | not configured |
 | A12 | An always-on machine and how it is launched (systemd / cron / launchd / hosted) | docs/RUNBOOK.md | not chosen |
 | A13 | Backup destination off the machine | your storage | not chosen |
@@ -37,6 +38,8 @@ integrity vs support; roles, directions, periods; legacy downgrades; evidence re
 allocation (re-validation at cutoff, issuer aggregation, fees), paper execution (cash, limits, eligibility, frozen
 policy, per-book identity), benchmarks (inception replay, SPY primary), alerts (eligibility transitions), exposure
 evidence re-checks, conservative LLM spend reservations, side-account scope guard, setup check, explicit env file,
+company finder (universe, preliminary rank, deep under-rated score, LLM judgment via Claude Code or interactive pack,
+prospective evaluation vs SPY),
 scheduler idempotency and interrupted-run handling, backup/restore. See VALIDATION.md.
 
 ## C. Live checks actually run (2026-10-01, separate data home, placeholder SEC contact, no LLM)
@@ -58,7 +61,8 @@ scheduler idempotency and interrupted-run handling, backup/restore. See VALIDATI
 | item | why | how the owner runs it |
 |---|---|---|
 | Owner-authorized notification to your real destination, received on your phone | needs your URL and authorization | set A11, then `uv run eqm --env-file .env alerts test`; confirm receipt; `eqm alerts ack <id> --note received` |
-| LLM authentication + one small authorized live call | no key in this environment; paid | after A10: ask Claude to run one explicitly authorized call and report model + cost |
+| Claude Code provider (`claude -p`) live call under your login | must run on your machine with your account; needs your authorization | after A10: `uv run eqm finder judge` on a small shortlist; check the judgments in `eqm finder show` |
+| Prospective finder evaluation | needs months of shortlists | `eqm finder evaluate` after 63/126/252 sessions |
 | Always-on scheduling on your machine for days | needs your host | install per RUNBOOK; check `eqm health` daily for a week |
 | Real holdings reconciliation | needs A3/A4 | `eqm reconcile` until no open issues |
 | Prospective paper tracking (augmented vs baseline vs SPY) | starts after A8 FROZEN | one PAPER book per variant, fund identically, `eqm paper` after each monthly proposal |

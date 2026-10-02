@@ -160,3 +160,21 @@ the certifiable claim wording remains narrow (POLICY §10).
 
 Tests: 175 passed. Live pilot, restart/recovery, local delivery mechanics and backup/restore were run (VALIDATION.md §8).
 Owner-authorized notification, LLM live call, multi-day scheduling and real-holdings reconciliation are **not** run.
+
+## Company finder and no-API LLM (2026-10-02)
+
+The system now also **finds** candidates instead of only analysing companies the owner names:
+
+| stage | what it does |
+|---|---|
+| universe | NYSE/Nasdaq US companies, market cap ≥ $300M, liquid, common shares, banks/insurers/REITs excluded (Nasdaq listing snapshot + SEC CIKs) |
+| preliminary rank | SEC XBRL frames for all filers: growth, margins and trend, FCF margin/yield/consistency, sector-relative |
+| deep dive (top 60) | full point-in-time filings/facts/prices; quality + value screen; reverse-DCF expectations gap (growth priced in vs delivered) |
+| shortlist (25) | weighted under-rated score; append-only record |
+| LLM judgment | under-rated case vs value-trap risks, verified claims, verdict + priority; cannot add names or create recommendations |
+| evaluation | forward returns vs SPY at fixed horizons, descriptive |
+
+LLM without an API key: `llm.provider: claude_code` (local `claude -p` under the owner's login; isolated, capped per
+day) or the interactive pack (`eqm finder pack` → Claude Code session → `eqm finder import-judgments`). Commands:
+`eqm finder run|show|judge|pack|import-judgments|promote|evaluate`; weekly job opt-in via `finder_enabled`.
+Details: POLICY.md §13, RUNBOOK "LLM without an API key", VALIDATION.md §9.

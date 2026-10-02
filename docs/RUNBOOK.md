@@ -81,6 +81,19 @@ uv run eqm --home var backup restore --archive <file> --force   # existing DB is
 Restore verifies every checksum and runs `PRAGMA integrity_check`. Keep backups off the machine (the database holds your
 holdings). Suggested: nightly cron `eqm backup create` + weekly copy elsewhere; test a restore monthly.
 
+## LLM without an API key (Claude Code)
+
+`llm.provider: claude_code` makes the app call the Claude Code CLI non-interactively (`claude -p`) on the machine where
+it runs, under the Claude account you logged in with (`claude` once, interactively). No `ANTHROPIC_API_KEY` is used —
+the app removes it from the subprocess environment, so calls never fall back to API billing. Calls run with no tools,
+no MCP servers, our own system prompt and an empty working directory. They count toward your plan's usage limits;
+`llm.max_subscription_calls_per_day` (default 40) caps them, and you should check your plan's terms for automated use.
+Verify once with an explicitly authorized call: `uv run eqm finder judge` on a small shortlist.
+
+Without any automation: `uv run eqm finder pack` writes an evidence pack + `judgments.json` template; open a Claude Code
+session, ask Claude to fill the template from the pack, then `uv run eqm finder import-judgments --file <judgments.json>`.
+Both paths are validated identically (strict schema, verified claims, shortlist-only).
+
 ## Credentials and secrets
 
 - SEC: `sec_user_agent: "Your Name you@example.com"` in `config/user.yaml` (not a secret, but personal).

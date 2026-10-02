@@ -13,6 +13,12 @@ reports a long-term action plus a separate **purchase eligibility** (ELIGIBLE / 
 individual-company recommendations. Primary comparison: a contribution-matched S&P 500 (SPY) benchmark. Start with
 `uv run eqm setup check`.
 
+**Company finder.** `uv run eqm finder run` scans US-listed companies (market cap ≥ $300M) for possibly under-rated
+names — strong quality and cash generation, priced for much less growth than delivered — and adds an LLM judgment
+(under-rated case vs value-trap risks). Candidates are research only; you promote the ones to study. No API key is
+needed for the LLM step: use `llm.provider: claude_code` (your local Claude Code login) or `eqm finder pack` and ask
+Claude in a Claude Code session. See POLICY.md §13.
+
 **Research status.** Rules-based screening, DCF valuation and market-context conditions only. Price attribution is
 descriptive, not a predictor; there is no predictive-model training and no walk-forward backtest pipeline. Paper and
 performance tools measure a frozen policy prospectively and establish no edge.
