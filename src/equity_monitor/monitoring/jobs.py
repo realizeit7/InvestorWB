@@ -51,6 +51,11 @@ def _tracked(app: App, portfolio_ids: list[str]) -> list[str]:
     for p in portfolio_ids:
         sids |= {h.security_id for h in portfolio_view(app, p, cal.latest_completed_session(app.now())).holdings}
     sids |= {r["security_id"] for r in all_rows(app.conn, "SELECT security_id FROM watchlist_entry WHERE status IN ('APPROVED','RESEARCH')")}
+    # finder shortlists are evaluated prospectively, so their prices must keep updating for the longest horizon
+    since = iso_utc(app.now() - timedelta(days=400))
+    sids |= {r["security_id"] for r in all_rows(app.conn, "SELECT DISTINCT c.security_id FROM finder_candidate c JOIN finder_run f "
+                                                          "ON f.id=c.run_id WHERE c.stage='SHORTLIST' AND f.created_at>=? "
+                                                          "AND c.security_id IS NOT NULL", (since,))}
     from ..data.securities import register_security
     for b in app.settings.benchmarks:                 # contribution-matched benchmarks need daily prices too
         sids.add(register_security(app.conn, app.now_iso(), b, security_type="ETF"))
@@ -295,8 +300,29 @@ def monthly_allocation(app: App, run_id: str, scheduled_for: datetime, ctx: JobC
     return {"proposals": out, "delivery": deliver_pending(app)}
 
 
+def weekly_finder(app: App, run_id: str, scheduled_for: datetime, ctx: JobContext | None = None) -> dict:
+    if not app.settings.finder_enabled:
+        return {"skipped": "company finder is opt-in: set finder_enabled: true in config/user.yaml"}
+    from ..research.finder import run_finder
+    from ..research.finder_judge import export_pack, judge_run
+    from ..llm.service import provider_from_settings
+    rid = run_finder(app)
+    detail: dict = {"finder_run": rid}
+    if app.settings.finder_auto_judge and app.settings.llm.provider in ("claude_code", "anthropic"):
+        detail["judgment"] = judge_run(app, provider_from_settings(app), rid)
+    else:
+        detail["pack"] = {k: str(v) for k, v in export_pack(app, rid, app.reports_dir / "finder" / rid).items()}
+    md = reports.finder_md(app, rid)
+    path, _ = reports.write_report(app, "finder_shortlist", md)
+    n = app.conn.execute("SELECT shortlist_count FROM finder_run WHERE id=?", (rid,)).fetchone()[0]
+    create_alert(app, f"finder:{rid}", "FINDER", f"Company finder: {n} research candidates", md, severity="INFO")
+    detail["report"] = str(path)
+    return detail
+
+
 def handlers(ctx: JobContext | None = None) -> dict:
     return {
+        "weekly_finder": lambda app, rid, when: weekly_finder(app, rid, when, ctx),
         "daily_refresh": lambda app, rid, when: daily_refresh(app, rid, when, ctx),
         "weekly_digest": lambda app, rid, when: weekly_digest(app, rid, when, ctx),
         "monthly_allocation": lambda app, rid, when: monthly_allocation(app, rid, when, ctx),

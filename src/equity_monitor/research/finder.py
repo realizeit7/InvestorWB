@@ -430,3 +430,48 @@ def shortlist(app: App, run_id: str) -> list[dict]:
     return [dict(r) | {"metrics": json.loads(r["metrics_json"]), "scores": json.loads(r["scores_json"])}
             for r in all_rows(app.conn, "SELECT * FROM finder_candidate WHERE run_id=? AND stage='SHORTLIST' ORDER BY rank",
                               (run_id,))]
+
+
+# ------------------------------------------------------------------ prospective evaluation (descriptive only)
+def evaluate_shortlists(app: App) -> dict:
+    """Forward total returns of shortlisted names vs SPY over FIXED horizons from each run's session, for matured
+    windows only; split by the LLM verdict when one exists. Weekly runs overlap heavily (same names, overlapping
+    windows), so observations are not independent; nothing here is a statistical test or evidence of an edge."""
+    from ..data.securities import find_security
+    from ..evaluation.augmented import _fwd
+    session = cal.latest_completed_session(app.now())
+    spy = find_security(app.conn, "SPY")
+    horizons = app.policy.finder.evaluation_horizons_sessions
+    out_rows, names = [], set()
+    for run in all_rows(app.conn, "SELECT id, session_date FROM finder_run ORDER BY created_at"):
+        start = datetime.fromisoformat(run["session_date"]).date()
+        verdicts = {r["symbol"]: r["verdict"] for r in all_rows(
+            app.conn, "SELECT symbol, verdict FROM finder_judgment WHERE run_id=? ORDER BY created_at", (run["id"],))}
+        for h in horizons:
+            end = start
+            for _ in range(h):
+                end = cal.next_session(end)
+            if end > session:
+                continue
+            spy_r = _fwd(app, spy, start, end)
+            picks = []
+            for c in shortlist(app, run["id"]):
+                r = _fwd(app, c["security_id"], start, end)
+                picks.append({"symbol": c["symbol"], "return": r, "verdict": verdicts.get(c["symbol"])})
+                names.add(c["symbol"])
+            known = [p for p in picks if p["return"] is not None]
+
+            def summary(ps):
+                if not ps or spy_r is None:
+                    return None
+                mean = sum(p["return"] for p in ps) / len(ps)
+                return {"n": len(ps), "mean_return": mean, "mean_excess_vs_spy": mean - spy_r,
+                        "share_beating_spy": sum(1 for p in ps if p["return"] > spy_r) / len(ps)}
+            out_rows.append({"run_id": run["id"], "start": start, "horizon_sessions": h, "end": end, "spy_return": spy_r,
+                             "picks": len(picks), "with_price_data": len(known), "all": summary(known),
+                             "research_further": summary([p for p in known if p["verdict"] == "RESEARCH_FURTHER"]),
+                             "likely_value_trap": summary([p for p in known if p["verdict"] == "LIKELY_VALUE_TRAP"])})
+    return {"matured_windows": out_rows, "distinct_companies": len(names),
+            "verdict": "descriptive only — overlapping weekly shortlists are not independent observations; no "
+                       "statistical test is run and nothing here establishes a stock-selection edge",
+            "missing": "returns are UNKNOWN (not zero) where price history does not cover the window"}

@@ -605,6 +605,49 @@ def cmd_evaluate(args):
     _print(compare(app, _pf(app, args.portfolio)))
 
 
+def cmd_finder(args):
+    from .research import finder as fd
+    from .research import finder_judge as fj
+    from .reporting import reports
+    app = _app(args)
+    run_id = args.run or ((fd.latest_run(app) or {}).get("id") if args.action != "run" else None)
+    if args.action not in ("run", "evaluate", "import-judgments", "promote") and not run_id:
+        raise SystemExit("no finder run yet: `eqm finder run`")
+    if args.action == "run":
+        run_id = fd.run_finder(app)
+        print(f"finder run {run_id}")
+        md = reports.finder_md(app, run_id)
+        path, _ = reports.write_report(app, "finder_shortlist", md)
+        print(md)
+        print(f"report: {path}")
+    elif args.action == "show":
+        print(reports.finder_md(app, run_id))
+    elif args.action == "judge":
+        from .llm.service import provider_from_settings
+        if app.settings.llm.provider == "none":
+            raise SystemExit("llm.provider is none: set llm.provider: claude_code (no API key) or use `eqm finder pack`")
+        print(fj.judge_run(app, provider_from_settings(app), run_id))
+        reports.write_report(app, "finder_shortlist", reports.finder_md(app, run_id))
+    elif args.action == "pack":
+        out = args.out or str(app.reports_dir / "finder" / run_id)
+        for k, v in fj.export_pack(app, run_id, out).items():
+            print(f"{k}: {v}")
+        print("Ask Claude in a Claude Code session to read the pack and fill judgments.json, then "
+              "`eqm finder import-judgments <judgments.json>`.")
+    elif args.action == "import-judgments":
+        if not args.file:
+            raise SystemExit("usage: eqm finder import-judgments --file judgments.json")
+        _print(fj.import_judgments(app, args.file))
+    elif args.action == "promote":
+        from .decisions.recommend import set_watchlist
+        if not args.symbol:
+            raise SystemExit("usage: eqm finder promote --symbol SYMBOL")
+        set_watchlist(app, _sid(app, args.symbol), "RESEARCH", args.note or f"from finder run {run_id or '-'}")
+        print(f"{args.symbol.upper()} added to the watchlist as RESEARCH (no purchase is implied)")
+    elif args.action == "evaluate":
+        _print(fd.evaluate_shortlists(app))
+
+
 def cmd_setup(args):
     from .setup_check import setup_check
     app = _app(args)
@@ -849,6 +892,15 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--paper-portfolio", required=True)
     s.add_argument("--variant", choices=["augmented", "baseline"], required=True)
     s.set_defaults(fn=cmd_paper)
+
+    s = sub.add_parser("finder", help="company finder: possibly under-rated US companies -> research candidates")
+    s.add_argument("action", choices=["run", "show", "judge", "pack", "import-judgments", "promote", "evaluate"])
+    s.add_argument("--run", help="finder run id (default: latest)")
+    s.add_argument("--out", help="pack output directory")
+    s.add_argument("--file", help="judgments JSON to import")
+    s.add_argument("--symbol")
+    s.add_argument("--note")
+    s.set_defaults(fn=cmd_finder)
 
     s = sub.add_parser("setup", help="setup check: owner inputs, integrations, PREVIEW status (no secrets printed)")
     s.add_argument("action", choices=["check"])

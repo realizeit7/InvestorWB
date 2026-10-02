@@ -43,8 +43,8 @@ def _fwd(app: App, sid: str | None, start: date, end: date) -> float | None:
     if sid is None:
         return None
     s = [x for x in tr_series(app, sid, end, (end - start).days + 10) if start <= x[0] <= end]
-    if len(s) < 2 or s[-1][0] < end - timedelta(days=5):
-        return None                     # horizon not covered by data: unknown, not zero
+    if len(s) < 2 or s[-1][0] < end - timedelta(days=5) or s[0][0] > start + timedelta(days=5):
+        return None                     # horizon not covered by data at either end: unknown, not zero
     return s[-1][1] / s[0][1] - 1
 
 

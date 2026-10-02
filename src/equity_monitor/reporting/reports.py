@@ -372,3 +372,59 @@ def write_json(app: App, name: str, data: dict, day: date | None = None, out_dir
     p = d / f"{name}.json"
     p.write_text(json.dumps(json.loads(to_json(data)), indent=1), encoding="utf-8")
     return p
+
+
+def finder_md(app: App, run_id: str) -> str:
+    """Company finder shortlist: research candidates only (never recommendations)."""
+    import json as _json
+    from ..research.finder import shortlist
+    from ..research.finder_judge import latest_judgments
+    run = one(app.conn, "SELECT * FROM finder_run WHERE id=?", (run_id,))
+    src = _json.loads(run["sources_json"])
+    judg = latest_judgments(app, run_id)
+    cands = shortlist(app, run_id)
+
+    def pct(v):
+        return "—" if v is None else f"{float(v):.0%}"
+    md = [f"# Company finder — research candidates ({run['session_date']})", "",
+          "> **RESEARCH CANDIDATES, not recommendations.** A deterministic screen flagged these as possibly under-rated; "
+          "nothing is bought or added to the watchlist automatically. DCF figures use ILLUSTRATIVE unapproved defaults. "
+          "The finder has no demonstrated stock-selection edge; it is measured prospectively against SPY "
+          "(`eqm finder evaluate`).", "",
+          f"- Universe: {run['universe_count']} US companies (market cap ≥ ${app.policy.finder.min_market_cap_usd:,.0f}); "
+          f"preliminary rank {run['prelim_ranked']}; deep dive {run['deep_count']}; shortlist {run['shortlist_count']}",
+          f"- Excluded from the universe: " + ", ".join(f"{k} {v}" for k, v in sorted(src.get("universe_dropped", {}).items())),
+          f"- Run `{run_id}`, data as of {run['as_of']}, policy `{run['policy_version_id']}`", "",
+          "| # | Symbol | Sector | Score | Quality | Value | Growth priced in vs 3y actual | DCF MoS* | LLM view |",
+          "|---|---|---|---|---|---|---|---|---|"]
+    traps = []
+    for c in cands:
+        m, sc, j = c["metrics"], c["scores"], judg.get(c["symbol"])
+        view = f"{j['verdict']} (priority {j['priority']}, {j['provider']})" if j else "not judged yet"
+        if j and j["verdict"] == "LIKELY_VALUE_TRAP":
+            traps.append(c["symbol"])
+        gap = (f"{pct(m.get('implied_revenue_growth'))} vs {pct(m.get('revenue_cagr_3y'))}"
+               if m.get("implied_revenue_growth") is not None else m.get("expectations_gap_note", "—"))
+        md.append(f"| {c['rank']} | {c['symbol']} | {c.get('sector') or '—'} | {float(c['score']):.2f} | {pct(sc.get('quality'))} | "
+                  f"{pct(sc.get('value'))} | {gap} | {pct(m.get('dcf_margin_of_safety'))} | {view} |")
+    md += ["", "*Scores are percentiles within the deep-dive set; DCF margin of safety is shown, not weighted.", ""]
+    if traps:
+        md += ["**LLM flagged as likely value traps (still listed in deterministic order above):** " + ", ".join(traps), ""]
+    for c in cands:
+        j = judg.get(c["symbol"])
+        if not j:
+            continue
+        ct = j["content"]
+        md += [f"## {c['rank']}. {c['symbol']} — LLM opinion ({j['provider']}; not a fact, not a decision)", "",
+               f"- Under-rated case: {ct['underrated_case']}", f"- Value-trap risks: {ct['value_trap_risks']}",
+               f"- What would change the view: {ct['what_would_change_view']}"]
+        for v in j["verification"]:
+            md.append(f"  - [{v['type']}/{v['status']}] {v['text']}")
+        md.append("")
+    warns = _json.loads(run["warnings_json"])
+    if warns:
+        md += ["Warnings:", ""] + [f"- {w}" for w in warns[:20]] + [""]
+    md += ["Next steps: research a name with `eqm finder promote SYMBOL` (adds it to the watchlist as RESEARCH), then the "
+           "usual valuation → thesis → approval workflow. Judge the shortlist without the API: `eqm finder judge` "
+           "(llm.provider claude_code) or `eqm finder pack` and ask Claude in a Claude Code session."]
+    return "\n".join(md) + "\n"

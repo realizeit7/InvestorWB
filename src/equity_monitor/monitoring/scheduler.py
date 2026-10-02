@@ -36,6 +36,8 @@ DEFAULT_JOBS = [
     JobSpec("weekly_digest", "weekly", time(9, 0), weekday=5, description="Saturday portfolio digest"),
     JobSpec("monthly_allocation", "monthly_first_session", time(9, 0),
             description="First session of the month: contribution confirmation + allocation proposal"),
+    JobSpec("weekly_finder", "weekly", time(10, 0), weekday=6,
+            description="Sunday: company finder shortlist (opt-in: finder_enabled) + LLM judgment or evidence pack"),
 ]
 
 MAX_ATTEMPTS = 3
@@ -106,7 +108,7 @@ def run_instance(app: App, spec: JobSpec, scheduled_for: datetime, handler: Hand
                                      "status": "RUNNING", "attempt": 1, "detail_json": None, "error": None})
     try:
         detail = handler(app, run_id, scheduled_for) or {}
-        status = "PARTIAL" if detail.get("failures") else "SUCCESS"
+        status = "SKIPPED" if detail.get("skipped") else "PARTIAL" if detail.get("failures") else "SUCCESS"
         app.conn.execute("UPDATE job_run SET status=?, finished_at=?, detail_json=? WHERE id=?",
                          (status, app.now_iso(), to_json(detail), run_id))
         return {"job": spec.name, "status": status, "run_id": run_id, "detail": detail}

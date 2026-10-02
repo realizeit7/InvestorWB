@@ -225,6 +225,8 @@ class UserSettings(_Strict):
     # tax statuses whose portfolios get NO individual-company recommendations or allocations (e.g. a 401(k));
     # they can still be imported, reconciled and benchmarked
     no_company_research_tax_statuses: list[str] = Field(default_factory=lambda: ["TAX_DEFERRED"])
+    finder_enabled: bool = False          # weekly company-finder scan (network: Nasdaq listing + SEC); opt-in
+    finder_auto_judge: bool = True        # when llm.provider is claude_code/anthropic, judge the shortlist automatically
 
 
 def load_policy(path: str | Path | None) -> Policy:

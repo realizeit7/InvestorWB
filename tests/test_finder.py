@@ -239,3 +239,61 @@ def test_interactive_pack_and_import_verify_claims(app, tmp_path):
     ver = latest_judgments(app, rid)["ZZADD"]["verification"]
     assert [v["status"] for v in ver] == ["VERIFIED", "FAILED"]
     assert latest_judgments(app, rid)["ZZADD"]["provider"] == "interactive"
+
+
+# ------------------------------------------------------------------ ops: report, evaluation, tracking, job, promote
+from datetime import timedelta
+
+from equity_monitor.data import calendar as cal
+from equity_monitor.data.prices import Bar, PriceFetch, store_fetch
+
+
+def test_report_labels_candidates_as_research_not_recommendations(app):
+    from equity_monitor.reporting.reports import finder_md
+    rid = _run(app)
+    md = finder_md(app, rid)
+    assert "RESEARCH CANDIDATES, not recommendations" in md and "ILLUSTRATIVE" in md
+    assert "no demonstrated stock-selection edge" in md and "eqm finder promote" in md
+    assert "| 1 |" in md and "not judged yet" in md
+
+
+def test_shortlist_evaluation_uses_fixed_matured_horizons_vs_spy(app):
+    from equity_monitor.data.securities import register_security
+    from equity_monitor.research.finder import evaluate_shortlists
+    rid = _run(app)
+    start = cal.latest_completed_session(AS_OF)
+    days = [start]
+    for _ in range(70):
+        days.append(cal.next_session(days[-1]))
+    spy = register_security(app.conn, app.now_iso(), "SPY", security_type="ETF")
+    store_fetch(app, spy, PriceFetch([Bar(d, D(100) + D(i) * D("0.1")) for i, d in enumerate(days)]), "fixture")
+    sl = shortlist(app, rid)
+    for k, c in enumerate(sl):                                   # rank 1 rises most
+        store_fetch(app, c["security_id"], PriceFetch([Bar(d, D(50) + D(i) * D(len(sl) - k) * D("0.05"))
+                                                       for i, d in enumerate(days)]), "fixture")
+    assert evaluate_shortlists(app)["matured_windows"] == []      # nothing matured yet
+    app.clock.set(AS_OF + timedelta(days=120))
+    ev = evaluate_shortlists(app)
+    w = [r for r in ev["matured_windows"] if r["horizon_sessions"] == 63]
+    assert len(w) == 1 and w[0]["with_price_data"] == len(sl) and w[0]["spy_return"] is not None
+    assert w[0]["all"]["n"] == len(sl) and "descriptive only" in ev["verdict"]
+    assert not [r for r in ev["matured_windows"] if r["horizon_sessions"] == 252]
+
+
+def test_shortlisted_names_keep_daily_prices_and_job_is_opt_in(app):
+    from equity_monitor.monitoring import scheduler as sch
+    from equity_monitor.monitoring.jobs import _tracked, handlers
+    rid = _run(app)
+    assert {c["security_id"] for c in shortlist(app, rid)} <= set(_tracked(app, []))
+    spec = next(s for s in sch.DEFAULT_JOBS if s.name == "weekly_finder")
+    r = sch.run_instance(app, spec, sch.latest_due(spec, app.now()), handlers()["weekly_finder"])
+    assert r["status"] == "SKIPPED" and "opt-in" in r["detail"]["skipped"]          # no network scan by default
+
+
+def test_promote_adds_research_watchlist_entry_only(app):
+    from equity_monitor.decisions.recommend import set_watchlist
+    rid = _run(app)
+    sid = find_security(app.conn, "ZZEXT")
+    set_watchlist(app, sid, "RESEARCH", f"from finder run {rid}")             # what `eqm finder promote` does
+    assert app.conn.execute("SELECT status FROM watchlist_entry WHERE security_id=?", (sid,)).fetchone()[0] == "RESEARCH"
+    assert app.conn.execute("SELECT COUNT(*) FROM recommendation").fetchone()[0] == 0
