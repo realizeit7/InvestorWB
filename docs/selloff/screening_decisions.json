@@ -732,6 +732,170 @@
    "quote": "did not achieve statistical significance on the primary endpoint of change from baseline in the 17-item Hamilton Depression Rating Scale total score at Day 15, or on any secondary endpoints",
    "phase_quote": "Phase 2/3 Aria Study evaluating the efficacy and safety of PRAX-114",
    "reason": "own Phase 2/3 trial missed its primary endpoint"
+  },
+  {
+   "accession": "0001640455-22-000093",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 2",
+   "drug": "vopratelimab (with pimivalimab)",
+   "indication": "TISvopra biomarker-selected NSCLC",
+   "trial_name": "SELECT",
+   "partner_run": false,
+   "flags": [
+    "POSITIVE_SECONDARY_CLAIMED"
+   ],
+   "quote": "SELECT trial of vopratelimab in combination with pimivalimab versus pimivalimab alone did not meet its primary endpoint of mean tumor change averaged over 9 and 18 weeks",
+   "phase_quote": "Phase 2 Randomized SELECT Trial",
+   "reason": "own Phase 2 trial missed its primary endpoint"
+  },
+  {
+   "accession": "0001104659-20-097780",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 3",
+   "drug": "rigosertib (IV)",
+   "indication": "higher-risk myelodysplastic syndromes",
+   "trial_name": "INSPIRE",
+   "partner_run": false,
+   "flags": [],
+   "quote": "The trial did not meet its primary endpoint of improved survival.",
+   "phase_quote": "pivotal Phase 3 INSPIRE trial",
+   "reason": "own Phase 3 trial missed its primary endpoint"
+  },
+  {
+   "accession": "0001628280-23-019591",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 3",
+   "drug": "sitravatinib (with nivolumab)",
+   "indication": "2L/3L non-squamous NSCLC",
+   "trial_name": "SAPPHIRE",
+   "partner_run": false,
+   "flags": [
+    "COMMERCIAL_STAGE_COMPANY",
+    "ORIGINAL_OF_RECALL: 0001193125-23-206176"
+   ],
+   "quote": "today announced that the SAPPHIRE study did not meet its primary endpoint of overall survival at the final analysis",
+   "phase_quote": "SAPPHIRE is a Phase 3 study evaluating sitravatinib",
+   "reason": "own Phase 3 trial missed its primary endpoint (original of the rank-24 recall)"
+  },
+  {
+   "accession": "0000950170-23-011474",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 2",
+   "drug": "pomotrelvir",
+   "indication": "COVID-19 (non-hospitalized adults)",
+   "trial_name": "pomotrelvir Phase 2",
+   "partner_run": false,
+   "flags": [],
+   "quote": "Pomotrelvir did not meet the primary endpoint measured by proportion of participants below the limit of detection for infectious SARS-CoV-2 on day 3 of treatment with pomotrelvir vs. placebo",
+   "phase_quote": "Phase 2 Trial Evaluating Pomotrelvir for the Treatment of COVID-19",
+   "reason": "own Phase 2 trial missed its primary endpoint"
+  },
+  {
+   "accession": "0000950170-22-015864",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 2",
+   "drug": "lenabasum",
+   "indication": "systemic lupus erythematosus",
+   "trial_name": "NIAID/ACE SLE study",
+   "partner_run": true,
+   "flags": [
+    "DISCLOSED_IN_EARNINGS_RELEASE",
+    "EARLIER_DISCLOSURE_UNKNOWN"
+   ],
+   "quote": "did not meet its primary endpoint of a statistical improvement in the Numerical Rating Scale (NRS) for pain associated with musculoskeletal inflammation",
+   "phase_quote": "Phase 2 study conducted by Dr. Meggan Mackay",
+   "reason": "NIH-sponsored Phase 2 trial of the company's drug missed its primary endpoint; first disclosure found in a quarterly results release"
+  },
+  {
+   "accession": "0001104659-23-115007",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 2",
+   "quote": "In the third quarter of 2023, the company reported top-line data from UPLIFT",
+   "reason": "quarterly results release recalling a third-quarter announcement",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2023-Q3"
+   ]
+  },
+  {
+   "accession": "0000950170-22-015505",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 2b",
+   "quote": "Enanta reported data in May from RSVP, its Phase 2b study evaluating EDP-938",
+   "reason": "quarterly results release recalling a May 2022 announcement",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2022-05"
+   ]
+  },
+  {
+   "accession": "0001193125-23-136111",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 3",
+   "quote": "In August 2022, Ipsen announced that the Phase III RESILIENT trial did not meet its primary endpoint",
+   "reason": "quarterly results release recalling a partner's August 2022 announcement",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2022-08 (partner)"
+   ]
+  },
+  {
+   "accession": "0001193125-22-036948",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 3",
+   "quote": "Although the study did not meet the primary endpoint of superiority compared to sunitinib in second-line GIST patients",
+   "reason": "earnings-call transcript recalling earlier announced results",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: date not stated"
+   ]
+  },
+  {
+   "accession": "0001193125-21-366669",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 3",
+   "drug": "acoramidis",
+   "indication": "transthyretin amyloid cardiomyopathy (ATTR-CM)",
+   "trial_name": "ATTRibute-CM (Part A, Month 12)",
+   "partner_run": false,
+   "flags": [
+    "TRIAL_CONTINUES_LATER_PART"
+   ],
+   "quote": "ATTRibute-CM did not meet its primary endpoint at Month 12.",
+   "phase_quote": "Phase 3 ATTRibute-CM Study",
+   "reason": "own Phase 3 trial missed its Month-12 primary endpoint (the trial continues to a later part)"
+  },
+  {
+   "accession": "0001193125-19-077488",
+   "decision": "EXCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": null,
+   "quote": "TIME-2b Study Did Not Meet the Primary Endpoint of 2-Step Reduction in DRSS Score",
+   "reason": "PHASE_NOT_STATED_IN_EVENT_FILING: original TIME-2b announcement (recalled by rank 46), but no phase is stated for TIME-2b",
+   "flags": [
+    "ORIGINAL_OF_RECALL: 0001193125-19-142182"
+   ]
+  },
+  {
+   "accession": "0001193125-20-039763",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 2",
+   "drug": "cabiralizumab (with nivolumab)",
+   "indication": "advanced pancreatic cancer",
+   "trial_name": "BMS-run Phase 2 pancreatic trial",
+   "partner_run": true,
+   "flags": [],
+   "quote": "the randomized Phase 2 clinical trial evaluating the combination of cabiralizumab with Opdivo® (nivolumab) with and without chemotherapy in patients with advanced pancreatic cancer did not meet its primary endpoint",
+   "phase_quote": "randomized Phase 2 clinical trial evaluating the combination of cabiralizumab",
+   "reason": "licensee-run Phase 2 trial of the company's drug missed its primary endpoint"
   }
- ]
+ ],
+ "stop_note": "Stop rule met at sample rank 70 (30th distinct event). Ranks 71-74 were displayed to the screener before the stop was reached but, per protocol, are not recorded or used."
 }

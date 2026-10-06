@@ -167,6 +167,26 @@ def parse_dateline(text: str) -> tuple[str | None, str | None]:
     return None, None
 
 
+INDEX = "https://www.sec.gov/Archives/edgar/data/{cik}/{acc}/{accd}-index.html"
+_ROW = re.compile(r"<tr[^>]*>(.*?)</tr>", re.S | re.I)
+_CELL = re.compile(r"<td[^>]*>(.*?)</td>", re.S | re.I)
+
+
+def exhibit_files(app: App, cik: str, accession: str, fetch: Fetch) -> list[tuple[str, str]]:
+    """(file, type) for every EX-99* text exhibit listed on the filing's EDGAR index page (press releases etc.)."""
+    url = INDEX.format(cik=int(cik), acc=accession.replace("-", ""), accd=accession)
+    raw = fetch(url)
+    save_raw(app, PROVIDER, url, raw, "text/html", "html", note="filing index")
+    out = []
+    for row in _ROW.findall(raw.decode("utf-8", errors="replace")):
+        cells = [re.sub(r"<[^>]+>", " ", c).replace("&nbsp;", " ").strip() for c in _CELL.findall(row)]
+        if len(cells) >= 4:
+            name, typ = cells[2].split()[0] if cells[2].split() else "", cells[3]
+            if typ.upper().startswith("EX-99") and name.lower().endswith((".htm", ".html", ".txt")):
+                out.append((name, typ))
+    return out
+
+
 # ------------------------------------------------------------------ one screened accession
 def fetch_filing(app: App, accession: str, cik: str, hit_files: list[str], fetch: Fetch,
                  sub: dict | None = None) -> dict:
@@ -184,8 +204,12 @@ def fetch_filing(app: App, accession: str, cik: str, hit_files: list[str], fetch
     if row and row.get("primaryDocument"):
         main_id = store_document(app, fetch, cik=cik, issuer_id=iid, accession=accession, file_name=row["primaryDocument"],
                                  doc_type=form, accepted=accepted, filing_date=filing_date, items=row.get("items"))
+    try:
+        exhibits = [fn for fn, _t in exhibit_files(app, cik, accession, fetch)]
+    except ProviderError:
+        exhibits = []
     hit_id = None
-    for fn in hit_files:
+    for fn in list(dict.fromkeys(list(hit_files) + exhibits)):
         if row and fn == row.get("primaryDocument"):
             hit_id = hit_id or main_id
             continue
