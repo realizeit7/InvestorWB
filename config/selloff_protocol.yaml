@@ -1,0 +1,84 @@
+# Post-Selloff Recovery Research — event-cohort protocol (machine-readable; rationale in docs/selloff/PROTOCOL.md)
+# PROVISIONAL RESEARCH CHOICES for a data-feasibility study. Committed before any event's prices or outcomes were
+# fetched. Any change requires a new protocol_version; the hash of this file is stored with every research run.
+protocol_version: sr-0.1
+status: PROVISIONAL
+
+observation_period:            # by public announcement date (8-K acceptance / release dateline), US Eastern
+  start: "2019-01-01"
+  end: "2023-12-31"
+
+issuers:
+  filer_types: [domestic 10-K/10-Q filer]          # foreign private issuers (6-K/20-F) are out of scope
+  sic_codes: ["2833", "2834", "2835", "2836", "8731"]
+  sic_other: record_and_review                     # other SIC: kept visible, included only if the release shows a drug developer
+  exchanges: [Nasdaq, NYSE, NYSE American]         # as stated on the 8-K cover page at the time; OTC excluded
+  security: common stock (one class per issuer; the class named on the 8-K cover page)
+
+event:
+  phases: ["Phase 2", "Phase 2b", "Phase 2/3", "Phase 3"]          # Phase 1, 1/2 and unspecified excluded
+  cohort_category: PRIMARY_ENDPOINT_FAILURE      # own program's trial failed its prespecified primary endpoint
+  separately_classified:                         # recorded and visible, NOT in the sr-0.1 cohort
+    - FUTILITY_STOP                # stopped at an interim analysis for futility
+    - SAFETY_STOP                  # stopped / clinical hold for safety
+    - COMMERCIAL_DISCONTINUATION   # program dropped for business reasons
+    - REGULATORY_REJECTION         # CRL / refusal to file / negative advisory vote
+    - MIXED_OR_UNCLEAR             # primary endpoint status not clearly stated
+    - NOT_AN_EVENT                 # mention of a past, partner-unrelated or other company's failure
+  partner_run_trials: include_flagged             # company's own asset, trial run by a partner: included, flagged
+
+discovery:
+  source: SEC EDGAR full-text search (efts.sec.gov/LATEST/search-index), forms 8-K (incl. exhibits), per calendar year
+  phrases:
+    - '"did not meet the primary endpoint"'
+    - '"did not meet its primary endpoint"'
+    - '"failed to meet the primary endpoint"'
+    - '"failed to meet its primary endpoint"'
+    - '"did not achieve its primary endpoint"'
+    - '"did not achieve the primary endpoint"'
+    - '"primary endpoint was not met"'
+    - '"did not achieve statistical significance on the primary endpoint"'
+  sensitivity_phrases:             # NOT used for sampling: only to estimate what the main phrases miss
+    - '"did not reach statistical significance"'
+    - '"not statistically significant" "topline"'
+    - '"did not demonstrate a statistically significant"'
+  page_size: 100                   # all pages are retrieved; the reported total is stored with every query
+
+sampling:
+  pool: every distinct 8-K accession returned by the main phrases in the period
+  order: ascending sha256("sr-0.1:" + accession)   # deterministic pseudo-random order, fixed before screening
+  screen_until_included: 30        # stop after 30 events pass the document-based screen ...
+  max_screened: 200                # ... or after 200 accessions, whichever comes first (shortfall documented)
+  minimum_events: 20               # fewer => document an extension (2017-2018) BEFORE inspecting any outcome
+  price_criteria_after_stop: true  # price-based criteria never influence which filings are screened
+
+deduplication:
+  key: [cik, trial_identifier]     # NCT id if stated, else drug + indication + phase
+  merge_window_days: 30            # filings on the same readout within 30 days are one event (earliest public time)
+  later_analyses: not_new_event    # full data / conference presentations of the same readout
+  separate_trials: separate_events # same drug, different trial = separate events (flagged as a repeat)
+
+price_decline:
+  measurement: close of the first session closing after the LATEST possible public time / close of the last session
+               closing before the EARLIEST possible public time - 1 (raw; benchmark-relative recorded too)
+  threshold: "-0.30"               # eligible if the decline is at least 30%
+  benchmarks: [SPY, XBI]
+  min_pre_event_market_cap_usd: "50000000"     # shares outstanding (point in time) x pre-event close
+  min_pre_event_price_usd: "1.00"
+  unknown_price: ELIGIBILITY_UNDETERMINED      # kept visible; never excluded silently, never assumed
+
+timing:
+  sec_filing: EDGAR acceptance timestamp (exact, UTC)
+  release_dateline: date-only; earliest possible public time = 00:00 America/New_York on that date
+  latest_possible_public_time: earliest exact timestamp available (EDGAR acceptance)
+  decision_cutoff: close of the decline-measurement session + 120 minutes data-availability lag
+  entry: opening price of the first session that opens after the decision cutoff
+  halts: if the measurement session has no bar, the first session with a bar is used and the event is flagged
+
+outcomes_audit:                    # coverage only in sr-0.1; no returns are computed
+  horizons_sessions: [21, 63, 126, 252]
+  status_evidence: [Form 25 / 25-NSE (delisting), Form 15 (deregistration), 8-K Item 1.03 (bankruptcy),
+                    8-K Item 2.01 / DEFM14A / SC TO-T (acquisition)]
+
+missing_data: None with a reason; never zero; a missing outcome is neither a zero return nor a total loss
+llm: interactive evidence packs only; every historical LLM judgment labelled RETROSPECTIVE_CONTAMINATED
