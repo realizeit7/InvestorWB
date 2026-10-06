@@ -322,3 +322,20 @@ Overall status **FAIL, as intended in this container**: it routes Claude Code th
 
 These names are research candidates only; no recommendation is implied. **Not run:** prospective collection (needs
 ≥ 24 months and ≥ 52 matured 126-session cohorts), owner-side Claude Code check and live call.
+
+## 11. Post-Selloff Recovery Research — data feasibility (2026-10-06)
+
+Separate research module (`eqm study selloff …`, own data home; never the portfolio database). Protocol `sr-0.1`
+committed before any event price was fetched (`d53d4c5`). Full report: `docs/selloff/FEASIBILITY_REPORT.md`.
+
+- Offline suite: 19 tests in `tests/test_selloff.py` (isolation with a byte-identical portfolio database, discovery
+  logging and idempotency, verbatim quotes, deduplication and repeated trials, date-only timing, entry after the observable
+  decline, ticker at the time vs today's ticker, identity guard and same-CIK rename fallback, documents after the cutoff,
+  restatements, stale balances, missing values never zero, delisted prices visible, no returns in the outcome audit,
+  FACT/ASSUMPTION/OPINION separation, RETROSPECTIVE_CONTAMINATED labels, no probabilities, idempotent pipeline).
+- Live run (`scripts/selloff_feasibility.sh`, public sources, ~3 min, run four times from empty homes while fixing the
+  issues below): 286 pool filings / 137 issuers; 70 screened; 30 events; 19/30 priced; 10 price-eligible; SPY/XBI 30/30.
+- Found and fixed during the live run: later reverse splits inflating historical prices (implausible market caps);
+  stale debt tags reported as current; inline-XBRL cover pages; abbreviated datelines; event-key phase omitted.
+- Not run: forward returns (by design), prospective judgments, paid data. Blocked: survivorship-free prices,
+  ClinicalTrials.gov history, press-release times.

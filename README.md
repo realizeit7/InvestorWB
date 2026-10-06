@@ -135,3 +135,5 @@ When you actually trade, record the fills (`eqm ledger add ...` or a CSV import)
 | `reports/equity/` | committed sample reports (demo = FIXTURE, examples = ILLUSTRATIVE real data) |
 | `scripts/e2e_real_company.py`, `scripts/e2e_market_context.py` | real-data end-to-end examples (ILLUSTRATIVE, separate data home) |
 | `var/` | local data (git-ignored): database, raw provider responses, reports |
+
+**Research studies (separate data home, never the portfolio):** `eqm study selloff …` — post-selloff recovery research, data-feasibility milestone; see `docs/selloff/FEASIBILITY_REPORT.md`.

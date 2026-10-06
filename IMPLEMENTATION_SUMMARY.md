@@ -202,3 +202,13 @@ stated explicitly; top-5 research priorities highlighted while keeping all 25; e
 sessions, secondary 63/252, block-bootstrap uncertainty, concentration, drawdowns, exposures) and the evidence gate
 (24 months, 52 primary cohorts; INSUFFICIENT_DATA / NOT_SUPPORTED / INCONCLUSIVE / PROMISING). Interactive packs stay
 the default; `finder_auto_judge` now defaults to false. Details: POLICY.md §12–§13, RUNBOOK, VALIDATION.md §10.
+
+## Post-Selloff Recovery Research — data-feasibility milestone (2026-10-06)
+
+Independent research module for companies whose shares fell after a clinical-trial failure: protocol `sr-0.1`
+(committed before prices), isolated research home and `eqm study selloff` commands, EDGAR discovery and logged
+screening (30 events from 70 filings), point-in-time documents and timing, XBRL financing records, evidence packs with
+RETROSPECTIVE_CONTAMINATED judgment labels, price eligibility with an identity guard, and an outcome **coverage** audit.
+No returns, models or rankings. Conclusion: reconstruction works; outcomes are missing precisely for acquired and
+delisted companies, so a larger study needs survivorship-free paid price data (owner decision). Details:
+`docs/selloff/FEASIBILITY_REPORT.md`, `docs/selloff/IMPLEMENTATION_NOTES.md`.
