@@ -14,7 +14,8 @@ from ...db.core import insert, one
 from ...util import Clock, new_id, sha256_text
 
 SCHEMA = Path(__file__).with_name("schema.sql")
-PROTOCOL_PATH = Path("config/selloff_protocol.yaml")
+_REPO_PROTOCOL = Path(__file__).resolve().parents[4] / "config" / "selloff_protocol.yaml"
+PROTOCOL_PATH = Path("config/selloff_protocol.yaml") if Path("config/selloff_protocol.yaml").exists() else _REPO_PROTOCOL
 DEFAULT_RESEARCH_HOME = Path(os.environ.get("EQM_SELLOFF_HOME", "var/research/selloff"))
 SR_TABLES = ("research_home", "sr_protocol", "sr_search", "sr_hit", "sr_filing", "sr_screen", "sr_event", "sr_source",
              "sr_gap", "sr_fact", "sr_price_check", "sr_eligibility", "sr_outcome_audit", "sr_judgment", "sr_effort")
@@ -89,7 +90,7 @@ def open_research(path: str | Path | None = None, *, clock: Clock | None = None,
     path = Path(path or DEFAULT_RESEARCH_HOME)
     db = path / "equity_monitor.sqlite"
     if not db.exists():
-        raise NotAResearchHome(f"no research home at {path}: run `eqm research selloff init` first")
+        raise NotAResearchHome(f"no research home at {path}: run `eqm study selloff init` first")
     app = open_app(path, clock=clock, settings_path=settings_path)
     if not one(app.conn, "SELECT name FROM sqlite_master WHERE type='table' AND name='research_home'") or \
             not one(app.conn, "SELECT 1 FROM research_home WHERE kind='SELLOFF_RESEARCH'"):

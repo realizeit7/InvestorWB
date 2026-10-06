@@ -73,6 +73,7 @@ def submissions(app: App, cik: str, fetch: Fetch) -> dict:
         add(json.loads(r2))
     return {"name": doc.get("name"), "sic": doc.get("sic"), "sicDescription": doc.get("sicDescription"),
             "fiscalYearEnd": doc.get("fiscalYearEnd"), "former_names": doc.get("formerNames") or [],
+            "former_names_list": [n.get("name") for n in doc.get("formerNames") or [] if n.get("name")],
             "current_tickers": doc.get("tickers") or [], "filings": rows}
 
 
@@ -140,9 +141,15 @@ def parse_cover(text: str) -> dict:
             if rx.search(ln):
                 out["exchanges"].append(name)
                 break
-    if not out["symbols"]:                         # single-line tables: "Common Stock XXXX The Nasdaq ..."
-        for m2 in re.finditer(r"\b([A-Z]{2,5})\b(?=\s+(?:The\s+)?(?:Nasdaq|NASDAQ|New York Stock Exchange|NYSE))", seg):
-            out["symbols"].append(m2.group(1))
+    if not out["symbols"]:      # cells run together: "Common StockMRTXThe Nasdaq Global Select Market"
+        for m2 in re.finditer(r"(?<![A-Z])([A-Z]{1,5})(?=\s*(?:The\s+)?(?:Nasdaq|NASDAQ|New York Stock Exchange|NYSE))", seg):
+            if m2.group(1) not in ("LLC", "THE"):
+                out["symbols"].append(m2.group(1))
+    if not out["exchanges"]:
+        for name, rx in _EXCHANGES:
+            if rx.search(seg):
+                out["exchanges"].append(name)
+                break
     return out
 
 
@@ -155,6 +162,19 @@ def parse_report_date(text: str) -> str | None:
     if not m:
         return None
     return date(int(m.group(3)), _month_no(m.group(1)), int(m.group(2))).isoformat()
+
+
+_RELEASE_TICKER = re.compile(r"\((?:NASDAQ|Nasdaq|NYSE American|NYSE|NYSE MKT)(?:\s*(?:GS|GM|CM|Global Select|Global Market))?\s*:\s*([A-Z]{1,5})\)")
+
+
+def release_ticker(text: str) -> tuple[str | None, str | None]:
+    """Ticker as printed in a press release, e.g. '(NASDAQ: MRTX)' — stated in the document at the time."""
+    m = _RELEASE_TICKER.search(text[:4000])
+    if not m:
+        return None, None
+    ex = "NYSE American" if "American" in m.group(0) or "MKT" in m.group(0) else \
+        "NYSE" if "NYSE" in m.group(0) else "Nasdaq"
+    return m.group(1), ex
 
 
 def parse_dateline(text: str) -> tuple[str | None, str | None]:

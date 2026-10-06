@@ -1,0 +1,55 @@
+{"note": "RETROSPECTIVE_CONTAMINATED — written in 2026 by an LLM (Claude Code session) from the point-in-time evidence packs only, for a workflow/effort test. The model may know later outcomes; these are NOT out-of-sample predictions and must never be evaluated as such.",
+ "judgments": [
+  {"event_id": "1604464|ata188|non-active progressive multiple sclerosis|phase 2",
+   "failure_scope": "The Phase 2 EMBOLD study of ATA188 in non-active progressive MS missed its 12-month confirmed-disability-improvement endpoint and biomarkers were not supportive; the company says it anticipates stopping the study. The failure is specific to ATA188 in MS; the release does not report safety problems. A read-through to the shared EBV T-cell platform is possible but not established by these documents.",
+   "remaining_business": "Approved allogeneic T-cell therapy tab-cel (EBVALLO) in Europe with an expanded Pierre Fabre partnership (payments and royalties stated), a BLA-transfer plan, and early allogeneic CAR-T programs (ATA3219 Phase 1, ATA3431 preclinical).",
+   "financing": "Cash plus short-term investments of about $102M at the latest 10-Q against trailing-four-quarter operating cash use of about $199M (historical runway about 6 months by formula). The company states planned expense reductions and partnership payments extend runway beyond Q3 2025; that is a company projection, not verified here.",
+   "competing_explanations": "Higher-than-expected placebo response (company explanation) versus a lack of efficacy of ATA188; the documents cannot separate the two.",
+   "recovery_thesis": {
+     "possible_catalysts": "ATA3431 preclinical data at ASH (December 2023); ATA3219 Phase 1 data in the second half of 2024; tab-cel partnership payments and BLA transfer.",
+     "supporting_evidence": "An approved product with a commercial partner and stated cost reductions.",
+     "invalidating_evidence": "Partnership payments not received as stated, cash use not falling, or early CAR-T data that do not differentiate.",
+     "open_questions": "Size and timing of Pierre Fabre payments; post-restructuring cash use; whether the placebo explanation is supported by the full data; dilution needed before the CAR-T data."},
+   "claims": [
+     {"text": "The EMBOLD study did not meet its primary endpoint at 12 months.", "claim_type": "FACT",
+      "citations": [{"quote": "The study did not meet the primary endpoint of confirmed disability improvement (CDI) by expanded disability status scale (EDSS) at 12 months compared to placebo."}]},
+     {"text": "The company anticipates stopping the study.", "claim_type": "FACT",
+      "citations": [{"quote": "however we anticipate stopping the study as no treatment benefit was observed"}]},
+     {"text": "The company projects its runway beyond Q3 2025 after cost reductions.", "claim_type": "ASSUMPTION",
+      "citations": [{"quote": "These future actions are expected to meaningfully extend our cash runway beyond Q3 of 2025."}]},
+     {"text": "The remaining value depends mainly on the partnered approved product and early CAR-T programs.", "claim_type": "OPINION"}]},
+
+  {"event_id": "1070081|vatiquinone|friedreich ataxia|phase 3",
+   "failure_scope": "The Phase 3 registration-directed MOVE-FA trial of vatiquinone in Friedreich ataxia missed its 72-week mFARS primary endpoint (placebo-corrected 1.6, p=0.14). The company reports nominal benefits on subscales and secondary endpoints and in a completer analysis, and plans to discuss a registration path with regulators. The failure concerns one product candidate; PTC is a commercial-stage company with other products.",
+   "remaining_business": "PTC is commercial-stage (it describes marketed products and a broader pipeline in its periodic reports; the event release covers only vatiquinone). Revenue was not captured by the shared XBRL concept map in this record, so its size is unknown here.",
+   "financing": "Cash plus short-term investments of about $286M at the latest 10-Q against trailing-four-quarter operating cash use of about $289M (historical runway about 12 months by formula). Debt figures in the record are incomplete (the long-term tag is stale), so leverage is unknown.",
+   "competing_explanations": "Insufficient efficacy versus an underpowered or noisy endpoint; nominal secondary results after a missed primary are weak evidence.",
+   "recovery_thesis": {
+     "possible_catalysts": "Regulatory discussions on a potential path to registration for vatiquinone; developments in other PTC programs (not described in this release).",
+     "supporting_evidence": "Commercial revenue base and other programs (to be quantified from the 10-Q).",
+     "invalidating_evidence": "Regulators require a new trial; commercial revenue declining; financing needs given cash use roughly equal to liquid assets.",
+     "open_questions": "Revenue by product, debt maturities (record incomplete), regulatory feedback timing."},
+   "claims": [
+     {"text": "MOVE-FA did not meet its primary endpoint.", "claim_type": "FACT",
+      "citations": [{"quote": "The study did not meet its primary endpoint of statistically significant change in mFARS score at 72 weeks in the primary analysis population."}]},
+     {"text": "The placebo-corrected mFARS change was 1.6 with p=0.14.", "claim_type": "FACT",
+      "citations": [{"quote": "The mean placebo corrected change in the mFARS score in the primary analysis population was 1.6 (p=0.14)."}]},
+     {"text": "A registration path after a missed primary endpoint is uncertain.", "claim_type": "OPINION"}]},
+
+  {"event_id": "906709|NCT04433585",
+   "failure_scope": "The Phase 2 ISLAND study of rezpegaldesleukin (REZPEG) in SLE missed its SLEDAI-2K primary endpoint; the mid-dose showed numeric and secondary-endpoint improvements. Partner Lilly notified Nektar it does not intend to advance REZPEG to Phase 3 in SLE; the companies plan to decide next steps for a planned Phase 2b in atopic dermatitis.",
+   "remaining_business": "REZPEG in other indications (atopic dermatitis planned) and other programs described in periodic reports; revenue in the record is from the latest fiscal year (royalty and collaboration income in the company's filings).",
+   "financing": "Cash plus short-term investments of about $546M at the latest 10-Q against trailing-four-quarter operating cash use of about $398M (historical runway about 16 months by formula). The long-term debt tag in the record is stale, so current debt is unknown here.",
+   "competing_explanations": "Dose selection / population effects versus lack of efficacy; the partner's decision is evidence about its own assessment but not about the drug in other indications.",
+   "recovery_thesis": {
+     "possible_catalysts": "Decision with Lilly on the atopic dermatitis Phase 2b; other pipeline readouts (not described in this release).",
+     "supporting_evidence": "Large liquid balance relative to stated cash use; secondary-endpoint signals at the mid-dose.",
+     "invalidating_evidence": "Partner withdrawal from further indications; no restructuring of cash use.",
+     "open_questions": "Partnership economics after Lilly's decision; cash use after restructuring; debt terms."},
+   "claims": [
+     {"text": "Lilly does not intend to advance REZPEG to Phase 3 in SLE.", "claim_type": "FACT",
+      "citations": [{"quote": "Lilly has notified Nektar that they do not intend to advance REZPEG to Phase 3 development for SLE."}]},
+     {"text": "The ISLAND primary endpoint was not met.", "claim_type": "FACT",
+      "citations": [{"quote": "the primary endpoint was not met"}]},
+     {"text": "Secondary-endpoint signals alone do not establish efficacy.", "claim_type": "OPINION"}]}
+ ]}

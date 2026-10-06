@@ -652,6 +652,55 @@ def cmd_finder(args):
         _print(evaluate(app, include_rows=args.rows))
 
 
+def cmd_study(args):
+    """Research-only study commands: they open ONLY a research data home (never the portfolio database)."""
+    import json as _json
+    from pathlib import Path
+    from .research.selloff import discovery, packs, pipeline, pricing, report, screening
+    from .research.selloff.filings import make_fetch
+    from .research.selloff.home import init_home, open_research
+    rh = args.research_home
+    if args.action == "init":
+        app = init_home(rh, settings_path=args.settings)
+        print(f"research home ready: {app.home} (protocol recorded; no portfolio data)")
+        return
+    app = open_research(rh, settings_path=args.settings)
+    if args.action == "discover":
+        _print(discovery.run_discovery(app))
+        _print(discovery.sensitivity_gap(app))
+    elif args.action == "queue":
+        for it in screening.queue(app, args.n, make_fetch(app)):
+            print(screening.describe(app, it))
+            print()
+    elif args.action == "record":
+        if not args.file:
+            raise SystemExit("usage: eqm study selloff record --file decisions.json")
+        data = _json.loads(Path(args.file).read_text(encoding="utf-8"))
+        done = screening.latest_decisions(app)
+        new = [d for d in data["decisions"] if d["accession"] not in done]
+        rows = screening.record(app, new, data["screener"], make_fetch(app))
+        print(f"recorded {len(rows)} decisions; unresolved: "
+              f"{[r['accession'] for r in rows if r['decision'] == 'UNRESOLVED']}")
+        _print(screening.status(app))
+    elif args.action == "status":
+        _print(screening.status(app))
+    elif args.action == "run":
+        _print(pipeline.run(app, fetch=make_fetch(app), history=pricing.make_history(), prices=not args.no_prices))
+    elif args.action == "pack":
+        out = args.out or str(Path(app.home) / "packs")
+        _print(packs.export_packs(app, out, [args.event] if args.event else None))
+    elif args.action == "import-judgments":
+        if not args.file:
+            raise SystemExit("usage: eqm study selloff import-judgments --file judgments.json")
+        _print(packs.import_judgments(app, args.file))
+    elif args.action == "coverage":
+        rows = report.coverage_rows(app)
+        if args.out:
+            Path(args.out).write_text(report.to_csv(rows), encoding="utf-8")
+            print(f"coverage table: {args.out} ({len(rows)} events)")
+        _print(report.funnel(app))
+
+
 def cmd_llm(args):
     from .llm.claude_code_check import run_check
     app = _app(args)
@@ -919,6 +968,18 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--note")
     s.add_argument("--rows", action="store_true", help="evaluate: include every cohort row")
     s.set_defaults(fn=cmd_finder)
+
+    s = sub.add_parser("study", help="research-only studies in a separate data home (never the portfolio database)")
+    s.add_argument("study", choices=["selloff"])
+    s.add_argument("action", choices=["init", "discover", "queue", "record", "status", "run", "pack", "import-judgments",
+                                      "coverage"])
+    s.add_argument("--research-home", default=None, help="research data home (default var/research/selloff)")
+    s.add_argument("--n", type=int, default=10, help="queue: how many unscreened filings to show")
+    s.add_argument("--file", help="record / import-judgments: JSON file")
+    s.add_argument("--event", help="pack: one event id")
+    s.add_argument("--out", help="pack: output directory; coverage: CSV path")
+    s.add_argument("--no-prices", action="store_true", help="run: skip price retrieval")
+    s.set_defaults(fn=cmd_study)
 
     s = sub.add_parser("llm", help="LLM provider checks (no secrets printed)")
     s.add_argument("action", choices=["claude-check"])

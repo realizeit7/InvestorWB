@@ -109,7 +109,7 @@ def event_key(cik: str, details: dict) -> str:
     return f"{int(cik)}|{tid}"
 
 
-def record(app: App, decisions: list[dict], screener: str) -> list[dict]:
+def record(app: App, decisions: list[dict], screener: str, fetch: Fetch | None = None) -> list[dict]:
     """Append screening decisions. INCLUDED needs category PRIMARY_ENDPOINT_FAILURE, a cohort phase, drug, indication,
     and quotes (failure + phase) found verbatim in the filing; otherwise the decision is stored as UNRESOLVED."""
     ph = protocol_hash(app)
@@ -121,6 +121,9 @@ def record(app: App, decisions: list[dict], screener: str) -> list[dict]:
             raise ValueError(f"{acc} is not in the protocol's discovery pool")
         if dec["category"] not in CATEGORIES:
             raise ValueError(f"unknown category {dec['category']}")
+        if fetch is not None and not one(app.conn, "SELECT 1 FROM sr_filing WHERE accession=?", (acc,)):
+            r = order[acc]
+            fetch_filing(app, acc, r["cik"], [x for x in (r["files"] or "").split(",") if x], fetch)
         details = {k: dec.get(k) for k in ("drug", "indication", "trial_id", "trial_id_source", "partner_run", "flags",
                                            "phase_quote", "occurred_date", "occurred_quote", "trial_name")}
         pid = find_quote(app, acc, dec.get("quote") or "")
@@ -141,6 +144,7 @@ def record(app: App, decisions: list[dict], screener: str) -> list[dict]:
                 problems.append("phase quote not found verbatim")
             details["phase_quote_verified"] = bool(dec.get("phase_quote")) and \
                 find_quote(app, acc, dec["phase_quote"]) is not None
+            details["phase"] = dec.get("phase")
             details["event_key"] = event_key(order[acc]["cik"], details)
         if problems:
             reason = f"{reason} [UNRESOLVED: {'; '.join(problems)}]"
@@ -176,7 +180,14 @@ def _ticker_at_time(app: App, f: dict, cutoff: datetime, fetch: Fetch | None, su
                 return {"ticker": c2["symbols"][0], "exchange": (c2.get("exchanges") or [None])[0],
                         "source": f"{r['form']} cover {r['accessionNumber']} (filed before the cutoff)",
                         "all_symbols": c2["symbols"]}, gaps
-    gaps.append("ticker at the time not stated on the event 8-K cover or on a periodic report filed by the cutoff")
+    from .filings import release_ticker
+    for did in (f["hit_document_id"], f["main_document_id"]):
+        if did:
+            tk, ex = release_ticker(doc_text(app, did))
+            if tk:
+                return {"ticker": tk, "exchange": ex, "source": f"press release text in {f['accession']} (e.g. '(Nasdaq: XXX)')",
+                        "all_symbols": [tk]}, gaps
+    gaps.append("ticker at the time not stated on the event 8-K cover, in the release, or on a periodic report filed by the cutoff")
     return {"ticker": None, "exchange": None, "source": None, "all_symbols": []}, gaps
 
 
