@@ -1,0 +1,737 @@
+{
+ "protocol_version": "sr-0.1",
+ "screener": "LLM-assisted screen (Claude Code session; RETROSPECTIVE — the model may know later outcomes; decisions limited to verbatim document facts)",
+ "decisions": [
+  {
+   "accession": "0001140361-23-002726",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 2",
+   "drug": "APX3330",
+   "indication": "diabetic retinopathy",
+   "trial_name": "ZETA-1",
+   "partner_run": false,
+   "flags": [
+    "POSITIVE_SECONDARY_CLAIMED"
+   ],
+   "quote": "In the ZETA-1 Phase 2 trial, APX3330 did not meet the primary endpoint",
+   "phase_quote": "ZETA-1 Phase 2 trial",
+   "reason": "own Phase 2 trial missed its primary endpoint (company highlights secondary endpoints)"
+  },
+  {
+   "accession": "0000950170-23-026748",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 3",
+   "drug": "pamrevlumab",
+   "indication": "Duchenne muscular dystrophy (non-ambulatory)",
+   "trial_name": "LELANTOS-1",
+   "partner_run": false,
+   "flags": [],
+   "quote": "The study did not meet the primary endpoint of Performance of the Upper Limb 2.0 (PUL 2.0) score at week 52 compared to baseline.",
+   "phase_quote": "Phase 3 LELANTOS-1 placebo-controlled trial of pamrevlumab",
+   "reason": "own Phase 3 trial missed its primary endpoint"
+  },
+  {
+   "accession": "0001214659-22-008799",
+   "decision": "EXCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": null,
+   "drug": "lenzilumab",
+   "indication": "hospitalized COVID-19",
+   "trial_name": "ACTIV-5/BET-B",
+   "partner_run": true,
+   "flags": [
+    "PARTNER_RUN_TRIAL"
+   ],
+   "quote": "The trial did not achieve statistical significance on the primary endpoint",
+   "reason": "PHASE_NOT_STATED_IN_EVENT_FILING: NIAID-run trial of the company's drug missed its primary endpoint, but the filing does not state the trial phase; not resolved from outside knowledge"
+  },
+  {
+   "accession": "0001171843-20-006188",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 3",
+   "drug": "CaPre",
+   "indication": "severe hypertriglyceridemia",
+   "trial_name": "TRILOGY 2",
+   "partner_run": false,
+   "flags": [
+    "PROGRAM_DISCONTINUED_STATED"
+   ],
+   "quote": "therefore the TRILOGY 2 study did not meet its primary endpoint",
+   "phase_quote": "Phase 3 TRILOGY 2 study",
+   "reason": "own Phase 3 trial missed its primary endpoint; company states it will not file an NDA"
+  },
+  {
+   "accession": "0001104659-23-063688",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 3",
+   "drug": "vatiquinone",
+   "indication": "Friedreich ataxia",
+   "trial_name": "MOVE-FA",
+   "partner_run": false,
+   "flags": [
+    "POSITIVE_SECONDARY_CLAIMED",
+    "COMMERCIAL_STAGE_COMPANY"
+   ],
+   "quote": "The study did not meet its primary endpoint of statistically significant change in mFARS score at 72 weeks in the primary analysis population.",
+   "phase_quote": "The Phase 3 registration-directed trial in Friedreich Ataxia patients, called MOVE-FA",
+   "reason": "own Phase 3 registration-directed trial missed its primary endpoint"
+  },
+  {
+   "accession": "0001437749-20-005681",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": null,
+   "quote": "While the study did not achieve statistical significance on the primary endpoint",
+   "reason": "annual results release mentioning a device study reported in July 2019; not an announcement of a new failure (and a device, not a drug)"
+  },
+  {
+   "accession": "0001558370-19-001386",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 3",
+   "drug": "mirvetuximab soravtansine",
+   "indication": "platinum-resistant ovarian cancer (FRα-positive)",
+   "trial_name": "FORWARD I",
+   "partner_run": false,
+   "flags": [],
+   "quote": "did not meet its primary endpoint of progression-free survival (PFS) in either the entire study population or in the pre-specified subset of patients with high-FRα expression",
+   "phase_quote": "Phase 3 FORWARD I trial",
+   "reason": "own Phase 3 trial missed its primary endpoint (filing says it was disclosed on March 1, 2019)"
+  },
+  {
+   "accession": "0001387131-23-010769",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 2",
+   "drug": "TNX-102 SL",
+   "indication": "fibromyalgia-type long COVID",
+   "trial_name": "PREVAIL",
+   "partner_run": false,
+   "flags": [
+    "POSITIVE_SECONDARY_CLAIMED",
+    "PROGRAM_CONTINUES_STATED"
+   ],
+   "quote": "but did not meet the primary endpoint of multi-site pain reduction at week 14",
+   "phase_quote": "Phase 2 PREVAIL Proof-of-Concept Study of TNX-102 SL",
+   "reason": "own Phase 2 proof-of-concept trial missed its primary endpoint"
+  },
+  {
+   "accession": "0001787306-21-000006",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 2",
+   "quote": "In May, Arcutis announced that the Phase 2 study of ARQ-252 in chronic hand eczema did not meet its primary endpoint",
+   "reason": "quarterly results release recalling a failure announced in May 2021; the original announcement is not in the pool (wording gap recorded)",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2021-05"
+   ]
+  },
+  {
+   "accession": "0001193125-20-311233",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 2",
+   "drug": "LYR-210",
+   "indication": "chronic rhinosinusitis",
+   "trial_name": "LANTERN",
+   "partner_run": false,
+   "flags": [
+    "POSITIVE_SECONDARY_CLAIMED",
+    "ENROLLMENT_CUT_SHORT_COVID"
+   ],
+   "quote": "LYR-210 did not achieve the primary endpoint of change from baseline in 4CSS at week 4 at either the 7,500 µg dose (-0.36) (p=0.306) or 2,500 µg dose (0.04) (p=0.525)",
+   "phase_quote": "Phase 2 LANTERN clinical trial",
+   "reason": "own Phase 2 trial missed its primary endpoint"
+  },
+  {
+   "accession": "0001104659-22-043425",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 2b",
+   "drug": "NYX-2925",
+   "indication": "painful diabetic peripheral neuropathy",
+   "trial_name": "NYX-2925 Phase 2b DPN study",
+   "partner_run": false,
+   "flags": [],
+   "quote": "NYX-2925 did not achieve statistically significant separation from placebo on the study's primary endpoint",
+   "phase_quote": "Phase 2b clinical study evaluating the effects of NYX-2925",
+   "reason": "own Phase 2b trial missed its primary endpoint"
+  },
+  {
+   "accession": "0000950170-23-029736",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 3",
+   "drug": "pamrevlumab",
+   "indication": "idiopathic pulmonary fibrosis",
+   "trial_name": "ZEPHYRUS-1",
+   "partner_run": false,
+   "flags": [
+    "PROGRAM_DISCONTINUED_STATED"
+   ],
+   "quote": "did not meet the primary endpoint of change from baseline in forced vital capacity (FVC) at week 48 (p=0.29)",
+   "phase_quote": "Phase 3 ZEPHYRUS-1 trial",
+   "reason": "own Phase 3 trial missed its primary endpoint; second pamrevlumab failure in the period (repeat drug)"
+  },
+  {
+   "accession": "0001104659-23-075977",
+   "decision": "EXCLUDED",
+   "category": "MIXED_OR_UNCLEAR",
+   "phase": "Phase 3",
+   "quote": "The primary endpoint was not met for the 40 mcg dose",
+   "reason": "dose-specific result: the filing reports the primary endpoint not met for one dose only; not a clear trial-level primary endpoint failure"
+  },
+  {
+   "accession": "0001645113-23-000046",
+   "decision": "EXCLUDED",
+   "category": "OUT_OF_SCOPE",
+   "phase": null,
+   "quote": "issued a press release announcing that its INNOVATE-3 trial did not meet its primary endpoint of overall survival (OS) at the final analysis",
+   "reason": "medical-device therapy (TTFields) trial; no drug phase stated"
+  },
+  {
+   "accession": "0001171843-19-005210",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": null,
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2019-Q2"
+   ],
+   "quote": "During the second quarter, Conatus announced that top-line results from the company's ENCORE-LF clinical trial of emricasan did not meet its primary endpoint",
+   "reason": "quarterly results release recalling an announcement made earlier in the quarter"
+  },
+  {
+   "accession": "0001824293-22-000019",
+   "decision": "EXCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": null,
+   "quote": "The study did not meet its primary endpoint, which was Emax Drug Liking.",
+   "reason": "PHASE_NOT_STATED_IN_EVENT_FILING: human abuse-potential (drug-liking) study described as pivotal; no phase stated"
+  },
+  {
+   "accession": "0001558370-20-001731",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 3",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2019-08 (by licensee Pfizer)"
+   ],
+   "quote": "Pfizer announced in August 2019 that its Phase 3 clinical trial evaluating rivipansel in sickle cell disease (SCD) failed to meet the primary endpoint and key secondary endpoints.",
+   "reason": "annual results release recalling a licensee's announcement from August 2019"
+  },
+  {
+   "accession": "0001213900-23-014008",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 2",
+   "drug": "rezpegaldesleukin",
+   "indication": "systemic lupus erythematosus",
+   "trial_id": "NCT04433585",
+   "trial_id_source": "NCT (stated in filing)",
+   "trial_name": "ISLAND",
+   "partner_run": false,
+   "flags": [
+    "POSITIVE_SECONDARY_CLAIMED"
+   ],
+   "quote": "the primary endpoint was not met. The placebo-adjusted responses for the low- and high-doses were less than those of the mid-dose for both populations.",
+   "phase_quote": "Phase 2 ISLAND study (NCT04433585)",
+   "reason": "own Phase 2 trial missed its primary endpoint"
+  },
+  {
+   "accession": "0001144204-19-000147",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 2",
+   "drug": "AEVI-001",
+   "indication": "ADHD (children, with/without mGluR copy number variant)",
+   "trial_name": "ASCEND",
+   "partner_run": false,
+   "flags": [],
+   "quote": "did not achieve statistical significance on the primary endpoint of reduction of ADHD-RS in either Part A or Part B after 6 weeks of treatment with AEVI-001",
+   "phase_quote": "Phase 2 double-blind, placebo-controlled clinical trial",
+   "reason": "own Phase 2 trial missed its primary endpoint"
+  },
+  {
+   "accession": "0000014272-19-000158",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 3",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2019-07"
+   ],
+   "quote": "In July, the company announced Part 2 of the Phase 3 Checkmate -227 study evaluating Opdivo plus chemotherapy versus chemotherapy did not meet its primary endpoint",
+   "reason": "quarterly results release recalling an announcement made earlier in July 2019"
+  },
+  {
+   "accession": "0001193125-23-273808",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 2",
+   "drug": "ATA188",
+   "indication": "non-active progressive multiple sclerosis",
+   "trial_name": "EMBOLD",
+   "partner_run": false,
+   "flags": [
+    "STRATEGIC_OPTIONS_STATED"
+   ],
+   "quote": "The study did not meet the primary endpoint of confirmed disability improvement (CDI) by expanded disability status scale (EDSS) at 12 months compared to placebo.",
+   "phase_quote": "Phase 2 EMBOLD study of ATA188",
+   "reason": "own Phase 2 trial missed its primary endpoint"
+  },
+  {
+   "accession": "0001104659-20-019696",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 3",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2020-01"
+   ],
+   "quote": "In January, it was announced that GRAVITAS-301, the Phase 3 trial of itacitinib as a treatment for patients with newly diagnosed acute GVHD, did not meet the primary endpoint.",
+   "reason": "annual results release recalling a January 2020 announcement"
+  },
+  {
+   "accession": "0001193125-21-325227",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 2b",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2021 (date not stated in passage)"
+   ],
+   "quote": "The study did not meet its primary endpoint of improving clinical remission rates compared to placebo.",
+   "reason": "quarterly results release recalling an earlier topline announcement"
+  },
+  {
+   "accession": "0001193125-23-206176",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 3",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2023-05"
+   ],
+   "quote": "In May, the Company announced that the Phase 3 SAPPHIRE study evaluating sitravatinib plus nivolumab",
+   "reason": "quarterly results release recalling a May 2023 announcement"
+  },
+  {
+   "accession": "0000875045-20-000008",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 2",
+   "drug": "natalizumab",
+   "indication": "drug-resistant focal epilepsy",
+   "trial_name": "OPUS",
+   "partner_run": false,
+   "flags": [
+    "DISCLOSED_IN_EARNINGS_RELEASE",
+    "EARLIER_DISCLOSURE_UNKNOWN",
+    "LARGE_COMMERCIAL_COMPANY"
+   ],
+   "quote": "the primary endpoint was not met. As a result, Biogen has decided to discontinue development of natalizumab in drug-resistant focal epilepsy.",
+   "phase_quote": "a randomized Phase 2 study exploring the efficacy, safety, and tolerability of natalizumab",
+   "reason": "own Phase 2 trial missed its primary endpoint; first disclosure found in this results release (an earlier disclosure cannot be ruled out)"
+  },
+  {
+   "accession": "0001564590-21-013010",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 3",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2020-12"
+   ],
+   "quote": "In December 2020, Ovid announced that topline results from the Phase 3 NEPTUNE clinical trial of OV101 (gaboxadol) for the treatment of Angelman syndrome did not achieve the primary endpoint.",
+   "reason": "annual results release recalling a December 2020 announcement"
+  },
+  {
+   "accession": "0001104659-23-062936",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 3",
+   "drug": "milademetan",
+   "indication": "dedifferentiated liposarcoma",
+   "trial_name": "MANTRA",
+   "partner_run": false,
+   "flags": [],
+   "quote": "The Phase 3 MANTRA trial did not meet the primary endpoint of progression free survival vs. standard of care",
+   "phase_quote": "Phase 3 MANTRA trial",
+   "reason": "own Phase 3 trial missed its primary endpoint"
+  },
+  {
+   "accession": "0001104659-21-063853",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 2",
+   "quote": "The study did not meet its primary endpoint of Worst Itch – Numeric Rating Scale (WI-NRS) change from baseline at week 12",
+   "reason": "quarterly results release recalling an April 2021 announcement",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2021-04"
+   ]
+  },
+  {
+   "accession": "0001935979-23-000016",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 3",
+   "quote": "Primary endpoint was not met in overall population",
+   "reason": "investor presentation summarizing study results; not presented as a new topline announcement; first-disclosure status unknown",
+   "flags": [
+    "FIRST_DISCLOSURE_UNKNOWN"
+   ]
+  },
+  {
+   "accession": "0001157523-22-000653",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 3",
+   "quote": "As previously announced, the Phase 3 TRANQUILITY trial failed to meet the primary endpoint of ocular redness as assessed by independent central reviewers.",
+   "reason": "post-hoc reanalysis release recalling a previously announced failure",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: date not stated"
+   ]
+  },
+  {
+   "accession": "0001193125-20-155824",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 3",
+   "drug": "roluperidone (MIN-101)",
+   "indication": "negative symptoms of schizophrenia",
+   "trial_name": "roluperidone Phase 3 trial",
+   "partner_run": false,
+   "flags": [],
+   "quote": "The 64 mg and 32 mg doses were not statistically significantly different from placebo at Week 12 on the primary endpoint",
+   "phase_quote": "PHASE 3 TRIAL OF ROLUPERIDONE (MIN-101)",
+   "reason": "own Phase 3 trial missed its primary endpoint"
+  },
+  {
+   "accession": "0001193125-20-049300",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 3",
+   "drug": "tradipitant",
+   "indication": "pruritus in atopic dermatitis",
+   "trial_name": "EPIONE",
+   "partner_run": false,
+   "flags": [
+    "POSITIVE_SUBGROUP_CLAIMED",
+    "COMMERCIAL_STAGE_COMPANY"
+   ],
+   "quote": "The EPIONE study did not meet its primary endpoint in reduction of pruritus across the overall study population.",
+   "phase_quote": "Phase III clinical trial (EPIONE)",
+   "reason": "own Phase III trial missed its primary endpoint (release dated the day before the 8-K)"
+  },
+  {
+   "accession": "0001104659-22-002717",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 3",
+   "quote": "It did not meet its primary endpoint, which was secondary patency compared to ePTFE at 18 months.",
+   "reason": "investor presentation describing an earlier completed trial",
+   "flags": [
+    "FIRST_DISCLOSURE_UNKNOWN"
+   ]
+  },
+  {
+   "accession": "0001104659-20-025010",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 2/3",
+   "quote": "On February 3, 2020, we announced that the phase II/III DISTINCT study did not meet its primary endpoint.",
+   "reason": "annual results release recalling a February 3, 2020 announcement",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2020-02-03"
+   ]
+  },
+  {
+   "accession": "0001564590-20-055762",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 3",
+   "drug": "OV101 (gaboxadol)",
+   "indication": "Angelman syndrome",
+   "trial_name": "NEPTUNE",
+   "partner_run": false,
+   "flags": [],
+   "quote": "issued a press release announcing that its Phase 3 Neptune clinical trial of OV101 for the treatment of Angelman syndrome did not meet its primary endpoint",
+   "phase_quote": "Phase 3 Neptune clinical trial of OV101",
+   "reason": "own Phase 3 trial missed its primary endpoint"
+  },
+  {
+   "accession": "0001104659-22-033954",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 3",
+   "quote": "A pivotal Phase 3 clinical trial of eprenetapopt and azacitidine for frontline treatment of TP53 mutant MDS has been completed and failed to meet the primary endpoint of complete remission.",
+   "reason": "annual results release describing an earlier announced failure",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: date not stated"
+   ]
+  },
+  {
+   "accession": "0001628280-21-015868",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 2b",
+   "quote": "The study did not meet its primary endpoint evaluating a dose response at 24 weeks on liver fibrosis improvement",
+   "reason": "quarterly results release recalling a May 2021 announcement",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2021-05"
+   ]
+  },
+  {
+   "accession": "0001104659-19-044532",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 3",
+   "quote": "In May 2019, the Company reported topline results that it did not achieve the primary endpoint",
+   "reason": "quarterly results release recalling a May 2019 announcement",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2019-05"
+   ]
+  },
+  {
+   "accession": "0001558370-23-002835",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 2",
+   "drug": "zunsemetinib (ATI-450)",
+   "indication": "hidradenitis suppurativa",
+   "trial_name": "ATI-450-HS-201",
+   "partner_run": false,
+   "flags": [
+    "PHASE_2A"
+   ],
+   "quote": "The study did not meet its primary endpoint of change from baseline in inflammatory nodule/abscess count (AN) of zunsemetinib 50mg BID versus placebo at week 12.",
+   "phase_quote": "Phase 2a, multicenter, randomized, placebo-controlled clinical study",
+   "reason": "own Phase 2a trial missed its primary endpoint",
+   "trial_id": "NCT05216224",
+   "trial_id_source": "NCT (stated in filing)"
+  },
+  {
+   "accession": "0001370053-19-000041",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 2b",
+   "drug": "etokimab",
+   "indication": "moderate-to-severe atopic dermatitis",
+   "trial_name": "ATLAS",
+   "partner_run": false,
+   "flags": [],
+   "quote": "Each of the etokimab dosing arms failed to meet the primary endpoint of the trial",
+   "phase_quote": "Phase 2b randomized, double-blinded, placebo-controlled, multi-dose study",
+   "reason": "own Phase 2b trial missed its primary endpoint"
+  },
+  {
+   "accession": "0001558370-20-004422",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 3",
+   "drug": "avapritinib",
+   "indication": "third- or fourth-line gastrointestinal stromal tumor",
+   "trial_name": "VOYAGER",
+   "partner_run": false,
+   "flags": [
+    "COMMERCIAL_STAGE_COMPANY"
+   ],
+   "quote": "VOYAGER did not meet the primary endpoint of an improvement in progression-free survival for avapritinib versus regorafenib in patients with third- or fourth-line GIST",
+   "phase_quote": "Phase 3 VOYAGER Trial of Avapritinib",
+   "reason": "own Phase 3 trial missed its primary endpoint"
+  },
+  {
+   "accession": "0001645113-23-000048",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 3",
+   "quote": "In August, we announced the phase 3 INNOVATE-3 clinical trial for the treatment of platinum-resistant ovarian cancer did not meet the primary endpoint of overall survival at final analysis.",
+   "reason": "quarterly results release recalling an August 2023 device-trial announcement",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2023-08"
+   ]
+  },
+  {
+   "accession": "0000014272-21-000058",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 3",
+   "quote": "In December, the company announced that CheckMate -548, a Phase 3 trial",
+   "reason": "annual results release recalling a December 2020 announcement",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2020-12"
+   ]
+  },
+  {
+   "accession": "0001104659-20-002850",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": null,
+   "quote": "Of the participants who did not meet the primary endpoint",
+   "reason": "investor presentation; refers to individual participants, not a trial failure",
+   "flags": []
+  },
+  {
+   "accession": "0001628280-21-008912",
+   "decision": "EXCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 1/2b",
+   "quote": "Phase 1/2b study of ARQ-252 in chronic hand eczema did not meet its primary endpoint",
+   "reason": "first announcement found (in a quarterly results release), but the trial is stated as Phase 1/2b — Phase 1/2 trials are excluded by the protocol",
+   "flags": [
+    "ORIGINAL_OF_RECALL: 0001787306-21-000006"
+   ]
+  },
+  {
+   "accession": "0001193125-19-142182",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 2b",
+   "quote": "Although the TIME-2b study of the Tie2 activator, AKB-9778, did not meet its primary endpoint in non-proliferative diabetic retinopathy (NPDR)",
+   "reason": "quarterly results release referring to an earlier topline result (date not stated)",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: date not stated"
+   ]
+  },
+  {
+   "accession": "0000014272-20-000277",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 3",
+   "quote": "In August, the company announced that the Phase 3 IDHENTIFY study",
+   "reason": "quarterly results release recalling an August 2020 announcement",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2020-08"
+   ]
+  },
+  {
+   "accession": "0001493152-21-002160",
+   "decision": "EXCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": null,
+   "quote": "ENHANCE-IT did not demonstrate statistical significance on the primary endpoint of triglycerides in the prespecified population.",
+   "reason": "PHASE_NOT_STATED_IN_EVENT_FILING: head-to-head biomarker study; no phase stated",
+   "flags": []
+  },
+  {
+   "accession": "0001370053-21-000022",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 2",
+   "drug": "imsidolimab",
+   "indication": "palmoplantar pustulosis",
+   "trial_name": "POPLAR",
+   "partner_run": false,
+   "flags": [
+    "SAME_ISSUER_AS_OTHER_EVENT"
+   ],
+   "quote": "failed to meet its primary endpoint",
+   "phase_quote": "Phase 2 clinical trial of imsidolimab for the treatment of moderate-to-severe palmoplantar pustulosis",
+   "reason": "own Phase 2 trial missed its primary endpoint"
+  },
+  {
+   "accession": "0001193125-22-263369",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 2",
+   "drug": "NGM621",
+   "indication": "geographic atrophy secondary to AMD",
+   "trial_name": "CATALINA",
+   "partner_run": false,
+   "flags": [],
+   "quote": "Trial did not meet primary endpoint of statistically significant rate of change in GA lesion area",
+   "phase_quote": "Phase 2 CATALINA study",
+   "reason": "own Phase 2 trial missed its primary endpoint"
+  },
+  {
+   "accession": "0001802768-23-000013",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 3",
+   "quote": "In March 2023, Exelixis announced that the Phase 3 CONTACT-03 study",
+   "reason": "royalty holder's results release recalling another company's announcement",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2023-03 (other company)"
+   ]
+  },
+  {
+   "accession": "0001714899-23-000145",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 2",
+   "quote": "In October, Sanofi announced that the development of eclitasertib in cutaneous lupus erythematosus (CLE) is being discontinued",
+   "reason": "quarterly results release recalling a partner's October 2023 announcement",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2023-10 (partner)"
+   ]
+  },
+  {
+   "accession": "0001564590-20-037719",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 3",
+   "quote": "In May 2020, the Company reported final results of E2112",
+   "reason": "quarterly results release recalling a May 2020 announcement",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2020-05"
+   ]
+  },
+  {
+   "accession": "0001193125-23-140755",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 3",
+   "quote": "During the quarter, INOVIO shared topline results from REVEAL2",
+   "reason": "quarterly results release recalling an earlier, mixed result",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2023-Q1"
+   ]
+  },
+  {
+   "accession": "0001193125-21-327268",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 2",
+   "quote": "In October, Atea reported that the global Phase 2 MOONSONG trial evaluating AT-527 in the outpatient setting did not meet the primary endpoint",
+   "reason": "quarterly results release recalling an October 2021 announcement",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2021-10"
+   ]
+  },
+  {
+   "accession": "0001564590-21-018257",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 3",
+   "quote": "In December 2020, Phase 3 NEPTUNE trial for Angelman's syndrome did not meet the primary endpoint",
+   "reason": "corporate presentation recalling the December 2020 announcement (the original is in the pool)",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2020-12"
+   ]
+  },
+  {
+   "accession": "0001193125-21-237799",
+   "decision": "EXCLUDED",
+   "category": "NOT_AN_EVENT",
+   "phase": "Phase 2",
+   "quote": "On January 4, 2021, Calithera announced that the trial did not meet the primary endpoint of improving PFS.",
+   "reason": "quarterly results release recalling a January 4, 2021 announcement",
+   "flags": [
+    "RECALLS_EARLIER_ANNOUNCEMENT: 2021-01-04"
+   ]
+  },
+  {
+   "accession": "0001689548-22-000072",
+   "decision": "INCLUDED",
+   "category": "PRIMARY_ENDPOINT_FAILURE",
+   "phase": "Phase 2/3",
+   "drug": "PRAX-114",
+   "indication": "major depressive disorder (monotherapy)",
+   "trial_name": "Aria",
+   "partner_run": false,
+   "flags": [],
+   "quote": "did not achieve statistical significance on the primary endpoint of change from baseline in the 17-item Hamilton Depression Rating Scale total score at Day 15, or on any secondary endpoints",
+   "phase_quote": "Phase 2/3 Aria Study evaluating the efficacy and safety of PRAX-114",
+   "reason": "own Phase 2/3 trial missed its primary endpoint"
+  }
+ ]
+}
